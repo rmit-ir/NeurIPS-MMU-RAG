@@ -7,16 +7,8 @@ This directory contains two FastAPI applications that provide different interfac
 
 ## Starting the Services
 
-### MMU-RAG API
-
 ```bash
-uv run fastapi run src/apis/mmu-rag-router.py --port 8001
-```
-
-### OpenAI-Compatible API
-
-```bash
-uv run fastapi run src/apis/openai-router.py --port 8002
+uv run fastapi run src/apis/combined_app.py
 ```
 
 ---
@@ -26,7 +18,7 @@ uv run fastapi run src/apis/openai-router.py --port 8002
 ### 1. Health Check
 
 ```bash
-curl -X GET "http://127.0.0.1:8001/health"
+curl -X GET "http://127.0.0.1:8000/health"
 ```
 
 ### 2. Evaluate Endpoint (Static)
@@ -34,7 +26,7 @@ curl -X GET "http://127.0.0.1:8001/health"
 Static endpoint for validation queries as per MMU-RAG challenge requirements.
 
 ```bash
-curl -X POST "http://127.0.0.1:8001/evaluate" \
+curl -X POST "http://127.0.0.1:8000/evaluate" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is the capital of France?",
@@ -47,7 +39,7 @@ curl -X POST "http://127.0.0.1:8001/evaluate" \
 Streaming endpoint for RAG-Arena live evaluation with Server-Sent Events (SSE).
 
 ```bash
-curl -X POST "http://127.0.0.1:8001/run" \
+curl -X POST "http://127.0.0.1:8000/run" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Explain quantum computing"
@@ -61,19 +53,19 @@ curl -X POST "http://127.0.0.1:8001/run" \
 ### 1. Health Check
 
 ```bash
-curl -X GET "http://127.0.0.1:8002/health"
+curl -X GET "http://127.0.0.1:8002/openai/v1/health"
 ```
 
 ### 2. List Models
 
 ```bash
-curl -X GET "http://127.0.0.1:8002/v1/models"
+curl -X GET "http://127.0.0.1:8000/openai/v1/models"
 ```
 
 ### 3. Chat Completions (Non-Streaming)
 
 ```bash
-curl -X POST "http://127.0.0.1:8002/v1/chat/completions" \
+curl -X POST "http://127.0.0.1:8000/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "vanilla-rag",
@@ -90,7 +82,7 @@ curl -X POST "http://127.0.0.1:8002/v1/chat/completions" \
 ### 4. Chat Completions (Streaming)
 
 ```bash
-curl -X POST "http://127.0.0.1:8002/v1/chat/completions" \
+curl -X POST "http://127.0.0.1:8000/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "vanilla-rag",
@@ -110,7 +102,7 @@ curl -X POST "http://127.0.0.1:8002/v1/chat/completions" \
 
 Both services provide interactive API documentation:
 
-- **MMU-RAG API**: http://127.0.0.1:8001/docs
+- **MMU-RAG API**: http://127.0.0.1:8000/docs
 - **OpenAI API**: http://127.0.0.1:8002/docs
 
 These Swagger UI interfaces allow you to test all endpoints directly from your browser.
