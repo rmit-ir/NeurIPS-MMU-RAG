@@ -1,11 +1,11 @@
 import yaml
-from loader import load_corpus
-from cleaner import clean_text
-from tokenizer import tokenize
-from chunker import chunk_tokens
-from indexer import build_index
-from retriever import retrieve
-from generator import generate_answer
+from tools.loader import load_corpus
+from tools.cleaner import clean_text
+from tools.tokenizer import tokenize
+from tools.chunker import chunk_tokens
+from tools.indexer import build_index
+from tools.retriever import retrieve
+from tools.generator import generate_answer
 
 
 def run_rag(query: str, config_path: str) -> str:

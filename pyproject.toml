@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.12.15",
+    "fastapi[standard]>=0.116.1",
+    "pydantic>=2.11.7",
     "transformers>=4.56.1",
 ]
 
