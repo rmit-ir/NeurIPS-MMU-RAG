@@ -71,6 +71,7 @@ docker run -p 8000:8000 mmu-rag
 - `indexer.py` - FAISS vector index creation
 - `retriever.py` - Semantic search and retrieval
 - `generator.py` - Answer generation using LLMs
+- `web_search.py` - FineWeb & ClueWeb-22 web search utility (base64 JSON decoding)
 
 ### Testing & Validation
 
