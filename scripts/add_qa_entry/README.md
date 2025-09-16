@@ -2,19 +2,9 @@
 
 A simple and user-friendly script to add question-answer pairs to your self-donated dataset in proper JSONL format.
 
-**This script handles multi-line questions and answers. Simply copy and paste what you want to donate, and it will take care of the rest.**
-
-## 📁 File Structure
-
-Your Q&A entries will be saved as:
-```
-data/self-donated-topics/{your_name}_self-donated_qa.jsonl
-```
-
-For example, if you enter "shuoqi" as the filename, it creates:
-```
-data/self-donated-topics/shuoqi_self-donated_qa.jsonl
-```
+**This script handles multi-line questions and answers.**
+ 
+Simply copy and paste what you want to donate, and it will take care of the rest.
 
 ## 🚀 How to Run
 
@@ -40,6 +30,7 @@ python /full/path/to/scripts/add_qa_entry/add_qa_entry.py
    - Enter the source
    - Confirm and save
 
+
 ### 📊 Output Format
 
 Each entry is saved as a single line of JSON with these fields:
@@ -52,57 +43,57 @@ Each entry is saved as a single line of JSON with these fields:
   "source": "Source of the information"
 }
 ```
+### 📁 File Structure
+
+Your Q&A entries will be saved as:
+```
+data/self-donated-topics/{your_name}_self-donated_qa.jsonl
+```
+
+For example, if you enter "shuoqi" as the filename, it creates:
+```
+data/self-donated-topics/shuoqi_self-donated_qa.jsonl
+```
 
 
 ## Step-by-Step Example
+Input has been quoted using `[]'.
 
 ```bash
 $ python scripts/add_qa_entry/add_qa_entry.py
 
 === Self-Donated Q&A Entry Tool ===
 
-Enter the filename (without extensions, will create as {filename}_self-donated_qa.jsonl): shuoqi
+Enter the filename (without extensions, will create as {filename}_self-donated_qa.jsonl): 
+[shuoqi]
 
 Next entry ID will be: 2
 
 Enter your question:
 (Type 'DONE' on a new line when finished)
 --------------------------------------------------
-What are the key benefits of using 
-multimodal AI systems in 
-real-world applications?
-DONE
+[What are the key benefits of using multimodal AI systems?]
+[DONE]
 
 Enter your answer:
 (Type 'DONE' on a new line when finished)
 --------------------------------------------------
-Multimodal AI systems offer several key benefits:
-
-1. **Enhanced Understanding**: They can process and correlate 
-   information from multiple sources (text, images, audio)
-
-2. **Better Context**: By combining different modalities, 
-   they provide richer context for decision-making
-
-3. **Improved Accuracy**: Cross-modal validation helps 
-   reduce errors and improve overall system reliability
+[Multimodal AI systems offer several key benefits]
 DONE
 
 Enter the source:
-Research Paper: "Multimodal AI in Practice" - MIT 2024
+[ChatGPT]
 
 ============================================================
 PREVIEW OF ENTRY TO BE ADDED:
 ============================================================
 ID: 2
 Question: What are the key benefits of using multimodal AI systems in real-world applications?
-Answer: Multimodal AI systems offer several key benefits:
-
-1. **Enhanced Understanding**: They can process and correlate...
-Source: Research Paper: "Multimodal AI in Practice" - MIT 2024
+Answer: Multimodal AI systems offer several key benefits
 ============================================================
 
-Add this entry? (y/n): y
+Add this entry? (y/n): 
+[y]
 
 ✅ Entry successfully added to data/self-donated-topics/shuoqi_self-donated_qa.jsonl
 Entry ID: 2
