@@ -8,12 +8,14 @@ import asyncio
 import aiohttp
 from typing import AsyncGenerator, Callable
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from tools.logging_utils import get_logger
+from tools.retry_utils import retry
 
 
 class AzureO3ResearchRAG(RAGInterface):
     """RAG system using Azure OpenAI o3 model for comprehensive research."""
 
-    def __init__(self):
+    def __init__(self, model="o3-deep-research"):
         # Azure OpenAI endpoint and deployment configuration
         self.endpoint = os.getenv("AZURE_API_ENDPOINT")
         self.api_key = os.getenv("AZURE_API_KEY")
@@ -22,10 +24,11 @@ class AzureO3ResearchRAG(RAGInterface):
                 "AZURE_API_ENDPOINT and AZURE_API_KEY environment variables are required")
 
         # Build the complete API URL
-        self.model = "o3-deep-research"
+        self.model = model
         self.api_path = f"/openai/deployments/{self.model}/chat/completions"
         self.api_url = self.endpoint + self.api_path
         self.api_version = "2025-01-01-preview"
+        self.logger = get_logger('AzureO3ResearchRAG')
 
         # Headers for API requests
         self.headers = {
@@ -56,6 +59,7 @@ class AzureO3ResearchRAG(RAGInterface):
             {"role": "user", "content": query}
         ]
 
+    @retry(max_retries=8, retry_on=(aiohttp.ClientError, aiohttp.ClientResponseError, asyncio.TimeoutError))
     async def _make_api_request(self, messages: list) -> str:
         """Make API request to Azure OpenAI o3 model."""
         payload = {"messages": messages, "model": self.model}
@@ -90,13 +94,17 @@ class AzureO3ResearchRAG(RAGInterface):
 
             return EvaluateResponse(
                 query_id=request.iid,
+                citations=[],
                 generated_response=generated_response
             )
 
         except Exception as e:
+            self.logger.error("Error processing evaluation request",
+                              query_id=request.iid, error=str(e))
             # Return error response but don't raise to maintain API contract
             return EvaluateResponse(
                 query_id=request.iid,
+                citations=[],
                 generated_response=f"Error processing query: {str(e)}"
             )
 
@@ -114,7 +122,7 @@ class AzureO3ResearchRAG(RAGInterface):
             try:
 
                 yield RunStreamingResponse(
-                    intermediate_steps="Starting research with o3-deep-research...",
+                    intermediate_steps=f"Starting research with {self.model}...",
                     is_intermediate=True,
                     complete=False
                 )

@@ -18,6 +18,7 @@ class EvaluateResponse(BaseModel):
     """Response model for /evaluate endpoint."""
     query_id: str  # same as iid from the request
     generated_response: str  # system's generated answer
+    citations: List[str]  # list of citations
 
 
 class RunRequest(BaseModel):

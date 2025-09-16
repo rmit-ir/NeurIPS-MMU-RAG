@@ -8,6 +8,8 @@ import asyncio
 from typing import AsyncGenerator, Callable, List
 import aiohttp
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from tools.logging_utils import get_logger
+from tools.retry_utils import retry
 
 PERPLEXITY_MODELS = set(['sonar', 'sonar-pro',
                          'sonar-reasoning', 'sonar-reasoning-pro',
@@ -51,11 +53,13 @@ class PerplexityResearchRAG(RAGInterface):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        self.logger = get_logger('PerplexityResearchRAG')
 
     @property
     def name(self) -> str:
         return "perplexity-research-rag"
 
+    @retry(max_retries=8, retry_on=(aiohttp.ClientError, aiohttp.ClientResponseError, asyncio.TimeoutError))
     async def _make_perplexity_request(self, query: str, reasoning_effort: str = "medium") -> dict:
         """Make a request to Perplexity API."""
         payload = {
@@ -115,16 +119,21 @@ class PerplexityResearchRAG(RAGInterface):
             )
 
             generated_response = self._extract_content(response_data)
+            citations = self._extract_citations(response_data)
 
             return EvaluateResponse(
                 query_id=request.iid,
+                citations=citations,
                 generated_response=generated_response
             )
 
         except Exception as e:
+            self.logger.error("Error processing evaluation request",
+                              query_id=request.iid, error=str(e))
             # Return error response but don't raise to maintain API contract
             return EvaluateResponse(
                 query_id=request.iid,
+                citations=[],
                 generated_response=f"Error processing query: {str(e)}"
             )
 
@@ -159,17 +168,17 @@ class PerplexityResearchRAG(RAGInterface):
                 citations = self._extract_citations(response_data)
 
                 # TODO: skipped costs for now
-                # # Add usage information if available
-                # usage = response_data.get("usage", {})
-                # if usage:
-                #     search_queries = usage.get("num_search_queries", 0)
-                #     total_cost = usage.get("cost", {}).get("total_cost", 0)
+                # Add usage information if available
+                usage = response_data.get("usage", {})
+                if usage:
+                    search_queries = usage.get("num_search_queries", None)
+                    total_cost = usage.get("cost", {}).get("total_cost", 0)
 
-                #     yield RunStreamingResponse(
-                #         intermediate_steps=f"Research completed. Processed {search_queries} search queries. Total cost: ${total_cost:.3f}",
-                #         is_intermediate=True,
-                #         complete=False
-                #     )
+                    yield RunStreamingResponse(
+                        intermediate_steps=f"Found {search_queries} search queries. Total cost: ${total_cost:.3f}",
+                        is_intermediate=True,
+                        complete=False
+                    )
 
                 # Final response with complete results
                 yield RunStreamingResponse(

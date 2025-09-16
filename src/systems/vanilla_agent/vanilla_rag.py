@@ -10,6 +10,7 @@ class VanillaRAG(RAGInterface):
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         return EvaluateResponse(
             query_id=request.iid,
+            citations=[],
             generated_response=f"Answer to question {request.query} is: 42"
         )
 

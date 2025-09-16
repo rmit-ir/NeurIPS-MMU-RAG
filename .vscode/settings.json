@@ -1,7 +1,9 @@
 {
   "cSpell.words": [
+    "expiredtoken",
     "fastapi",
     "Neur",
-    "Ragent"
+    "Ragent",
+    "retryable"
   ]
 }
