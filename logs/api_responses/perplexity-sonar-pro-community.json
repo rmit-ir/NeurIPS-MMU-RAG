@@ -1,0 +1,92 @@
+{
+  "id": "16b59069-73d2-4590-a24d-506573c67a2d",
+  "model": "sonar-pro",
+  "created": 1758010452,
+  "usage": {
+    "prompt_tokens": 66,
+    "completion_tokens": 831,
+    "total_tokens": 897,
+    "search_context_size": "low",
+    "cost": {
+      "input_tokens_cost": 0.0,
+      "output_tokens_cost": 0.012,
+      "request_cost": 0.006,
+      "total_cost": 0.019
+    }
+  },
+  "citations": [
+    "https://communityscience.astc.org/overview/",
+    "https://www.biologyonline.com/dictionary/community-biology",
+    "https://www.plusscommunities.com/blog/what-makes-a-community",
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC1446907/",
+    "https://www.britannica.com/science/community-biology",
+    "https://www.tandfonline.com/doi/full/10.1080/10705422.2022.2077598",
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC4662321/"
+  ],
+  "search_results": [
+    {
+      "title": "Introduction to Community Science",
+      "url": "https://communityscience.astc.org/overview/",
+      "date": "2025-07-23",
+      "last_updated": "2025-08-30",
+      "snippet": "Community science is a way of working, that centers community priorities, strengths, and leadership to help realize these solutions."
+    },
+    {
+      "title": "Community (biology) - Definition and Examples",
+      "url": "https://www.biologyonline.com/dictionary/community-biology",
+      "date": "2023-09-01",
+      "last_updated": "2025-09-11",
+      "snippet": "Community, in biology, refers to the assemblage of interacting organisms (either of the same or different species) coexisting in a particular area and time."
+    },
+    {
+      "title": "What makes a community? Characteristics and examples of ...",
+      "url": "https://www.plusscommunities.com/blog/what-makes-a-community",
+      "date": "2025-02-03",
+      "last_updated": "2025-09-16",
+      "snippet": "In science, a community is the term used to describe two or more species coexisting in a shared environment. The reality is that there are many ..."
+    },
+    {
+      "title": "What Is Community? An Evidence-Based Definition for Participatory ...",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1446907/",
+      "date": "2001-01-01",
+      "last_updated": "2025-09-16",
+      "snippet": "Each of the 5 core elements—locus, sharing, joint action, social ties, and diversity—was cited by 20% or more of respondents (Table 1 ▷). Locus was included in ..."
+    },
+    {
+      "title": "Community | Definition & Examples | Britannica",
+      "url": "https://www.britannica.com/science/community-biology",
+      "date": "2025-08-21",
+      "last_updated": "2025-09-02",
+      "snippet": "Community, in biology, an interacting group of various species in a common location. For example, a forest of trees and undergrowth plants."
+    },
+    {
+      "title": "Full article: The lens of community",
+      "url": "https://www.tandfonline.com/doi/full/10.1080/10705422.2022.2077598",
+      "date": "2022-05-24",
+      "last_updated": "2025-03-25",
+      "snippet": "Community is a structure, it's a place, it's a defined space, but community can also transcend space (Weil et al., Citation2012). It can be the ..."
+    },
+    {
+      "title": "Is a community still a community? Reviewing definitions of key terms ...",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4662321/",
+      "date": "2015-10-07",
+      "last_updated": null,
+      "snippet": "The two most integral components to the structure of a community are space and time. By definition, community members must be together in space; ..."
+    }
+  ],
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "A **community** is fundamentally a group of individuals or organisms who share commonalities such as location, interests, values, or interactions, and this concept carries nuanced definitions across disciplines like social science and biology[2][3][5]. In human contexts, a community is often defined by shared geography, identity, or interests, and is shaped both by external characteristics and the internal mindset of belonging among its members[3][4].\n\nIn various contexts, the definition of community expands as follows:\n\n- **Biology/Ecology:** A community is the assemblage of different species living and interacting in a specific location, affecting each other's abundance, distribution, and adaptation through ecological relationships like mutualism, competition, and succession[2][5].\n- **Social Science:** Communities are characterized by core elements, which frequently include *locus* (place or setting), *sharing* (resources, interests, or circumstances), *joint action* (collective activities), *social ties* (interpersonal relationships), and *diversity* (distinct backgrounds and experiences)[4]. A sense of community also encompasses belonging, influence, integration of needs, and emotional connections[4].\n- **Community Science:** Here, a community refers to organized groups whose collective priorities, strengths, and leadership are centered to solve shared challenges—often relating to science, public health, or technology. It highlights collaboration among community members and experts to direct research and outcomes for community benefit[1].\n\n**What it means to be a ‘civilized community’:**\nThis phrase typically refers to a group whose members live according to shared social norms, laws, and conventions, demonstrating values such as cooperation, respect, tolerance, and structured governance. Civilized communities both maintain social order and facilitate the development of culture, education, and ethical standards[3][4]. Historically, this has included the development and adherence to common institutions, agreed-upon rules, and constructive social relationships[4].\n\n**Related terms:**\n- **Grassroots organizations:** These are groups formed at the *local* or *community level*, often organized by ordinary members rather than top-down leadership. Grassroots organizations focus on addressing local priorities, promoting self-determination, and influencing change from the bottom up. Their strength lies in intimate ties among members and a deep understanding of the community's actual needs and conditions[1][3].\n  \n**How communities set boundaries and priorities:**\n- **Boundaries** may be physical (e.g., geographical, jurisdictional), social (membership criteria, cultural norms), or functional (shared goals, interests)[3][4]. Communities establish these through consensus, rules, institutions, and self-identification, ensuring cohesion and the protection or promotion of shared values.\n- **Priorities** are set through mechanisms such as collective decision-making, town meetings, formal leadership, or grassroots advocacy. These priorities often relate to pressing needs (e.g., public health, education, resource management), reflecting both internal values and external challenges[1][3][4].\n\n**Roles in preparedness and nation-building:**\n- **Preparedness:** Communities are vital for *disaster readiness*, public health response, and resilience to challenges like climate change. Their collective organizing capacity and intimate understanding of local risks enable effective planning and mobilization[1].\n- **Nation-building:** Communities function as the building blocks of broader societies and nations, providing social capital, leadership, and grassroots engagement. They contribute to establishing institutions, fostering civic participation, and shaping collective identity—all critical in nation-building endeavors[1][4].\n\n**Key characteristics of communities (drawn from social science and biology):**\n- **Shared location, interests, or values**\n- **Interaction and engagement**\n- **Social ties and relationships**\n- **Collective action and institutions**\n- **Diversity and inclusion**\n- **Boundaries and membership criteria**\n\nThus, understanding a community entails recognizing its multidimensional structure—from ecological assemblages to complex human social systems, each shaped by shared purpose, mutual interaction, and collective capacity to address needs, set boundaries, and enact change[2][3][4][5]."
+      },
+      "delta": {
+        "role": "assistant",
+        "content": ""
+      }
+    }
+  ]
+}
