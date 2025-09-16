@@ -130,7 +130,7 @@ def save_results(results: List[EvaluateResponse], output_dir: str, input_file: s
     Save results to JSONL file using jsonlines library.
     """
     # Create output directory if needed
-    input_filename = Path(input_file).name
+    input_filename = 'output_' + Path(input_file).name
     output_path = Path(output_dir)
     if not output_path.exists():
         output_path.mkdir(parents=True, exist_ok=True)

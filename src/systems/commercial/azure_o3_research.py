@@ -101,12 +101,7 @@ class AzureO3ResearchRAG(RAGInterface):
         except Exception as e:
             self.logger.error("Error processing evaluation request",
                               query_id=request.iid, error=str(e))
-            # Return error response but don't raise to maintain API contract
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                generated_response=f"Error processing query: {str(e)}"
-            )
+            raise
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
