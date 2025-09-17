@@ -10,6 +10,44 @@ import time
 from typing import Dict, List, Optional, TypedDict
 
 
+def get_aws_cli_version() -> str:
+    try:
+        result = subprocess.run(
+            ["aws", "--version"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        # AWS CLI version output format: "aws-cli/2.x.x ..." or "aws-cli/1.x.x ..."
+        version_line = result.stdout.strip() or result.stderr.strip()
+        if "aws-cli/2." in version_line:
+            return "2"
+        elif "aws-cli/1." in version_line:
+            return "1"
+        else:
+            # Default to version 2 behavior if we can't determine
+            return "2"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        raise RuntimeError("AWS CLI is not installed or not accessible")
+
+
+# Detect AWS CLI version at module load time
+try:
+    AWS_CLI_VERSION = get_aws_cli_version()
+    USE_NO_CLI_PAGER = AWS_CLI_VERSION == "2"
+except RuntimeError:
+    # Default to version 2 behavior if detection fails
+    AWS_CLI_VERSION = "2"
+    USE_NO_CLI_PAGER = False
+
+
+def no_pager(base_command: List[str]) -> List[str]:
+    command = base_command.copy()
+    if USE_NO_CLI_PAGER:
+        command.append("--no-cli-pager")
+    return command
+
+
 class InstanceState(TypedDict):
     """EC2 Instance State information"""
     Code: int  # 80
@@ -40,6 +78,7 @@ def run_aws_command(command: List[str]) -> Dict:
     Raises:
         RuntimeError: If the command fails
     """
+    command = no_pager(command)
     try:
         result = subprocess.run(
             command,
