@@ -205,7 +205,7 @@ def wait_for_instance_state(
     instance_id: str,
     region: str,
     target_states: List[str],
-    timeout: int = 60 * 30,
+    timeout: int = 60 * 60,
     poll_interval: int = 5
 ) -> str:
     """
@@ -215,7 +215,7 @@ def wait_for_instance_state(
         instance_id: The EC2 instance ID
         region: The AWS region
         target_states: Target state(s) to wait for (string or list of strings)
-        timeout: Maximum time to wait in seconds (default: 1800, i.e. 30 minutes)
+        timeout: Maximum time to wait in seconds (default: 3600, i.e. 1 hour)
         poll_interval: Time between status checks in seconds (default: 5)
 
     Returns:
