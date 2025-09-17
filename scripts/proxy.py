@@ -22,6 +22,7 @@ from tools.aws_tools import (
     wait_for_instance_state,
     get_instance_ips
 )
+from tools.logging_utils import get_logger
 
 
 class ProxyServer:
@@ -34,6 +35,7 @@ class ProxyServer:
         self.remote_port = remote_port
         self.remote_ip_type = remote_ip_type
         self.caddy_process = None
+        self.logger = get_logger('proxy')
 
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -41,36 +43,42 @@ class ProxyServer:
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully"""
-        print(f"\nReceived signal {signum}, shutting down gracefully...")
+        self.logger.info("Received shutdown signal", signal=signum)
         self.shutdown()
         sys.exit(0)
 
     def ensure_instance_running(self):
         """Ensure the EC2 instance is running, start it if necessary"""
-        print(
-            f"Checking status of instance {self.instance_id} in region {self.region}...")
+        self.logger.info("Checking instance status",
+                         instance_id=self.instance_id,
+                         region=self.region)
 
         instance_data = describe_instance(self.instance_id, self.region)
         current_state = instance_data['State']['Name']
 
-        print(f"Instance current state: {current_state}")
+        self.logger.info("Instance state retrieved",
+                         instance_id=self.instance_id,
+                         current_state=current_state)
 
         if current_state == 'running':
-            print("Instance is already running")
+            self.logger.info("Instance is already running")
             return
         elif current_state == 'stopped':
-            print("Instance is stopped, starting it...")
+            self.logger.info("Instance is stopped, starting it...")
             start_instance(self.instance_id, self.region)
-            print("Waiting for instance to be running...")
+            self.logger.info("Waiting for instance to be running...")
             wait_for_instance_state(self.instance_id, self.region, ['running'])
-            print("Instance is now running")
+            self.logger.info("Instance is now running")
         elif current_state == 'terminated':
-            raise RuntimeError(
-                f"Instance {self.instance_id} is terminated and cannot be started")
+            error_msg = f"Instance {self.instance_id} is terminated and cannot be started"
+            self.logger.error("Instance is terminated",
+                              instance_id=self.instance_id,
+                              error=error_msg)
+            raise RuntimeError(error_msg)
         else:
             # Instance is in transitional state (starting, stopping, etc.)
-            print(
-                f"Instance is in '{current_state}' state, waiting for actionable state...")
+            self.logger.info("Instance in transitional state, waiting for actionable state",
+                             current_state=current_state)
             wait_for_instance_state(self.instance_id, self.region, [
                                     'running', 'stopped', 'terminated'])
             # Recursively check again
@@ -79,23 +87,36 @@ class ProxyServer:
     def get_remote_ip(self):
         """Get the IP address of the instance based on remote_ip_type if remote_ip is not provided"""
         if self.remote_ip:
+            self.logger.info("Using provided remote IP",
+                             remote_ip=self.remote_ip)
             return self.remote_ip
 
-        print(f"Getting {self.remote_ip_type} IP of the instance...")
+        self.logger.info("Getting instance IP address",
+                         instance_id=self.instance_id,
+                         ip_type=self.remote_ip_type)
         instance_ips = get_instance_ips(self.instance_id, self.region)
 
         if self.remote_ip_type == "public":
             ip_address = instance_ips.public
             if not ip_address:
-                raise RuntimeError(
-                    f"Instance {self.instance_id} does not have a public IP address")
+                error_msg = f"Instance {self.instance_id} does not have a public IP address"
+                self.logger.error("No public IP available",
+                                  instance_id=self.instance_id,
+                                  error=error_msg)
+                raise RuntimeError(error_msg)
         else:  # private
             ip_address = instance_ips.private
             if not ip_address:
-                raise RuntimeError(
-                    f"Instance {self.instance_id} does not have a private IP address")
+                error_msg = f"Instance {self.instance_id} does not have a private IP address"
+                self.logger.error("No private IP available",
+                                  instance_id=self.instance_id,
+                                  error=error_msg)
+                raise RuntimeError(error_msg)
 
-        print(f"Instance {self.remote_ip_type} IP: {ip_address}")
+        self.logger.info("Retrieved instance IP",
+                         instance_id=self.instance_id,
+                         ip_type=self.remote_ip_type,
+                         ip_address=ip_address)
         return ip_address
 
     def start_caddy_proxy(self):
@@ -128,7 +149,8 @@ class ProxyServer:
         subprocess.run(["caddy", "fmt", str(caddyfile_path),
                        "--overwrite"], check=True)
 
-        print(f"Created Caddyfile at: {caddyfile_path}")
+        self.logger.info("Created Caddyfile",
+                         caddyfile_path=str(caddyfile_path))
 
         # Use Caddy with config file
         caddy_cmd = [
@@ -138,60 +160,74 @@ class ProxyServer:
             str(caddyfile_path),
         ]
 
-        print(f"Starting Caddy reverse proxy: {' '.join(caddy_cmd)}")
-        print(
-            f"Forwarding http://{self.host}:{self.port} -> http://{remote_ip}:{self.remote_port}")
+        self.logger.info("Starting Caddy reverse proxy",
+                         command=' '.join(caddy_cmd),
+                         local_endpoint=f"http://{self.host}:{self.port}",
+                         remote_endpoint=f"http://{remote_ip}:{self.remote_port}")
 
         try:
             self.caddy_process = subprocess.Popen(caddy_cmd)
-            print(f"Caddy proxy started with PID {self.caddy_process.pid}")
+            self.logger.info("Caddy proxy started successfully",
+                             pid=self.caddy_process.pid)
             return self.caddy_process
         except FileNotFoundError:
-            raise RuntimeError(
-                "Caddy is not installed or not in PATH. Please install Caddy first.")
+            error_msg = "Caddy is not installed or not in PATH. Please install Caddy first."
+            self.logger.error("Caddy not found", error=error_msg)
+            raise RuntimeError(error_msg)
 
     def shutdown(self):
         """Shutdown the proxy and stop the remote instance"""
-        print("Shutting down proxy server...")
+        self.logger.info("Shutting down proxy server")
 
         # Stop Caddy process
         if self.caddy_process and self.caddy_process.poll() is None:
-            print("Stopping Caddy process...")
+            self.logger.info("Stopping Caddy process",
+                             pid=self.caddy_process.pid)
             self.caddy_process.terminate()
             try:
                 self.caddy_process.wait(timeout=10)
-                print("Caddy process stopped")
+                self.logger.info("Caddy process stopped gracefully")
             except subprocess.TimeoutExpired:
-                print("Caddy process did not stop gracefully, killing it...")
+                self.logger.warning(
+                    "Caddy process did not stop gracefully, killing it")
                 self.caddy_process.kill()
 
         # Stop the remote instance
-        print(f"Stopping remote instance {self.instance_id}...")
+        self.logger.info("Stopping remote instance",
+                         instance_id=self.instance_id)
         try:
             stop_instance(self.instance_id, self.region)
-            print("Remote instance stop command sent")
+            self.logger.info("Remote instance stop command sent successfully")
         except Exception as e:
-            print(f"Error stopping remote instance: {e}")
+            self.logger.error("Error stopping remote instance",
+                              instance_id=self.instance_id,
+                              error=str(e))
 
     def run(self):
         """Main run loop"""
         try:
+            self.logger.info("Starting proxy server",
+                             instance_id=self.instance_id,
+                             region=self.region,
+                             local_port=self.port,
+                             remote_port=self.remote_port)
+
             # Ensure instance is running
             self.ensure_instance_running()
 
             # Start Caddy proxy
             caddy_process = self.start_caddy_proxy()
 
-            print("Proxy server is running. Press Ctrl+C to stop.")
+            self.logger.info("Proxy server is running. Press Ctrl+C to stop.")
 
             # Wait for Caddy process to finish or be interrupted
             try:
                 caddy_process.wait()
             except KeyboardInterrupt:
-                print("\nReceived interrupt signal")
+                self.logger.info("Received keyboard interrupt")
 
         except Exception as e:
-            print(f"Error: {e}")
+            self.logger.error("Error in proxy server run loop", error=str(e))
             sys.exit(1)
         finally:
             self.shutdown()
@@ -238,6 +274,17 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Initialize logger for main function
+    logger = get_logger('proxy_main')
+    logger.info("Starting AWS EC2 Proxy Server",
+                instance_id=args.remote_instance_id,
+                region=args.remote_instance_region,
+                host=args.host,
+                port=args.port,
+                remote_ip=args.remote_ip,
+                remote_ip_type=args.remote_ip_type,
+                remote_port=args.remote_port)
 
     proxy = ProxyServer(
         instance_id=args.remote_instance_id,
