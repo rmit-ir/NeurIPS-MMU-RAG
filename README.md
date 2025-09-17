@@ -14,7 +14,6 @@ Build RAG systems that can:
 
 ### Prerequisites
 
-- Python 3.10+
 - [uv](https://docs.astral.sh/uv/) package manager
   - Install via curl:
 
