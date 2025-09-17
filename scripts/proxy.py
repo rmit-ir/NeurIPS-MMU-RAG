@@ -126,7 +126,7 @@ class ProxyServer:
             "caddy",
             "run",
             "--config",
-            caddyfile_path,
+            str(caddyfile_path),
         ]
 
         print(f"Starting Caddy reverse proxy: {' '.join(caddy_cmd)}")
