@@ -15,10 +15,6 @@ from systems.rag_interface import RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.responses.openai_stream import to_openai_stream
 
-
-# Create router for OpenAI-compatible endpoints
-router = APIRouter(prefix="/openai/v1", tags=["OpenAI Compatible"])
-
 # Create app for standalone usage
 app = FastAPI(title="OpenAI-Compatible RAG API", version="1.0.0")
 
@@ -31,7 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include the router in the standalone app
+# Create router for OpenAI-compatible endpoints
+router = APIRouter(prefix="/v1", tags=["OpenAI Compatible"])
 app.include_router(router)
 
 # Authentication setup
@@ -204,7 +201,7 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
             status_code=500, detail=f"Error processing chat completion: {str(e)}")
 
 
-@router.get("/health")
+@app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {

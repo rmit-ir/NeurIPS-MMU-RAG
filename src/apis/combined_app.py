@@ -28,7 +28,7 @@ app.add_middleware(
 )
 
 # Include both routers
-app.include_router(openai_router)
+app.include_router(openai_router, prefix="/openai")
 app.include_router(mmu_router)
 
 if __name__ == "__main__":
