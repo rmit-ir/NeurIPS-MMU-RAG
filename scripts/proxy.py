@@ -10,7 +10,6 @@ Usage:
 """
 
 import argparse
-import os
 from pathlib import Path
 import signal
 import subprocess
@@ -21,18 +20,19 @@ from tools.aws_tools import (
     start_instance,
     stop_instance,
     wait_for_instance_state,
-    get_instance_public_ip
+    get_instance_ips
 )
 
 
 class ProxyServer:
-    def __init__(self, instance_id, region, host, port, remote_ip, remote_port):
+    def __init__(self, instance_id, region, host, port, remote_ip, remote_port, remote_ip_type):
         self.instance_id = instance_id
         self.region = region
         self.host = host
         self.port = port
         self.remote_ip = remote_ip
         self.remote_port = remote_port
+        self.remote_ip_type = remote_ip_type
         self.caddy_process = None
 
         # Set up signal handlers for graceful shutdown
@@ -77,18 +77,26 @@ class ProxyServer:
             self.ensure_instance_running()
 
     def get_remote_ip(self):
-        """Get the public IP of the instance if remote_ip is not provided"""
+        """Get the IP address of the instance based on remote_ip_type if remote_ip is not provided"""
         if self.remote_ip:
             return self.remote_ip
 
-        print("Getting public IP of the instance...")
-        public_ip = get_instance_public_ip(self.instance_id, self.region)
-        if not public_ip:
-            raise RuntimeError(
-                f"Instance {self.instance_id} does not have a public IP address")
+        print(f"Getting {self.remote_ip_type} IP of the instance...")
+        instance_ips = get_instance_ips(self.instance_id, self.region)
 
-        print(f"Instance public IP: {public_ip}")
-        return public_ip
+        if self.remote_ip_type == "public":
+            ip_address = instance_ips.public
+            if not ip_address:
+                raise RuntimeError(
+                    f"Instance {self.instance_id} does not have a public IP address")
+        else:  # private
+            ip_address = instance_ips.private
+            if not ip_address:
+                raise RuntimeError(
+                    f"Instance {self.instance_id} does not have a private IP address")
+
+        print(f"Instance {self.remote_ip_type} IP: {ip_address}")
+        return ip_address
 
     def start_caddy_proxy(self):
         """Start the Caddy reverse proxy"""
@@ -214,7 +222,13 @@ def main():
     )
     parser.add_argument(
         "--remote-ip",
-        help="Remote IP address (if not provided, will use instance's public IP)"
+        help="Remote IP address (if not provided, will use instance's IP based on --remote-ip-type)"
+    )
+    parser.add_argument(
+        "--remote-ip-type",
+        choices=["public", "private"],
+        default="public",
+        help="Type of IP address to use when --remote-ip is not provided (default: public)"
     )
     parser.add_argument(
         "--remote-port",
@@ -231,7 +245,8 @@ def main():
         host=args.host,
         port=args.port,
         remote_ip=args.remote_ip,
-        remote_port=args.remote_port
+        remote_port=args.remote_port,
+        remote_ip_type=args.remote_ip_type,
     )
 
     proxy.run()

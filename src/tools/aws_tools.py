@@ -7,7 +7,13 @@ Common AWS operations for managing EC2 instances.
 import json
 import subprocess
 import time
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, List, NamedTuple, Optional, TypedDict
+
+
+class InstanceIPs(NamedTuple):
+    """Container for instance IP addresses"""
+    public: Optional[str]
+    private: Optional[str]
 
 
 def get_aws_cli_version() -> str:
@@ -183,22 +189,12 @@ def get_instance_state(instance_id: str, region: str) -> str:
     return instance_data['State']['Name']
 
 
-def get_instance_public_ip(instance_id: str, region: str) -> Optional[str]:
-    """
-    Get the public IP address of an EC2 instance.
-
-    Args:
-        instance_id: The EC2 instance ID
-        region: The AWS region
-
-    Returns:
-        Public IP address as string, or None if no public IP is assigned
-
-    Raises:
-        RuntimeError: If the command fails
-    """
+def get_instance_ips(instance_id: str, region: str) -> InstanceIPs:
     instance_data = describe_instance(instance_id, region)
-    return instance_data.get('PublicIpAddress')
+    return InstanceIPs(
+        public=instance_data.get('PublicIpAddress'),
+        private=instance_data.get('PrivateIpAddress')
+    )
 
 
 def wait_for_instance_state(

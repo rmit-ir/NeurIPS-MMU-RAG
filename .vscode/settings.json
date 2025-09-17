@@ -5,6 +5,7 @@
     "fastapi",
     "Neur",
     "Ragent",
-    "retryable"
+    "retryable",
+    "signum"
   ]
 }
