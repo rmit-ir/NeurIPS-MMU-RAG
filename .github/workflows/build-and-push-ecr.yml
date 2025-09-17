@@ -13,7 +13,8 @@ env:
 jobs:
   build-and-push:
     name: Build and Push Docker Image
-    runs-on: ubuntu-latest
+    # Running on VX Lab's thor34 server
+    runs-on: self-hosted
     
     steps:
     - name: Checkout code
@@ -39,3 +40,10 @@ jobs:
         platforms: linux/amd64
         push: true
         tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+    - name: Replace cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
