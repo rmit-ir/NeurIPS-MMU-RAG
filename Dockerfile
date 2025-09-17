@@ -4,13 +4,13 @@ FROM python:3.11-slim
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# Set working directory
-WORKDIR /app
-
 # Create a non-root user with home directory
 RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 # Switch to non-root user
 USER appuser
+
+# Set working directory
+WORKDIR /app
 
 # Copy uv configuration files
 COPY ./pyproject.toml ./uv.lock ./
