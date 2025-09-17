@@ -29,11 +29,10 @@ app.add_middleware(
 
 # Create router for OpenAI-compatible endpoints
 router = APIRouter(prefix="/v1", tags=["OpenAI Compatible"])
-app.include_router(router)
 
 # Authentication setup
 API_KEY = os.getenv("API_KEY")
-security = HTTPBearer(auto_error=False) if API_KEY else None
+security = HTTPBearer(auto_error=False)
 
 
 def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)) -> bool:
@@ -211,6 +210,7 @@ async def health_check():
                     for f in rag_systems.keys()]
     }
 
+app.include_router(router)
 
 if __name__ == "__main__":
     print("Run\nuv run fastapi run src/apis/openai-router.py")

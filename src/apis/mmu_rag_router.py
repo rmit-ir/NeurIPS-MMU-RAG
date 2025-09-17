@@ -31,9 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include the router in the standalone app
-app.include_router(router)
-
 # Global RAG system instances (to be set by the application)
 rag_system: RAGInterface = VanillaRAG()
 
@@ -81,6 +78,7 @@ async def run_endpoint(request: RunRequest):
         raise HTTPException(
             status_code=500, detail=f"Error setting up stream: {str(e)}")
 
+app.include_router(router)
 
 if __name__ == "__main__":
     print("Run\nuv run fastapi run src/apis/mmu-rag-router.py")
