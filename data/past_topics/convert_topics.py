@@ -24,3 +24,9 @@ pd.read_json(d/'trec_rag_2025_queries.jsonl') \
 pd.read_csv(d/'topics.rag24.test.tsv', sep='\t', names=['iid', 'query']) \
   .astype({'iid': 'string'}) \
   .to_json(do/'topics.rag24.test.jsonl', lines=True, orient='records')
+
+# read sample-test-col-queries/samples.csv
+pd.read_csv(d/'..'/'sample-test-col-queries'/'samples.csv', header=0) \
+  .rename(columns={'id': 'iid', 'question': 'query'}) \
+  .astype({'iid': 'string'}) \
+  .to_json(do/'sachin-test-collection-queries.jsonl', lines=True, orient='records')
