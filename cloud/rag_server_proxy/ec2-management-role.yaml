@@ -1,0 +1,72 @@
+# Deploy this CloudFormation template using AWS CLI:
+# 
+# aws cloudformation deploy \
+#   --template-file cloud/rag_server_proxy/ec2-management-role.yaml \
+#   --stack-name mmu-rag-ec2-management-role-stack \
+#   --capabilities CAPABILITY_NAMED_IAM \
+#   --region ap-southeast-2
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Role for EC2 instances with EC2 start/stop management permissions'
+
+Resources:
+  # IAM Role for EC2 instances
+  EC2ManagementRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 'rmit-workload-ec2-management-role'
+      PermissionsBoundary: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/RMIT-ResearchAdminPermissionBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EC2ManagementPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                  - ec2:RebootInstances
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                  - ec2:DescribeInstanceAttribute
+                  - ec2:DescribeTags
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeRegions
+                  - ec2:DescribeAvailabilityZones
+                Resource: '*'
+
+  # Instance Profile for EC2
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: 'rmit-workload-ec2-management-profile'
+      Roles:
+        - !Ref EC2ManagementRole
+
+Outputs:
+  RoleName:
+    Description: 'Name of the created IAM role'
+    Value: !Ref EC2ManagementRole
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-RoleName'
+  
+  InstanceProfileName:
+    Description: 'Name of the instance profile for EC2 attachment'
+    Value: !Ref EC2InstanceProfile
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-InstanceProfileName'
+  
+  RoleArn:
+    Description: 'ARN of the created IAM role'
+    Value: !GetAtt EC2ManagementRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-RoleArn'
