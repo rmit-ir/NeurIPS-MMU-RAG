@@ -10,6 +10,8 @@ Usage:
 """
 
 import argparse
+import os
+from pathlib import Path
 import signal
 import subprocess
 import sys
@@ -92,14 +94,39 @@ class ProxyServer:
         """Start the Caddy reverse proxy"""
         remote_ip = self.get_remote_ip()
 
-        # Use HTTP-only reverse proxy to avoid HTTPS/port 80 issues
+        # Create config directory
+        config_dir = Path(
+            f"/tmp/caddy_forward_port_{remote_ip}_{self.remote_port}")
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create Caddyfile
+        caddyfile_path = config_dir / "Caddyfile"
+        caddyfile_content = f"""# Caddy reverse proxy configuration
+# Forward traffic from {self.host}:{self.port} to {remote_ip}:{self.remote_port}
+{{
+    auto_https off
+    admin off
+}}
+{self.host}:{self.port} {{
+    reverse_proxy {remote_ip}:{self.remote_port}
+}}
+"""
+
+        with open(caddyfile_path, 'w') as f:
+            f.write(caddyfile_content)
+
+        # Then run caddy fmt /tmp/testCaddyfile --overwrite
+        subprocess.run(["caddy", "fmt", str(caddyfile_path),
+                       "--overwrite"], check=True)
+
+        print(f"Created Caddyfile at: {caddyfile_path}")
+
+        # Use Caddy with config file
         caddy_cmd = [
             "caddy",
-            "reverse-proxy",
-            "--from",
-            f"http://{self.host}:{self.port}",
-            "--to",
-            f"http://{remote_ip}:{self.remote_port}",
+            "run",
+            "--config",
+            caddyfile_path,
         ]
 
         print(f"Starting Caddy reverse proxy: {' '.join(caddy_cmd)}")
