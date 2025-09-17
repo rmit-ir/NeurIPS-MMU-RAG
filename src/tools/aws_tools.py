@@ -112,7 +112,6 @@ def describe_instance(instance_id: str, region: str) -> InstanceData:
         "--instance-ids", instance_id,
         "--region", region,
         "--output", "json",
-        "--no-cli-pager"
     ]
 
     response = run_aws_command(command)
@@ -147,7 +146,6 @@ def start_instance(instance_id: str, region: str) -> Dict:
         "--instance-ids", instance_id,
         "--region", region,
         "--output", "json",
-        "--no-cli-pager"
     ]
 
     return run_aws_command(command)
@@ -172,7 +170,6 @@ def stop_instance(instance_id: str, region: str) -> Dict:
         "--instance-ids", instance_id,
         "--region", region,
         "--output", "json",
-        "--no-cli-pager"
     ]
 
     return run_aws_command(command)
