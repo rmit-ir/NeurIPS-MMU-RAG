@@ -9,6 +9,8 @@ WORKDIR /app
 
 # Create a non-root user with home directory
 RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
+# Switch to non-root user
+USER appuser
 
 # Copy uv configuration files
 COPY ./pyproject.toml ./uv.lock ./
@@ -22,11 +24,9 @@ COPY ./src ./src
 # Run again with source code
 RUN uv sync --frozen --no-cache
 
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
+# Causing cache miss
+# # Change ownership to non-root user
+# RUN chown -R appuser:appuser /app
 
 # Expose port
 EXPOSE 5025
