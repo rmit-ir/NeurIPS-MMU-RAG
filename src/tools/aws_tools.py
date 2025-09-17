@@ -34,11 +34,11 @@ def get_aws_cli_version() -> str:
 # Detect AWS CLI version at module load time
 try:
     AWS_CLI_VERSION = get_aws_cli_version()
-    USE_NO_CLI_PAGER = AWS_CLI_VERSION == "2"
+    USE_NO_CLI_PAGER = AWS_CLI_VERSION == "1"
 except RuntimeError:
     # Default to version 2 behavior if detection fails
     AWS_CLI_VERSION = "2"
-    USE_NO_CLI_PAGER = False
+    USE_NO_CLI_PAGER = True
 
 
 def no_pager(base_command: List[str]) -> List[str]:
