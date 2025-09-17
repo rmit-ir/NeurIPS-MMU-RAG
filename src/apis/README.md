@@ -8,7 +8,11 @@ This directory contains two FastAPI applications that provide different interfac
 ## Starting the Services
 
 ```bash
-uv run fastapi run src/apis/combined_app.py
+# Run the MMU-RAG Challenge API server
+uv run fastapi run src/apis/mmu_rag_router.py
+
+# Run the OpenAI-compatible API server
+uv run fastapi run src/apis/openai_router.py
 ```
 
 ---

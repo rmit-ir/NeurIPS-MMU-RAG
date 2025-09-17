@@ -31,19 +31,23 @@ cd NeurIPS-MMU-RAG
 
 ### Running the Server
 
-The project includes a combined API server that provides both MMU-RAG challenge endpoints and OpenAI-compatible endpoints:
+The project provides separate API servers for different use cases:
 
 ```bash
-# Run the combined API server
-uv run fastapi run src/apis/combined_app.py
+# Run the MMU-RAG Challenge API server
+uv run fastapi run src/apis/mmu_rag_router.py
 
-# The server will be available at:
-# - http://localhost:8000 (default FastAPI port)
-# - MMU-RAG endpoints: /run, /evaluate
-# - OpenAI-compatible endpoints: /v1/chat/completions, etc.
+# Run the OpenAI-compatible API server
+uv run fastapi run src/apis/openai_router.py
+
+# The servers will be available at:
+# - MMU-RAG endpoints: http://localhost:8000 (/run, /evaluate)
+# - OpenAI-compatible endpoints: http://localhost:8000 (/v1/chat/completions, etc.)
 
 # Development mode with auto-reload
-uv run fastapi dev src/apis/combined_app.py
+uv run fastapi dev src/apis/mmu_rag_router.py
+# or
+uv run fastapi dev src/apis/openai_router.py
 ```
 
 ### Docker Deployment
