@@ -100,7 +100,6 @@ class ProxyServer:
             f"http://{self.host}:{self.port}",
             "--to",
             f"http://{remote_ip}:{self.remote_port}",
-            "--disable-redirects"
         ]
 
         print(f"Starting Caddy reverse proxy: {' '.join(caddy_cmd)}")
