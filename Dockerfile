@@ -4,11 +4,6 @@ FROM python:3.11-slim
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# Create a non-root user with home directory
-RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
-# Switch to non-root user
-USER appuser
-
 # Set working directory
 WORKDIR /app
 
@@ -23,10 +18,6 @@ COPY ./src ./src
 
 # Run again with source code
 RUN uv sync --frozen --no-cache
-
-# Causing cache miss
-# # Change ownership to non-root user
-# RUN chown -R appuser:appuser /app
 
 # Expose port
 EXPOSE 5025
