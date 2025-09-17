@@ -107,10 +107,11 @@ class ProxyServer:
     auto_https off
     admin off
 }}
-{self.host}:{self.port} {{
+:{self.port} {{
     reverse_proxy {remote_ip}:{self.remote_port}
 }}
 """
+        # ignoring self.host to avoid issues with binding to https
 
         with open(caddyfile_path, 'w') as f:
             f.write(caddyfile_content)
