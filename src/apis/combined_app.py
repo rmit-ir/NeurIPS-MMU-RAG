@@ -43,6 +43,5 @@ app.include_router(openai_router, prefix="/openai")
 app.include_router(mmu_router)
 
 if __name__ == "__main__":
-    print("Deprecated: Please run the individual API servers instead.")
     print("Run\nuv run fastapi run src/apis/combined_app.py")
     pass
