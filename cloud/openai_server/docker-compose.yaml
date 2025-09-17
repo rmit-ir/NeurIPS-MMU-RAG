@@ -1,0 +1,11 @@
+# docker compose up -d --pull always
+services:
+  server:
+    image: 970547356481.dkr.ecr.us-east-1.amazonaws.com/neurips2025text/rmit-adms_ir:latest
+    container_name: mmu-rag-server
+    ports:
+      - "8900:8900"
+    restart: always
+    environment:
+      - API_KEY=67vYpojATGTLLBNZNW9oHhTKxbMqeHT6EPhDVj9MzM
+    command: uv run --frozen fastapi run src/apis/openai_router.py --port 8900
