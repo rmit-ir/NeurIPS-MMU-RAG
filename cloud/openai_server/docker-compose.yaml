@@ -7,5 +7,6 @@ services:
       - "8900:8900"
     restart: always
     environment:
+      # custom api key for the server, clients will need to specify this key
       - API_KEY=67vYpojATGTLLBNZNW9oHhTKxbMqeHT6EPhDVj9MzM
     command: uv run --frozen fastapi run src/apis/openai_router.py --port 8900
