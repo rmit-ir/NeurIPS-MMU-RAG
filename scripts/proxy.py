@@ -92,18 +92,20 @@ class ProxyServer:
         """Start the Caddy reverse proxy"""
         remote_ip = self.get_remote_ip()
 
+        # Use HTTP-only reverse proxy to avoid HTTPS/port 80 issues
         caddy_cmd = [
             "caddy",
             "reverse-proxy",
             "--from",
-            f"{self.host}:{self.port}",
+            f"http://{self.host}:{self.port}",
             "--to",
-            f"{remote_ip}:{self.remote_port}"
+            f"http://{remote_ip}:{self.remote_port}",
+            "--disable-redirects"
         ]
 
         print(f"Starting Caddy reverse proxy: {' '.join(caddy_cmd)}")
         print(
-            f"Forwarding {self.host}:{self.port} -> {remote_ip}:{self.remote_port}")
+            f"Forwarding http://{self.host}:{self.port} -> http://{remote_ip}:{self.remote_port}")
 
         try:
             self.caddy_process = subprocess.Popen(caddy_cmd)
