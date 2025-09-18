@@ -4,6 +4,7 @@
     "expiredtoken",
     "fastapi",
     "Neur",
+    "Qwen",
     "Ragent",
     "retryable",
     "signum"
