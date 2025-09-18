@@ -189,3 +189,5 @@ runs/
 
 config.yaml
 *.backup
+
+docker-compose.override.yaml

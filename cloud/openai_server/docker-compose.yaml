@@ -6,10 +6,14 @@ services:
     ports:
       - "8900:8900"
     restart: always
-    environment:
-      # custom api key for the server, clients will need to specify this key
-      - API_KEY=67vYpojATGTLLBNZNW9oHhTKxbMqeHT6EPhDVj9MzM
     command: uv run --frozen fastapi run src/apis/openai_router.py --port 8900
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8900/health')"]
       interval: 30s
