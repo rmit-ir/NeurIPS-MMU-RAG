@@ -1,16 +1,21 @@
 """
 Client for interacting with OpenAI-compatible API using the official OpenAI Python client.
 """
-import logging
 import os
 import json
 import time
-from typing import Dict, Optional, Tuple, Any, List
-from openai import OpenAI, APIError, APIConnectionError, RateLimitError
+import asyncio
+from typing import Dict, Optional, Tuple, Any, List, AsyncGenerator
+from openai import OpenAI, AsyncOpenAI, APIError, APIConnectionError, RateLimitError
+from openai.types.chat import ChatCompletionMessageParam
 from datetime import datetime
-from services.llms.llm_interface import LLMInterface
-from utils.logging_utils import get_logger
-from utils.path_utils import get_data_dir
+
+from tools.llm_servers.llm_interface import LLMInterface
+from tools.llm_servers.sglang_utils import wait_for_server
+from tools.llm_servers.sglang_types import CustomChatCompletionChunk
+from tools.logging_utils import get_logger
+from tools.path_utils import get_data_dir
+from tools.retry_utils import retry
 
 
 class GeneralOpenAIClient(LLMInterface):
@@ -18,25 +23,25 @@ class GeneralOpenAIClient(LLMInterface):
 
     def __init__(
         self,
-        api_key: str,
         api_base: str,
+        api_key: Optional[str] = None,
         max_retries: int = 5,
         timeout: float = 60.0,
         model_id: str = "tiiuae/falcon3-10b-instruct",
-        temperature: float = 0.7,
-        max_tokens: int = 1024,
-        logger: logging.Logger = get_logger("general_openai_client"),
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+        logger=get_logger("general_openai_client"),
         llm_name: str = "general_openai_client"
     ):
         """
         Initialize the OpenAI-compatible client.
 
         Args:
+            api_base (str): API base URL (required)
+            api_key (Optional[str]): API key (optional, defaults to None)
             model_id (str): The model ID to use
             temperature (float): The temperature parameter for generation
             max_tokens (int): Maximum number of tokens to generate
-            api_key (str): API key (required)
-            api_base (str): API base URL (required)
             logger (logging.Logger): Logger instance
             llm_name (str): Name of the LLM client for file naming
         """
@@ -48,17 +53,29 @@ class GeneralOpenAIClient(LLMInterface):
         )
 
         # Validate required parameters
-        if not api_key:
-            raise ValueError("API key is required")
-
         if not api_base:
             raise ValueError("API base URL is required")
+
+        # Use default API key if none provided
+        if not api_key:
+            api_key = "dummy-key"
 
         self.logger = logger
         self.llm_name = llm_name
 
         # Initialize the OpenAI client with explicit headers
         self.client = OpenAI(
+            api_key=api_key,
+            base_url=api_base,
+            max_retries=max_retries,
+            timeout=timeout,
+            default_headers={
+                "Content-Type": "application/json",
+            }
+        )
+
+        # Initialize the AsyncOpenAI client for streaming
+        self.async_client = AsyncOpenAI(
             api_key=api_key,
             base_url=api_base,
             max_retries=max_retries,
@@ -217,6 +234,83 @@ class GeneralOpenAIClient(LLMInterface):
 
         # Use complete_chat to handle the request
         return self.complete_chat(messages)
+
+    async def complete_chat_streaming(self, messages: List[ChatCompletionMessageParam]) -> AsyncGenerator[CustomChatCompletionChunk, None]:
+        """
+        Generate a streaming response for a chat conversation using AsyncOpenAI.
+
+        Args:
+            messages (List[ChatCompletionMessageParam]): A list of message dictionaries,
+                each containing 'role' (system, user, or assistant) and 'content' keys
+        """
+        # Start timing the API request
+        start_time = time.time()
+
+        try:
+            # Send the message and get the streaming response
+            stream: Any = await self.async_client.chat.completions.create(
+                model=self.model_id,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                stream=True
+            )
+
+            full_content = {"content": "", "reasoning_content": ""}
+            async for chunk in stream:
+                chunk: CustomChatCompletionChunk = chunk
+                self.logger.debug("Received chunk", chunk=chunk)
+                yield chunk
+                first_choice = chunk.choices[0]
+                if first_choice.delta.content:
+                    full_content["content"] += first_choice.delta.content
+                if first_choice.delta.reasoning_content:
+                    full_content["reasoning_content"] += first_choice.delta.reasoning_content
+                # """
+                # # TODO: here when outputting reasoning, we need to deal with this differently, what does OpenAI do?
+                # =None, function_call=None, refusal=None, role=None, tool_calls=None, reasoning_content=' complex'), finish_reason=None, index=0, logprobs=None, matched_stop=None)], created=1758191469, model='Qwen/Qwen3-4B', object='chat.completion.chunk', service_tier=None, system_fingerprint=None, usage=None)                                                                                           2025-09-18 10:31:09 [info     ] Received chunk                 [general_openai_client] chunk=ChatCompletionChunk(id='2ab21e6911f243a1b2139a838b6ae8bb', choices=[Choice(delta=ChoiceDelta(content
+                # """
+                # content_chunk = chunk.choices[0].delta.content
+                # full_content += content_chunk
+                # yield ChatStreamChunk(content=content_chunk, reasoning_content=chunk.choices[0].reasoning_content)
+                # yield content_chunk
+
+            # Log response time
+            response_time = time.time() - start_time
+            self.logger.info(
+                "Streaming API request completed",
+                response_time=round(response_time, 3)
+            )
+
+            # Create response metadata for saving
+            response_metadata = {
+                "model": self.model_id,
+                "prompt": messages,
+                "response": full_content,
+                "timestamp": datetime.now().isoformat(),
+                "streaming": True
+            }
+
+            # Save response for reproducibility
+            self._save_raw_response(response_metadata)
+            content_length = len(
+                full_content["content"]) + len(full_content["reasoning_content"])
+            self.logger.debug("Streaming response completed",
+                              content_length=content_length)
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error in streaming: {str(e)}")
+            raise
+
+    async def wait_ready(self, server_host: str) -> None:
+        """
+        Wait for the server to be ready by performing a health check.
+        """
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: wait_for_server(server_host, None, self.client.api_key)
+        )
 
     def _save_raw_response(self, response: Dict[str, Any]) -> None:
         """

@@ -1,45 +1,65 @@
-from sglang.utils import async_stream_and_merge
-import sglang as sgl
 import asyncio
+from typing import Optional
+
 from sglang.test.doc_patch import launch_server_cmd
-from sglang.utils import wait_for_server, print_highlight, terminate_process
+from sglang.utils import terminate_process
+from tools.llm_servers.general_openai_client import GeneralOpenAIClient
+from tools.llm_servers.sglang_utils import wait_for_server
+from tools.logging_utils import get_logger
+
+logger = get_logger("sglang_server")
 
 
-server_process, port = launch_server_cmd(
-    "python3 -m sglang.launch_server --model-path qwen/qwen2.5-0.5b-instruct --host 0.0.0.0 --log-level warning"
-    "run python -m sglang.launch_server --model Qwen/Qwen3-4B --reasoning-parser qwen3 --disable-radix-cache --mem-fraction-static 0.4 --max-running-requests 4"
-)
+def launch_server(model_id="Qwen/Qwen3-4B",
+                  reasoning_parser: Optional[str] = "qwen3",
+                  mem_fraction_static: Optional[float] = 0.4,
+                  max_running_requests: Optional[int] = 4,
+                  api_key: Optional[str] = None):
+    """
+    Launch the SGLang server as a subprocess.
+    Args:
+        model_id (str): The model ID to use.
+        mem_fraction_static (float): Fraction of memory to allocate statically.
+        max_running_requests (int): Maximum number of concurrent running requests.
+    """
+    command = [
+        "python", "-m", "sglang.launch_server",
+        "--model", model_id,
+        *(["--reasoning-parser", reasoning_parser] if reasoning_parser else []),
+        "--disable-radix-cache",
+        "--mem-fraction-static", str(mem_fraction_static),
+        "--max-running-requests", str(max_running_requests),
+        "--host", "0.0.0.0",
+        *(["--api-key", api_key] if api_key else []),
+    ]
+    server_process, port = launch_server_cmd(' '.join(command))
 
-wait_for_server(f"http://localhost:{port}")
-print(f"Server started on http://localhost:{port}")
+    server_host = f"http://localhost:{port}"
+    api_base = f"{server_host}/v1"
+    wait_for_server(server_host, timeout=1800, api_key=api_key)
+    logger.info("SGLang server is running", port=port)
+    return server_process, server_host, api_base, port
 
 
-# launch the offline engine
-
-
-llm = sgl.Engine(model_path="Qwen/Qwen3-8B")
-
-prompts = [
-    "Write a short, neutral self-introduction for a fictional character. Hello, my name is",
-    "Provide a concise factual statement about France’s capital city. The capital of France is",
-    "Explain possible future trends in artificial intelligence. The future of AI is",
-]
-
-sampling_params = {"temperature": 0.8, "top_p": 0.95}
-
-print("\n=== Testing asynchronous streaming generation (no repeats) ===")
+def terminate_server(server_process):
+    terminate_process(server_process)
+    logger.info("SGLang server terminated.")
 
 
 async def main():
-    for prompt in prompts:
-        print(f"\nPrompt: {prompt}")
-        print("Generated text: ", end="", flush=True)
-
-        # Replace direct calls to async_generate with our custom overlap-aware version
-        async for cleaned_chunk in async_stream_and_merge(llm, prompt, sampling_params):
-            print(cleaned_chunk, end="", flush=True)
-
-        print()  # New line after each prompt
+    model_id = "Qwen/Qwen3-4B"
+    api_key = "abc"
+    server_process, server_host, api_base, port = launch_server(model_id=model_id,
+                                                                api_key=api_key)
+    openai_client = GeneralOpenAIClient(api_base=api_base,
+                                        api_key=api_key,
+                                        model_id=model_id,
+                                        temperature=0)
+    content = openai_client.complete_chat([
+        {"role": "user", "content": "I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building."}
+    ])
+    logger.info("Response from SGLang server", response=content)
+    terminate_server(server_process)
 
 
 if __name__ == "__main__":

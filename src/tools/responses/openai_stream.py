@@ -11,6 +11,7 @@ from systems.rag_interface import RunStreamingResponse
 class OpenAIDelta(BaseModel):
     """Delta content in OpenAI streaming response."""
     content: Optional[str] = None
+    reasoning_content: Optional[str] = None
     role: Optional[str] = None
 
 
@@ -62,48 +63,37 @@ async def to_openai_stream(
         async for response in start_stream():
             chunk_id += 1
 
-            # Determine content based on response type
-            content = ""
-            if response.is_intermediate and response.intermediate_steps:
-                content = response.intermediate_steps
-            elif not response.is_intermediate and response.final_report:
-                content = response.final_report
-
-            # Create OpenAI-compatible chunk using Pydantic models
-            chunk = OpenAIStreamChunk(
-                id=f"chatcmpl-{chunk_id}",
-                created=1234567890,  # You might want to use actual timestamp
-                model=model,
-                choices=[
-                    OpenAIChoice(
-                        index=0,
-                        delta=OpenAIDelta(
-                            content=content) if content else OpenAIDelta(),
-                        finish_reason="stop" if response.complete else None
-                    )
-                ]
-            )
-
-            # Format as SSE
-            yield f"data: {chunk.model_dump_json()}\n\n"
-
-            # Send final chunk if complete
-            if response.complete:
-                final_chunk = OpenAIStreamChunk(
-                    id=f"chatcmpl-{chunk_id + 1}",
+            chunk: OpenAIStreamChunk
+            if response.is_intermediate:
+                chunk = OpenAIStreamChunk(
+                    id=f"chatcmpl-{chunk_id}",
+                    created=1234567890,  # You might want to use actual timestamp
+                    model=model,
+                    choices=[
+                        OpenAIChoice(
+                            index=0,
+                            delta=OpenAIDelta(
+                                reasoning_content=response.intermediate_steps),
+                            finish_reason="stop" if response.complete else None
+                        )
+                    ]
+                )
+            else:
+                chunk = OpenAIStreamChunk(
+                    id=f"chatcmpl-{chunk_id}",
                     created=1234567890,
                     model=model,
                     choices=[
                         OpenAIChoice(
                             index=0,
-                            delta=OpenAIDelta(),
-                            finish_reason="stop"
+                            delta=OpenAIDelta(content=response.final_report),
+                            finish_reason="stop" if response.complete else None
                         )
                     ]
                 )
-                yield f"data: {final_chunk.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-                break
+
+            # Format as SSE
+            yield f"data: {chunk.model_dump_json()}\n\n"
 
             # Handle errors
             if response.error:
@@ -116,6 +106,11 @@ async def to_openai_stream(
                 )
                 yield f"data: {error_response.model_dump_json()}\n\n"
                 break
+
+            # Break out, if complete
+            if response.complete:
+                break
+        yield "data: [DONE]\n\n"
 
     except Exception as e:
         # Send error response and stop stream

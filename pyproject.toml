@@ -9,6 +9,7 @@ dependencies = [
     "fastapi[standard]>=0.116.1",
     "ipykernel>=6.30.1",
     "jsonlines>=4.0.0",
+    "openai>=1.99.1",
     "pydantic>=2.11.7",
     "structlog>=25.4.0",
     "transformers>=4.56.1",
@@ -19,7 +20,6 @@ dependencies = [
 # uv sync --extra sglang
 # or | uv sync --all-extras
 sglang = ["sglang[all]>=0.5.3rc0"]
-vllm = ["vllm>=0.10.2"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

@@ -2034,6 +2034,7 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "ipykernel" },
     { name = "jsonlines" },
+    { name = "openai" },
     { name = "pydantic" },
     { name = "structlog" },
     { name = "transformers" },
@@ -2041,9 +2042,7 @@ dependencies = [
 
 [package.optional-dependencies]
 sglang = [
-    { name = "nvidia-ml-py" },
     { name = "sglang", extra = ["all"] },
-    { name = "torch" },
 ]
 
 [package.dev-dependencies]
@@ -2057,11 +2056,10 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.116.1" },
     { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "jsonlines", specifier = ">=4.0.0" },
-    { name = "nvidia-ml-py", marker = "extra == 'sglang'" },
+    { name = "openai", specifier = ">=1.99.1" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "sglang", extras = ["all"], marker = "extra == 'sglang'", specifier = ">=0.5.3rc0" },
     { name = "structlog", specifier = ">=25.4.0" },
-    { name = "torch", marker = "extra == 'sglang'", specifier = ">=2.8.0" },
     { name = "transformers", specifier = ">=4.56.1" },
 ]
 provides-extras = ["sglang"]

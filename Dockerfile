@@ -11,13 +11,13 @@ WORKDIR /app
 COPY ./pyproject.toml ./uv.lock ./
 
 # Install dependencies in a virtual environment
-RUN mkdir ./src; uv sync --frozen --no-cache; rm -rf ./src
+RUN mkdir ./src; uv sync --frozen --no-cache --extra sglang; rm -rf ./src
 
 # Copy source code
 COPY ./src ./src
 
 # Run again with source code
-RUN uv sync --frozen --no-cache
+RUN uv sync --frozen --no-cache --extra sglang
 
 # Expose port
 EXPOSE 5025
