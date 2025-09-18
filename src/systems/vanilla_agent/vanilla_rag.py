@@ -217,3 +217,66 @@ class VanillaRAG(RAGInterface):
     def __del__(self):
         """Cleanup when object is destroyed."""
         self._shutdown_server()
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    async def main():
+        """Simple test execution for VanillaRAG."""
+        print("Testing VanillaRAG with SGLang server...")
+
+        # Initialize VanillaRAG
+        rag = VanillaRAG(
+            model_id="Qwen/Qwen3-4B",
+            api_key=None,  # Optional API key
+            launch_on_init=False,  # Launch server manually
+            temperature=0.0,
+            max_tokens=512
+        )
+
+        try:
+            # Test 1: Evaluate method
+            print("\n=== Testing Evaluate Method ===")
+            eval_request = EvaluateRequest(
+                query="What is artificial intelligence?",
+                iid="test-001"
+            )
+
+            eval_response = await rag.evaluate(eval_request)
+            print(f"Query ID: {eval_response.query_id}")
+            print(f"Response: {eval_response.generated_response}")
+            print(f"Citations: {eval_response.citations}")
+
+            # Test 2: Streaming method
+            print("\n=== Testing Streaming Method ===")
+            run_request = RunRequest(
+                question="Explain the concept of machine learning in simple terms."
+            )
+
+            stream_func = await rag.run_streaming(run_request)
+            print("Streaming response:")
+
+            async for response in stream_func():
+                if response.is_intermediate:
+                    if response.intermediate_steps:
+                        print(
+                            f"[INTERMEDIATE] {response.intermediate_steps}", end="", flush=True)
+                else:
+                    print(f"\n[FINAL] {response.final_report}")
+                    if response.citations:
+                        print(f"Citations: {response.citations}")
+                    if response.error:
+                        print(f"Error: {response.error}")
+
+        except Exception as e:
+            print(f"Error during testing: {str(e)}")
+        finally:
+            # Cleanup
+            print(
+                f"\nFinal status - Is running: {rag.is_running}, Is processing: {rag.is_processing}")
+            rag._shutdown_server()
+            print("Test completed.")
+
+    # Run the async main function
+    asyncio.run(main())
