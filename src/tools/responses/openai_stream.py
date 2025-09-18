@@ -63,12 +63,6 @@ async def to_openai_stream(
         async for response in start_stream():
             chunk_id += 1
 
-            # Determine content based on response type
-            # content = ""
-            # if response.is_intermediate and response.intermediate_steps:
-            #     content = response.intermediate_steps
-            # elif not response.is_intermediate and response.final_report:
-            #     content = response.final_report
             chunk: OpenAIStreamChunk
             if response.is_intermediate:
                 chunk = OpenAIStreamChunk(
