@@ -47,31 +47,35 @@ class VanillaRAG(RAGInterface):
 
     async def _ensure_server_running(self):
         """Ensure SGLang server is running and client is initialized."""
-        if not self._is_llm_starting:
-            try:
-                self._is_llm_starting = True
-                self.logger.info("Starting SGLang server",
-                                 model_id=self.model_id)
-                self.server_process, self.server_host, self.api_base, port = launch_server(
-                    model_id=self.model_id,
-                    reasoning_parser=self.reasoning_parser,
-                    mem_fraction_static=self.mem_fraction_static,
-                    max_running_requests=self.max_running_requests,
-                    api_key=self.api_key
-                )
+        # if server and client are not initialized, start them
+        if not (self.server_process and self.client):
+            # however, only start if not already starting
+            if not self._is_llm_starting:
+                try:
+                    self._is_llm_starting = True
+                    self.logger.info("Starting SGLang server",
+                                     model_id=self.model_id)
+                    self.server_process, self.server_host, self.api_base, port = launch_server(
+                        model_id=self.model_id,
+                        reasoning_parser=self.reasoning_parser,
+                        mem_fraction_static=self.mem_fraction_static,
+                        max_running_requests=self.max_running_requests,
+                        api_key=self.api_key
+                    )
 
-                self.client = GeneralOpenAIClient(
-                    api_base=self.api_base,
-                    api_key=self.api_key,
-                    model_id=self.model_id,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    llm_name="vanilla_rag_sglang"
-                )
-                self.logger.info(
-                    "SGLang server and client initialized", port=port)
-            finally:
-                self._is_llm_starting = False
+                    self.client = GeneralOpenAIClient(
+                        api_base=self.api_base,
+                        api_key=self.api_key,
+                        model_id=self.model_id,
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens,
+                        llm_name="vanilla_rag_sglang"
+                    )
+                    self.logger.info(
+                        "SGLang server and client initialized", port=port)
+                finally:
+                    self._is_llm_starting = False
+            # otherwise continue waiting
 
         # Add timeout to prevent infinite loop
         max_wait_time = 3600  # seconds
