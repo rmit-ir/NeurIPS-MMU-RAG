@@ -265,13 +265,21 @@ if __name__ == "__main__":
             stream_func = await rag.run_streaming(run_request)
             print("Streaming response:")
 
+            print_type = 'intermediate'
             async for response in stream_func():
                 if response.is_intermediate:
                     if response.intermediate_steps:
-                        print(
-                            f"[INTERMEDIATE] {response.intermediate_steps}", end="", flush=True)
+                        if print_type != 'intermediate':
+                            print_type = 'intermediate'
+                            print(
+                                f"\n[THINK] {response.intermediate_steps}\n\n")
+                        print(response.intermediate_steps, end="", flush=True)
                 else:
-                    print(f"\n[FINAL] {response.final_report}")
+                    if print_type != 'final':
+                        print_type = 'final'
+                        print(f"\n[FINAL] {response.final_report}\n\n")
+                    if response.final_report:
+                        print(response.final_report, end="", flush=True)
                     if response.citations:
                         print(f"Citations: {response.citations}")
                     if response.error:
