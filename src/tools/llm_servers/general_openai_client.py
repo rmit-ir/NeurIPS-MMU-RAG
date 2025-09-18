@@ -6,9 +6,11 @@ import json
 import time
 from typing import Dict, Optional, Tuple, Any, List, AsyncGenerator
 from openai import OpenAI, AsyncOpenAI, APIError, APIConnectionError, RateLimitError
+from openai.types.chat import ChatCompletionMessageParam
 from datetime import datetime
 
 from tools.llm_servers.llm_interface import LLMInterface
+from tools.llm_servers.sglang_types import CustomChatCompletionChunk
 from tools.logging_utils import get_logger
 from tools.path_utils import get_data_dir
 from tools.retry_utils import retry
@@ -231,23 +233,20 @@ class GeneralOpenAIClient(LLMInterface):
         # Use complete_chat to handle the request
         return self.complete_chat(messages)
 
-    async def complete_chat_streaming(self, messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+    async def complete_chat_streaming(self, messages: List[ChatCompletionMessageParam]) -> AsyncGenerator[CustomChatCompletionChunk, None]:
         """
         Generate a streaming response for a chat conversation using AsyncOpenAI.
 
         Args:
-            messages (List[Dict[str, str]]): A list of message dictionaries, 
+            messages (List[ChatCompletionMessageParam]): A list of message dictionaries,
                 each containing 'role' (system, user, or assistant) and 'content' keys
-
-        Yields:
-            str: Incremental content chunks from the streaming response
         """
         # Start timing the API request
         start_time = time.time()
 
         try:
             # Send the message and get the streaming response
-            stream = await self.async_client.chat.completions.create(
+            stream: Any = await self.async_client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
                 temperature=self.temperature,
@@ -255,13 +254,24 @@ class GeneralOpenAIClient(LLMInterface):
                 stream=True
             )
 
-            full_content = ""
+            full_content = {"content": "", "reasoning_content": ""}
             async for chunk in stream:
+                chunk: CustomChatCompletionChunk = chunk
                 self.logger.debug("Received chunk", chunk=chunk)
-                if chunk.choices[0].delta.content is not None:
-                    content_chunk = chunk.choices[0].delta.content
-                    full_content += content_chunk
-                    yield content_chunk
+                yield chunk
+                first_choice = chunk.choices[0]
+                if first_choice.delta.content:
+                    full_content["content"] += first_choice.delta.content
+                if first_choice.delta.reasoning_content:
+                    full_content["reasoning_content"] += first_choice.delta.reasoning_content
+                # """
+                # # TODO: here when outputting reasoning, we need to deal with this differently, what does OpenAI do?
+                # =None, function_call=None, refusal=None, role=None, tool_calls=None, reasoning_content=' complex'), finish_reason=None, index=0, logprobs=None, matched_stop=None)], created=1758191469, model='Qwen/Qwen3-4B', object='chat.completion.chunk', service_tier=None, system_fingerprint=None, usage=None)                                                                                           2025-09-18 10:31:09 [info     ] Received chunk                 [general_openai_client] chunk=ChatCompletionChunk(id='2ab21e6911f243a1b2139a838b6ae8bb', choices=[Choice(delta=ChoiceDelta(content
+                # """
+                # content_chunk = chunk.choices[0].delta.content
+                # full_content += content_chunk
+                # yield ChatStreamChunk(content=content_chunk, reasoning_content=chunk.choices[0].reasoning_content)
+                # yield content_chunk
 
             # Log response time
             response_time = time.time() - start_time
@@ -281,8 +291,10 @@ class GeneralOpenAIClient(LLMInterface):
 
             # Save response for reproducibility
             self._save_raw_response(response_metadata)
+            content_length = len(
+                full_content["content"]) + len(full_content["reasoning_content"])
             self.logger.debug("Streaming response completed",
-                              content_length=len(full_content))
+                              content_length=content_length)
 
         except Exception as e:
             self.logger.error(f"Unexpected error in streaming: {str(e)}")

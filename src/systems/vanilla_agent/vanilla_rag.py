@@ -1,4 +1,5 @@
-from typing import AsyncGenerator, Callable, Optional
+from typing import AsyncGenerator, Callable, List, Optional
+from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
 from tools.llm_servers.sglang_server import launch_server, terminate_server
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
@@ -176,25 +177,32 @@ class VanillaRAG(RAGInterface):
                     "to user questions. Structure your response clearly and cite sources when possible."
                 )
 
-                messages = [
+                messages: List[ChatCompletionMessageParam] = [
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": request.question}
                 ]
 
-                # Generate streaming response using SGLang
-                full_response = ""
                 async for chunk in self.client.complete_chat_streaming(messages):
-                    full_response += chunk
-                    # Yield intermediate chunks as they come
-                    yield RunStreamingResponse(
-                        intermediate_steps=chunk,
-                        is_intermediate=True,
-                        complete=False
-                    )
+                    if chunk.choices[0].finish_reason is not None:
+                        # Stream finished
+                        break
+                    delta = chunk.choices[0].delta
+                    if delta.reasoning_content:
+                        yield RunStreamingResponse(
+                            intermediate_steps=delta.reasoning_content,
+                            is_intermediate=True,
+                            complete=False
+                        )
+                    elif delta.content:
+                        yield RunStreamingResponse(
+                            final_report=delta.content,
+                            is_intermediate=False,
+                            complete=False
+                        )
+                    # otherwise ignore empty deltas
 
                 # Final response
                 yield RunStreamingResponse(
-                    final_report=full_response,
                     citations=[],  # TODO: Add citation extraction logic
                     is_intermediate=False,
                     complete=True
