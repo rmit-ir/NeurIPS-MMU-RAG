@@ -30,7 +30,7 @@ def launch_server(model_id="Qwen/Qwen3-4B",
         "--host", "0.0.0.0",
         *(["--api-key", api_key] if api_key else []),
     ]
-    server_process, port = launch_server_cmd(command)
+    server_process, port = launch_server_cmd(' '.join(command))
 
     server_host = f"http://localhost:{port}"
     api_base = f"{server_host}/v1"
