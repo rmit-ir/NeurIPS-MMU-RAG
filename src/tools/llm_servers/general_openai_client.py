@@ -257,6 +257,7 @@ class GeneralOpenAIClient(LLMInterface):
 
             full_content = ""
             async for chunk in stream:
+                self.logger.debug("Received chunk", chunk=chunk)
                 if chunk.choices[0].delta.content is not None:
                     content_chunk = chunk.choices[0].delta.content
                     full_content += content_chunk
