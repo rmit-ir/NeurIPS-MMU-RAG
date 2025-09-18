@@ -15,9 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# uv sync --extra llm-servers
+# uv add torch --optional llm-servers-linux-gpu
+# uv sync --extra llm-servers-linux-gpu
 # or | uv sync --all-extras
-llm-servers = [
+llm-servers-linux-gpu = [
+    "sglang[all]>=0.5.3rc0",
+    "nvidia-ml-py",
     "torch>=2.8.0",
 ]
 
