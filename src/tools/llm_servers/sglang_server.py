@@ -1,6 +1,8 @@
+from sglang.utils import async_stream_and_merge
+import sglang as sgl
+import asyncio
 from sglang.test.doc_patch import launch_server_cmd
 from sglang.utils import wait_for_server, print_highlight, terminate_process
-
 
 
 server_process, port = launch_server_cmd(
@@ -12,14 +14,8 @@ wait_for_server(f"http://localhost:{port}")
 print(f"Server started on http://localhost:{port}")
 
 
-
-
-
 # launch the offline engine
-import asyncio
 
-import sglang as sgl
-from sglang.utils import async_stream_and_merge
 
 llm = sgl.Engine(model_path="Qwen/Qwen3-8B")
 

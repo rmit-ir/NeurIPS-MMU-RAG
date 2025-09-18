@@ -15,14 +15,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# uv add torch --optional llm-servers-linux-gpu
-# uv sync --extra llm-servers-linux-gpu
+# uv add torch --optional sglang
+# uv sync --extra sglang
 # or | uv sync --all-extras
-llm-servers-linux-gpu = [
-    "sglang[all]>=0.5.3rc0",
-    "nvidia-ml-py",
-    "torch>=2.8.0",
-]
+sglang = ["sglang[all]>=0.5.3rc0"]
+vllm = ["vllm>=0.10.2"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -32,6 +29,4 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [dependency-groups]
-dev = [
-    "autopep8>=2.3.2",
-]
+dev = ["autopep8>=2.3.2"]
