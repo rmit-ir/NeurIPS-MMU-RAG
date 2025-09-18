@@ -8,7 +8,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 WORKDIR /app
 
 RUN apt update \
-    && apt install -y numactl build-essential \
+    && apt install -y curl numactl build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy uv configuration files
