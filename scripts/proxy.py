@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-AWS EC2 Proxy Server
+On-demand AWS EC2 Proxy Server
 
-This script manages an AWS EC2 instance and runs a Caddy reverse proxy to forward
+This script manages an AWS EC2 instance lifecycle and runs a Caddy reverse proxy to forward
 traffic from a local port to the remote instance.
 
 Usage:
