@@ -7,6 +7,7 @@ services:
       - "8900:8900"
     restart: always
     command: uv run --frozen fastapi run src/apis/openai_router.py --port 8900
+    shm_size: 16g
     deploy:
       resources:
         reservations:

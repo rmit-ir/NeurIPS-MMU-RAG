@@ -1,11 +1,15 @@
 # Use Python 3.11 slim image as base
-FROM python:3.11-slim
+FROM docker.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 # Set working directory
 WORKDIR /app
+
+RUN apt update \
+    && apt install -y numactl build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy uv configuration files
 COPY ./pyproject.toml ./uv.lock ./
