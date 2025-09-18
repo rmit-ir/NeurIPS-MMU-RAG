@@ -26,8 +26,8 @@ class GeneralOpenAIClient(LLMInterface):
         max_retries: int = 5,
         timeout: float = 60.0,
         model_id: str = "tiiuae/falcon3-10b-instruct",
-        temperature: float = 0.7,
-        max_tokens: int = 1024,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
         logger=get_logger("general_openai_client"),
         llm_name: str = "general_openai_client"
     ):

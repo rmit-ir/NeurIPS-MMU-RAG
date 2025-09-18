@@ -14,8 +14,8 @@ class VanillaRAG(RAGInterface):
         mem_fraction_static: Optional[float] = 0.4,
         max_running_requests: Optional[int] = 4,
         api_key: Optional[str] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 1024,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
         launch_on_init: bool = False
     ):
         """
@@ -240,7 +240,7 @@ if __name__ == "__main__":
             api_key=None,  # Optional API key
             launch_on_init=False,  # Launch server manually
             temperature=0.0,
-            max_tokens=512
+            max_tokens=4096
         )
 
         try:
