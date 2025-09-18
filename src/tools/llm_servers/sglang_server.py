@@ -1,8 +1,12 @@
 import asyncio
+import time
 from typing import Optional
+
+import requests
 from sglang.test.doc_patch import launch_server_cmd
-from sglang.utils import wait_for_server, terminate_process
+from sglang.utils import terminate_process
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
+from tools.llm_servers.sglang_utils import wait_for_server
 from tools.logging_utils import get_logger
 
 logger = get_logger("sglang_server")
@@ -34,7 +38,7 @@ def launch_server(model_id="Qwen/Qwen3-4B",
 
     server_host = f"http://localhost:{port}"
     api_base = f"{server_host}/v1"
-    wait_for_server(server_host, timeout=1800)
+    wait_for_server(server_host, timeout=1800, api_key=api_key)
     logger.info("SGLang server is running", port=port)
     return server_process, api_base, port
 
