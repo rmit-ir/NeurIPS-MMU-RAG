@@ -1,16 +1,17 @@
 """
 Client for interacting with OpenAI-compatible API using the official OpenAI Python client.
 """
-import logging
 import os
 import json
 import time
 from typing import Dict, Optional, Tuple, Any, List
 from openai import OpenAI, APIError, APIConnectionError, RateLimitError
 from datetime import datetime
-from services.llms.llm_interface import LLMInterface
-from utils.logging_utils import get_logger
-from utils.path_utils import get_data_dir
+
+from tools.llm_servers.llm_interface import LLMInterface
+from tools.logging_utils import get_logger
+from tools.path_utils import get_data_dir
+from tools.retry_utils import retry
 
 
 class GeneralOpenAIClient(LLMInterface):
@@ -25,7 +26,7 @@ class GeneralOpenAIClient(LLMInterface):
         model_id: str = "tiiuae/falcon3-10b-instruct",
         temperature: float = 0.7,
         max_tokens: int = 1024,
-        logger: logging.Logger = get_logger("general_openai_client"),
+        logger=get_logger("general_openai_client"),
         llm_name: str = "general_openai_client"
     ):
         """
