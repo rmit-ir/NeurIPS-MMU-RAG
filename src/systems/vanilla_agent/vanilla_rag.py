@@ -16,7 +16,6 @@ class VanillaRAG(RAGInterface):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        launch_on_init: bool = False
     ):
         """
         Initialize VanillaRAG with SGLang server.
@@ -29,7 +28,6 @@ class VanillaRAG(RAGInterface):
             api_key: API key for the server (optional)
             temperature: Generation temperature
             max_tokens: Maximum tokens to generate
-            launch_on_init: Whether to launch the server immediately on initialization
         """
         self.model_id = model_id
         self.reasoning_parser = reasoning_parser
@@ -38,39 +36,53 @@ class VanillaRAG(RAGInterface):
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.launch_on_init = launch_on_init
 
         self.logger = get_logger("vanilla_rag")
         self.server_process = None
         self.client = None
+        self.server_host = None
         self.api_base = None
         self._is_processing = False
+        self._is_llm_starting = False
 
-        # Launch server on init if requested
-        if self.launch_on_init:
-            self._ensure_server_running()
-
-    def _ensure_server_running(self):
+    async def _ensure_server_running(self):
         """Ensure SGLang server is running and client is initialized."""
-        if self.server_process is None or self.client is None:
-            self.logger.info("Starting SGLang server", model_id=self.model_id)
-            self.server_process, self.api_base, port = launch_server(
-                model_id=self.model_id,
-                reasoning_parser=self.reasoning_parser,
-                mem_fraction_static=self.mem_fraction_static,
-                max_running_requests=self.max_running_requests,
-                api_key=self.api_key
-            )
+        if not self._is_llm_starting:
+            try:
+                self._is_llm_starting = True
+                self.logger.info("Starting SGLang server",
+                                 model_id=self.model_id)
+                self.server_process, self.server_host, self.api_base, port = launch_server(
+                    model_id=self.model_id,
+                    reasoning_parser=self.reasoning_parser,
+                    mem_fraction_static=self.mem_fraction_static,
+                    max_running_requests=self.max_running_requests,
+                    api_key=self.api_key
+                )
 
-            self.client = GeneralOpenAIClient(
-                api_base=self.api_base,
-                api_key=self.api_key,
-                model_id=self.model_id,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                llm_name="vanilla_rag_sglang"
-            )
-            self.logger.info("SGLang server and client initialized", port=port)
+                self.client = GeneralOpenAIClient(
+                    api_base=self.api_base,
+                    api_key=self.api_key,
+                    model_id=self.model_id,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    llm_name="vanilla_rag_sglang"
+                )
+                self.logger.info(
+                    "SGLang server and client initialized", port=port)
+            finally:
+                self._is_llm_starting = False
+
+        # Add timeout to prevent infinite loop
+        max_wait_time = 3600  # seconds
+        wait_time = 0
+        # wait for server process and host to be set
+        while not (self.client and self.server_host):
+            if wait_time >= max_wait_time:
+                raise RuntimeError(
+                    f"Server failed to initialize within {max_wait_time} seconds")
+            await asyncio.sleep(1)
+            wait_time += 1
 
     def _shutdown_server(self):
         """Shutdown the SGLang server."""
@@ -107,7 +119,7 @@ class VanillaRAG(RAGInterface):
         """
         self._is_processing = True
         try:
-            self._ensure_server_running()
+            await self._ensure_server_running()
             if not self.client:
                 raise RuntimeError("SGLang client is not initialized.")
 
@@ -161,7 +173,7 @@ class VanillaRAG(RAGInterface):
                     complete=False
                 )
 
-                self._ensure_server_running()
+                await self._ensure_server_running()
                 if not self.client:
                     raise RuntimeError("SGLang server failed to launch")
 
@@ -238,7 +250,6 @@ if __name__ == "__main__":
         rag = VanillaRAG(
             model_id="Qwen/Qwen3-4B",
             api_key=None,  # Optional API key
-            launch_on_init=False,  # Launch server manually
             temperature=0.0,
             max_tokens=4096
         )

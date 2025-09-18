@@ -4,12 +4,14 @@ Client for interacting with OpenAI-compatible API using the official OpenAI Pyth
 import os
 import json
 import time
+import asyncio
 from typing import Dict, Optional, Tuple, Any, List, AsyncGenerator
 from openai import OpenAI, AsyncOpenAI, APIError, APIConnectionError, RateLimitError
 from openai.types.chat import ChatCompletionMessageParam
 from datetime import datetime
 
 from tools.llm_servers.llm_interface import LLMInterface
+from tools.llm_servers.sglang_utils import wait_for_server
 from tools.llm_servers.sglang_types import CustomChatCompletionChunk
 from tools.logging_utils import get_logger
 from tools.path_utils import get_data_dir
@@ -299,6 +301,16 @@ class GeneralOpenAIClient(LLMInterface):
         except Exception as e:
             self.logger.error(f"Unexpected error in streaming: {str(e)}")
             raise
+
+    async def wait_ready(self, server_host: str) -> None:
+        """
+        Wait for the server to be ready by performing a health check.
+        """
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: wait_for_server(server_host, None, self.client.api_key)
+        )
 
     def _save_raw_response(self, response: Dict[str, Any]) -> None:
         """

@@ -16,6 +16,9 @@ def wait_for_server(base_url: str, timeout: Optional[int] = None, api_key: Optio
         timeout: Maximum time to wait in seconds. None means wait forever.
     """
     start_time = time.perf_counter()
+    if not timeout:
+        timeout = 3600  # Default to 1 hour if no timeout is provided
+
     while True:
         try:
             response = requests.get(

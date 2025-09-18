@@ -95,11 +95,6 @@ async def to_openai_stream(
             # Format as SSE
             yield f"data: {chunk.model_dump_json()}\n\n"
 
-            # Send final chunk if complete
-            if response.complete:
-                yield "data: [DONE]\n\n"
-                break
-
             # Handle errors
             if response.error:
                 error_response = OpenAIErrorResponse(
@@ -111,6 +106,11 @@ async def to_openai_stream(
                 )
                 yield f"data: {error_response.model_dump_json()}\n\n"
                 break
+
+            # Break out, if complete
+            if response.complete:
+                break
+        yield "data: [DONE]\n\n"
 
     except Exception as e:
         # Send error response and stop stream

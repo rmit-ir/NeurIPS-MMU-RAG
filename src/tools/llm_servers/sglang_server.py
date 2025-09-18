@@ -38,7 +38,7 @@ def launch_server(model_id="Qwen/Qwen3-4B",
     api_base = f"{server_host}/v1"
     wait_for_server(server_host, timeout=1800, api_key=api_key)
     logger.info("SGLang server is running", port=port)
-    return server_process, api_base, port
+    return server_process, server_host, api_base, port
 
 
 def terminate_server(server_process):
@@ -49,8 +49,8 @@ def terminate_server(server_process):
 async def main():
     model_id = "Qwen/Qwen3-4B"
     api_key = "abc"
-    server_process, api_base, port = launch_server(model_id=model_id,
-                                                   api_key=api_key)
+    server_process, server_host, api_base, port = launch_server(model_id=model_id,
+                                                                api_key=api_key)
     openai_client = GeneralOpenAIClient(api_base=api_base,
                                         api_key=api_key,
                                         model_id=model_id,
