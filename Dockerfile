@@ -7,9 +7,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 # Set working directory
 WORKDIR /app
 
+# pkg-config: needed for Rust compiler to find libssl-dev
 RUN apt update \
-    && apt install -y curl numactl build-essential \
+    && apt install -y curl numactl build-essential pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust (to compile outlines-core, which is required by sglang)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Copy uv configuration files
 COPY ./pyproject.toml ./uv.lock ./
