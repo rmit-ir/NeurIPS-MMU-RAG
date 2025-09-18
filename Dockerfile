@@ -1,4 +1,4 @@
-# Use Python 3.11 slim image as base
+# Use cuda heavy duty image, devel is needed for flash attention compilation
 FROM docker.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
 
 # Install uv
