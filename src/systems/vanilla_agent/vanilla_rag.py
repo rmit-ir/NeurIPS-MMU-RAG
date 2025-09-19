@@ -172,14 +172,14 @@ class VanillaRAG(RAGInterface):
             try:
                 # Ensure server is running
                 yield RunStreamingResponse(
-                    intermediate_steps="Initializing SGLang server...",
+                    intermediate_steps="Initializing SGLang server...\n\n",
                     is_intermediate=True,
                     complete=False
                 )
 
                 await self._ensure_server_running()
                 if not self.client:
-                    raise RuntimeError("SGLang server failed to launch")
+                    raise RuntimeError("SGLang server failed to launch\n\n")
 
                 yield RunStreamingResponse(
                     intermediate_steps="Processing question with language model...\n\n",
