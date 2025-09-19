@@ -120,11 +120,11 @@ python local_test.py --base-url http://localhost:5010 \
 <details>
 <summary>Creating a New RAG System</summary>
 
-## 🔧 Creating a New RAG System
+### 🔧 Creating a New RAG System
 
 The project uses a modular architecture where you can easily create new RAG systems by implementing the `RAGInterface`.
 
-### Step 1: Create Your RAG System
+#### Step 1: Create Your RAG System
 
 Create a new directory under `src/systems/` for your RAG system:
 
@@ -133,20 +133,20 @@ cd src/systems
 mkdir my_rag_system
 ```
 
-### Step 2: Implement the RAG Interface
+#### Step 2: Implement the RAG Interface
 
 Create your RAG system by extending the `RAGInterface` class, check `src/systems/vanilla_agent/vanilla_rag.py` for example.
 
-### Step 3: Register Your RAG System
+#### Step 3: Register Your RAG System
 
 - mmu_rag_router.py only supports one RAG system at a time. Change variable `rag_system` in `src/apis/mmu_rag_router.py` to your new RAG class.
 - openai_router.py supports multiple RAG systems, just add yours to the `rag_systems` dictionary.
 
-### Step 4: Use Existing Tools
+#### Step 4: Use Existing Tools
 
 Leverage the provided tools in `src/tools/` for common RAG operations:
 
-### Step 5: Test Your System
+#### Step 5: Test Your System
 
 Send cURL requests to test your system, check apis/README.md for details.
 
@@ -162,7 +162,7 @@ python local_test.py --base-url http://localhost:8000
 <details>
 <summary>Additional Resources</summary>
 
-## 📚 Additional Resources
+### 📚 Additional Resources
 
 - **MMU-RAG Challenge**: [Official Challenge Details](https://agi-lti.github.io/MMU-RAgent/text-to-text)
 
