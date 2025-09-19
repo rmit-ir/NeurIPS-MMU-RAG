@@ -189,8 +189,9 @@ class VanillaRAG(RAGInterface):
 
                 # Create a comprehensive RAG prompt
                 system_message = (
-                    "You are a knowledgeable AI assistant. Provide detailed, accurate answers "
-                    "to user questions. Structure your response clearly and cite sources when possible."
+                    "You are a knowledgeable AI search assistant. "
+                    "Reply to the user query as a search response to explain and answer things. "
+                    "Keep your response concise and to the point. Structure your response clearly."
                 )
 
                 messages: List[ChatCompletionMessageParam] = [
