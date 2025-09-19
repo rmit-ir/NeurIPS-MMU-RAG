@@ -52,19 +52,16 @@ uv run fastapi dev src/apis/openai_router.py
 
 ### Docker Deployment
 
-```bash
-# Build the Docker image
-docker build -t mmu-rag .
+See `cloud/openai_server/docker-compose.yaml` for example.
 
-# Run the container
-docker run -p 8000:8000 mmu-rag
+## Additional Information
 
-# Access the server at http://localhost:8000
-```
+<details>
+<summary>What's Included</summary>
 
-## 📁 What's Included
+### 📁 What's Included
 
-### RAG Implementation Templates (`src/tools/`)
+#### RAG Implementation Templates (`src/tools/`)
 
 - `pipeline.py` - Main RAG pipeline orchestration
 - `loader.py` - Document loading from various formats
@@ -76,7 +73,7 @@ docker run -p 8000:8000 mmu-rag
 - `generator.py` - Answer generation using LLMs
 - `web_search.py` - FineWeb & ClueWeb-22 web search utility (base64 JSON decoding)
 
-### Testing & Validation
+#### Testing & Validation
 
 - `local_test.py` - Comprehensive test runner for RAG system compliance
 
@@ -95,10 +92,14 @@ python local_test.py --base-url http://localhost:5010 \
     --validation-file custom_val.jsonl \
     --test-question "What is machine learning?"
 ```
+</details>
 
-## 📋 Requirements Specification
+<details>
+<summary>Requirements Specification</summary>
 
-### Dynamic Evaluation (`/run` endpoint)
+### 📋 Requirements Specification
+
+#### Dynamic Evaluation (`/run` endpoint)
 
 - **Input**: `{"question": "string"}`
 - **Output**: SSE stream with JSON objects containing:
@@ -108,11 +109,16 @@ python local_test.py --base-url http://localhost:5010 \
   - `citations`: Array of source references
   - `complete`: Completion signal
 
-### Static Evaluation (`/evaluate` endpoint)
+#### Static Evaluation (`/evaluate` endpoint)
 
 - **Input**: `{"query": "string", "iid": "string"}`
 - **Output**: `{"query_id": "string", "generated_response": "string"}`
 - **File Output**: Must generate `result.jsonl` with all responses
+
+</details>
+
+<details>
+<summary>Creating a New RAG System</summary>
 
 ## 🔧 Creating a New RAG System
 
@@ -151,6 +157,13 @@ Or use the provided test runner to validate basics of your implementation:
 python local_test.py --base-url http://localhost:8000
 ```
 
+</details>
+
+<details>
+<summary>Additional Resources</summary>
+
 ## 📚 Additional Resources
 
 - **MMU-RAG Challenge**: [Official Challenge Details](https://agi-lti.github.io/MMU-RAgent/text-to-text)
+
+</details>
