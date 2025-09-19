@@ -190,7 +190,7 @@ class VanillaRAG(RAGInterface):
                 # Create a comprehensive RAG prompt
                 system_message = (
                     "You are a knowledgeable AI search assistant. "
-                    "Reply to the user query as a search response to explain and answer things, do not chat with the user. "
+                    "You must treat user query as a search query, not a message, reply with a search response to explain and answer things, do not answer to greetings or chat with the user. "
                     "Keep your response concise and to the point. Structure your response clearly."
                 )
 
