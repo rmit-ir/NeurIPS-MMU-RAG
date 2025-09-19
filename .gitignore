@@ -191,3 +191,5 @@ config.yaml
 *.backup
 
 docker-compose.override.yaml
+
+data/raw_responses/
