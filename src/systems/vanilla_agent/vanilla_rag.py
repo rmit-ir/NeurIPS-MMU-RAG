@@ -1,8 +1,8 @@
+import asyncio
 from typing import AsyncGenerator, Callable, List, Optional
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
-from tools.llm_servers.sglang_server import launch_server, terminate_server
-from tools.llm_servers.general_openai_client import GeneralOpenAIClient
+from tools.llm_servers.sglang_server import get_openai_client
 from tools.logging_utils import get_logger
 from tools.web_search import SearchError, SearchResult, search_fineweb
 from tools.doc_truncation import truncate_docs
@@ -42,64 +42,8 @@ class VanillaRAG(RAGInterface):
         self.retrieval_words_threshold = retrieval_words_threshold
 
         self.logger = get_logger("vanilla_rag")
-        self.server_process = None
-        self.client = None
-        self.server_host = None
-        self.api_base = None
+        self.llm_client = None
         self._is_processing = False
-        self._is_llm_starting = False
-
-    async def _ensure_server_running(self):
-        """Ensure SGLang server is running and client is initialized."""
-        # if server and client are not initialized, start them
-        if not (self.server_process and self.client):
-            # however, only start if not already starting
-            if not self._is_llm_starting:
-                try:
-                    self._is_llm_starting = True
-                    self.logger.info("Starting SGLang server",
-                                     model_id=self.model_id)
-                    self.server_process, self.server_host, self.api_base, port = launch_server(
-                        model_id=self.model_id,
-                        reasoning_parser=self.reasoning_parser,
-                        mem_fraction_static=self.mem_fraction_static,
-                        max_running_requests=self.max_running_requests,
-                        api_key=self.api_key
-                    )
-
-                    self.client = GeneralOpenAIClient(
-                        api_base=self.api_base,
-                        api_key=self.api_key,
-                        model_id=self.model_id,
-                        temperature=self.temperature,
-                        max_tokens=self.max_tokens,
-                        llm_name="vanilla_rag_sglang"
-                    )
-                    self.logger.info(
-                        "SGLang server and client initialized", port=port)
-                finally:
-                    self._is_llm_starting = False
-            # otherwise continue waiting
-
-        # Add timeout to prevent infinite loop
-        max_wait_time = 3600  # seconds
-        wait_time = 0
-        # wait for server process and host to be set
-        while not (self.client and self.server_host):
-            if wait_time >= max_wait_time:
-                raise RuntimeError(
-                    f"Server failed to initialize within {max_wait_time} seconds")
-            await asyncio.sleep(1)
-            wait_time += 1
-
-    def _shutdown_server(self):
-        """Shutdown the SGLang server."""
-        if self.server_process:
-            terminate_server(self.server_process)
-            self.server_process = None
-            self.client = None
-            self.api_base = None
-            self.logger.info("SGLang server terminated")
 
     @property
     def name(self) -> str:
@@ -108,12 +52,21 @@ class VanillaRAG(RAGInterface):
     @property
     def is_running(self) -> bool:
         """Check if the SGLang server is running."""
-        return self.server_process is not None and self.client is not None
+        return self.llm_client is not None
 
     @property
     def is_processing(self) -> bool:
         """Check if the system is currently processing a request."""
         return self._is_processing
+
+    async def _ensure_llm_client(self):
+        if not self.llm_client:
+            self.llm_client = await get_openai_client(model_id=self.model_id,
+                                                      reasoning_parser=self.reasoning_parser,
+                                                      mem_fraction_static=self.mem_fraction_static,
+                                                      max_running_requests=self.max_running_requests,
+                                                      api_key=self.api_key,
+                                                      temperature=self.temperature)
 
     def _to_context(self, results: list[SearchResult | SearchError]) -> str:
         # Filter out SearchError objects and get only SearchResult objects
@@ -160,8 +113,8 @@ Keep your response concise and to the point, and do not answer to greetings or c
         """
         self._is_processing = True
         try:
-            await self._ensure_server_running()
-            if not self.client:
+            await self._ensure_llm_client()
+            if not self.llm_client:
                 raise RuntimeError("SGLang client is not initialized.")
 
             # Search for relevant documents
@@ -169,7 +122,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
             messages = self._llm_messages(results, request.query)
 
             # Generate response using SGLang
-            generated_response, _ = self.client.complete_chat(messages)
+            generated_response, _ = self.llm_client.complete_chat(messages)
 
             return EvaluateResponse(
                 query_id=request.iid,
@@ -207,8 +160,8 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=False
                 )
 
-                await self._ensure_server_running()
-                if not self.client:
+                await self._ensure_llm_client()
+                if not self.llm_client:
                     raise RuntimeError("SGLang server failed to launch\n\n")
 
                 yield RunStreamingResponse(
@@ -223,7 +176,8 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=False
                 )
                 results = await search_fineweb(request.question, k=5)
-                md_urls = '\n'.join([f"- {r.url}" for r in results if isinstance(r, SearchResult)])
+                md_urls = '\n'.join(
+                    [f"- {r.url}" for r in results if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
                     intermediate_steps=f"""Found {len(results)} results
 
@@ -239,7 +193,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=False
                 )
 
-                async for chunk in self.client.complete_chat_streaming(messages):
+                async for chunk in self.llm_client.complete_chat_streaming(messages):
                     if chunk.choices[0].finish_reason is not None:
                         # Stream finished
                         break
@@ -278,10 +232,6 @@ Keep your response concise and to the point, and do not answer to greetings or c
                 self._is_processing = False
 
         return stream
-
-    def __del__(self):
-        """Cleanup when object is destroyed."""
-        self._shutdown_server()
 
 
 if __name__ == "__main__":
@@ -347,7 +297,6 @@ if __name__ == "__main__":
             # Cleanup
             print(
                 f"\nFinal status - Is running: {rag.is_running}, Is processing: {rag.is_processing}")
-            rag._shutdown_server()
             print("Test completed.")
 
     # Run the async main function
