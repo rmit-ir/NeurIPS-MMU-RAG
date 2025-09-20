@@ -223,8 +223,11 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=False
                 )
                 results = await search_fineweb(request.question, k=5)
+                md_urls = '\n'.join([f"- {r.url}" for r in results if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
-                    intermediate_steps=f"Found {len(results)} results\n\n",
+                    intermediate_steps=f"""Found {len(results)} results
+
+{md_urls}\n\n""",
                     is_intermediate=True,
                     complete=False
                 )
