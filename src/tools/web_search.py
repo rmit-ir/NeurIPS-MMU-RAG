@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, NamedTuple
 
 import aiohttp
 
+from tools.logging_utils import get_logger
+
+logger = get_logger('web_search')
+
 
 class SearchResult(NamedTuple):
     """Typed result from external search sources."""
@@ -142,7 +146,7 @@ async def search_fineweb(
     json_resp = await _make_search_request(
         FINEWEB_BASE_URL, params, None, session, timeout, "FineWeb"
     )
-    results = _decode_results(json_resp)
+    results = _decode_results(json_resp, id_prefix)
     return results
 
 
@@ -151,6 +155,7 @@ async def search_clueweb(
     k: int = 5,
     api_key: Optional[str] = None,
     cw22_a: bool = False,
+    id_prefix: Optional[str] = None,
     session: Optional[aiohttp.ClientSession] = None,
     timeout: float = 30.0,
 ) -> List[SearchResult | SearchError]:
@@ -185,9 +190,13 @@ async def search_clueweb(
         params["cw22_a"] = "true"
     headers = {"x-api-key": key}
 
-    return await _make_search_request(
+    json_resp = await _make_search_request(
         CLUEWEB_BASE_URL, params, headers, session, timeout, "ClueWeb"
     )
+    logger.info("TODO: ClueWeb not tested yet")
+
+    results = _decode_results(json_resp, id_prefix)
+    return results
 
 
 def _sync_wrapper(async_func, *args, **kwargs) -> List[SearchResult | SearchError]:
