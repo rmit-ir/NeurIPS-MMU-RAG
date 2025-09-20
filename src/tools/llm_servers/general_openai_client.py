@@ -147,12 +147,12 @@ class GeneralOpenAIClient(LLMInterface):
 
     # another level of retry, this wait time is increased exponentially
     @retry(max_retries=8, retry_on=(APIError, APIConnectionError, RateLimitError))
-    def complete_chat(self, messages: List[Dict[str, str]]) -> Tuple[str, Any]:
+    def complete_chat(self, messages: List[ChatCompletionMessageParam]) -> Tuple[str, Any]:
         """
         Generate a response for a chat conversation.
 
         Args:
-            messages (List[Dict[str, str]]): A list of message dictionaries, 
+            messages (List[ChatCompletionMessageParam]): A list of message dictionaries,
                 each containing 'role' (system, user, or assistant) and 'content' keys
 
         Returns:
@@ -227,7 +227,7 @@ class GeneralOpenAIClient(LLMInterface):
         system_message = system_message or "You are an AI assistant that provides clear, concise explanations."
 
         # Format messages with system message and user prompt
-        messages = [
+        messages: List[ChatCompletionMessageParam] = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": message}
         ]

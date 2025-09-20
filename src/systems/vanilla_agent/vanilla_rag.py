@@ -5,6 +5,7 @@ from tools.llm_servers.sglang_server import launch_server, terminate_server
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.web_search import SearchError, SearchResult, search_fineweb
+from tools.doc_truncation import truncate_docs
 
 
 class VanillaRAG(RAGInterface):
@@ -17,6 +18,7 @@ class VanillaRAG(RAGInterface):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        retrieval_words_threshold: int = 5000,
     ):
         """
         Initialize VanillaRAG with SGLang server.
@@ -37,6 +39,7 @@ class VanillaRAG(RAGInterface):
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.retrieval_words_threshold = retrieval_words_threshold
 
         self.logger = get_logger("vanilla_rag")
         self.server_process = None
@@ -112,14 +115,38 @@ class VanillaRAG(RAGInterface):
         """Check if the system is currently processing a request."""
         return self._is_processing
 
-    async def _to_context(self, results: list[SearchResult | SearchError]) -> str:
+    def _to_context(self, results: list[SearchResult | SearchError]) -> str:
+        # Filter out SearchError objects and get only SearchResult objects
+        search_results = [r for r in results if isinstance(r, SearchResult)]
+
+        # Truncate documents to prevent context from being too long
+        truncated_results = truncate_docs(
+            search_results, self.retrieval_words_threshold)
+
         context = "<context>"
         context += "\n".join([f"""
 Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
 
-{r.text}""" for i, r in enumerate(results) if isinstance(r, SearchResult)])
+{r.text}""" for r in truncated_results])
         context += "</context>"
         return context
+
+    def _llm_messages(self, results: list[SearchResult | SearchError], query: str) -> List[ChatCompletionMessageParam]:
+        # Create a simple RAG prompt
+        system_message = """You are a knowledgeable AI search assistant.
+
+Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <context> tags.
+
+The next user message is the full user query, and you need to explain and answer the search query based on the context. Do not make up answers that are not supported by the context. If the context does not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
+
+Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
+        system_message = \
+            str(system_message) + self._to_context(results)
+
+        return [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": query},
+        ]
 
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """
@@ -137,21 +164,9 @@ Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
             if not self.client:
                 raise RuntimeError("SGLang client is not initialized.")
 
-            # Create a simple RAG prompt
-            system_message = """You are a knowledgeable AI search assistant.
-
-Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <context> tags.
-
-The next user message is the full user query, and you need to explain and answer the search query based on the context. Do not make up answers that are not supported by the context. If the context does not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
-
-Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
-            system_message = \
-                str(system_message) + await self._to_context(request.query)
-
-            messages = [
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": request.query},
-            ]
+            # Search for relevant documents
+            results = await search_fineweb(request.query, k=5)
+            messages = self._llm_messages(results, request.query)
 
             # Generate response using SGLang
             generated_response, _ = self.client.complete_chat(messages)
@@ -202,15 +217,6 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=False
                 )
 
-                # Create a simple RAG prompt
-                system_message = """You are a knowledgeable AI search assistant.
-
-    Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <context> tags.
-
-    The next user message is the full user query, and you need to explain and answer the search query based on the context. Do not make up answers that are not supported by the context. If the context does not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
-
-    Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
-
                 yield RunStreamingResponse(
                     intermediate_steps=f"Searching: {request.question}\n\n",
                     is_intermediate=True,
@@ -222,14 +228,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     is_intermediate=True,
                     complete=False
                 )
-
-                system_message = \
-                    str(system_message) + await self._to_context(results)
-
-                messages: List[ChatCompletionMessageParam] = [
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": request.question}
-                ]
+                messages = self._llm_messages(results, request.question)
 
                 yield RunStreamingResponse(
                     intermediate_steps="Starting to answer\n\n",
