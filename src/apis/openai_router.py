@@ -6,6 +6,7 @@ Implements /v1/models and /v1/chat/completions endpoints.
 import os
 from typing import List, Dict, Optional, Union
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
+from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -13,10 +14,19 @@ from pydantic import BaseModel
 
 from systems.rag_interface import RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
+from tools.llm_servers.sglang_server import get_sglang_server
 from tools.responses.openai_stream import to_openai_stream
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Launch llm
+    await get_sglang_server()
+    yield
+
 # Create app for standalone usage
-app = FastAPI(title="OpenAI-Compatible RAG API", version="1.0.0")
+app = FastAPI(title="OpenAI-Compatible RAG API",
+              version="1.0.0", lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(

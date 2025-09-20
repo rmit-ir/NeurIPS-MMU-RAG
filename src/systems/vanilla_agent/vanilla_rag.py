@@ -43,30 +43,20 @@ class VanillaRAG(RAGInterface):
 
         self.logger = get_logger("vanilla_rag")
         self.llm_client = None
-        self._is_processing = False
 
     @property
     def name(self) -> str:
         return "vanilla-rag"
 
-    @property
-    def is_running(self) -> bool:
-        """Check if the SGLang server is running."""
-        return self.llm_client is not None
-
-    @property
-    def is_processing(self) -> bool:
-        """Check if the system is currently processing a request."""
-        return self._is_processing
-
     async def _ensure_llm_client(self):
         if not self.llm_client:
-            self.llm_client = await get_openai_client(model_id=self.model_id,
-                                                      reasoning_parser=self.reasoning_parser,
-                                                      mem_fraction_static=self.mem_fraction_static,
-                                                      max_running_requests=self.max_running_requests,
-                                                      api_key=self.api_key,
-                                                      temperature=self.temperature)
+            self.llm_client = await get_openai_client(
+                model_id=self.model_id,
+                reasoning_parser=self.reasoning_parser,
+                mem_fraction_static=self.mem_fraction_static,
+                max_running_requests=self.max_running_requests,
+                api_key=self.api_key,
+                temperature=self.temperature)
 
     def _to_context(self, results: list[SearchResult | SearchError]) -> str:
         # Filter out SearchError objects and get only SearchResult objects
@@ -111,7 +101,6 @@ Keep your response concise and to the point, and do not answer to greetings or c
         Returns:
             EvaluateResponse with generated answer
         """
-        self._is_processing = True
         try:
             await self._ensure_llm_client()
             if not self.llm_client:
@@ -137,8 +126,6 @@ Keep your response concise and to the point, and do not answer to greetings or c
                 citations=[],
                 generated_response=f"Error processing query: {str(e)}"
             )
-        finally:
-            self._is_processing = False
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
@@ -151,7 +138,6 @@ Keep your response concise and to the point, and do not answer to greetings or c
             Async generator function for streaming responses
         """
         async def stream():
-            self._is_processing = True
             try:
                 # Ensure server is running
                 yield RunStreamingResponse(
@@ -228,8 +214,6 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=True,
                     error=str(e)
                 )
-            finally:
-                self._is_processing = False
 
         return stream
 
@@ -293,11 +277,6 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f"Error during testing: {str(e)}")
-        finally:
-            # Cleanup
-            print(
-                f"\nFinal status - Is running: {rag.is_running}, Is processing: {rag.is_processing}")
-            print("Test completed.")
 
     # Run the async main function
     asyncio.run(main())

@@ -3,6 +3,7 @@ MMU-RAG Challenge API implementation with /evaluate and /run endpoints.
 """
 
 from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,14 +14,24 @@ from systems.rag_interface import (
     RunRequest,
 )
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
+# from tools.llm_servers.sglang_server import get_sglang_server
 from tools.responses.mmu_rag_stream import to_mmu_rag_stream
 
 
 # Create router for MMU-RAG endpoints
 router = APIRouter(prefix="", tags=["MMU-RAG Challenge"])
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Launch llm
+    # TODO: do we want to decide the model here?
+    # await get_sglang_server()
+    yield
+
 # Create app for standalone usage
-app = FastAPI(title="MMU-RAG Challenge API", version="1.0.0")
+app = FastAPI(title="MMU-RAG Challenge API",
+              version="1.0.0", lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
