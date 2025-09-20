@@ -56,6 +56,7 @@ class VanillaRAG(RAGInterface):
                 mem_fraction_static=self.mem_fraction_static,
                 max_running_requests=self.max_running_requests,
                 api_key=self.api_key,
+                max_tokens=self.max_tokens,
                 temperature=self.temperature)
 
     def _to_context(self, results: list[SearchResult | SearchError]) -> str:

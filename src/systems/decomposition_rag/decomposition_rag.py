@@ -3,8 +3,7 @@ import asyncio
 import re
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
-from tools.llm_servers.sglang_server import launch_server, terminate_server
-from tools.llm_servers.general_openai_client import GeneralOpenAIClient
+from tools.llm_servers.sglang_server import get_openai_client
 from tools.web_search import SearchResult, search_fineweb
 from tools.logging_utils import get_logger
 
@@ -50,65 +49,25 @@ class DecompositionRAG(RAGInterface):
         self.max_sub_queries = max_sub_queries
 
         self.logger = get_logger("decomposition_rag")
-        self.server_process = None
-        self.client = None
-        self.server_host = None
-        self.api_base = None
-        self._is_processing = False
-        self._is_llm_starting = False
+        self.llm_client = None
 
-    async def _ensure_server_running(self):
-        """Ensure SGLang server is running and client is initialized."""
-        if not (self.server_process and self.client):
-            if not self._is_llm_starting:
-                try:
-                    self._is_llm_starting = True
-                    self.logger.info("Starting SGLang server",
-                                     model_id=self.model_id)
-                    self.server_process, self.server_host, self.api_base, port = launch_server(
-                        model_id=self.model_id,
-                        reasoning_parser=self.reasoning_parser,
-                        mem_fraction_static=self.mem_fraction_static,
-                        max_running_requests=self.max_running_requests,
-                        api_key=self.api_key
-                    )
-
-                    self.client = GeneralOpenAIClient(
-                        api_base=self.api_base,
-                        api_key=self.api_key,
-                        model_id=self.model_id,
-                        temperature=self.temperature,
-                        max_tokens=self.max_tokens,
-                        llm_name="decomposition_rag_sglang"
-                    )
-                    self.logger.info(
-                        "SGLang server and client initialized", port=port)
-                finally:
-                    self._is_llm_starting = False
-
-        max_wait_time = 3600
-        wait_time = 0
-        while not (self.client and self.server_host):
-            if wait_time >= max_wait_time:
-                raise RuntimeError(
-                    f"Server failed to initialize within {max_wait_time} seconds")
-            await asyncio.sleep(1)
-            wait_time += 1
-
-    def _shutdown_server(self):
-        """Shutdown the SGLang server."""
-        if self.server_process:
-            terminate_server(self.server_process)
-            self.server_process = None
-            self.client = None
-            self.api_base = None
-            self.logger.info("SGLang server terminated")
+    async def _ensure_llm_client(self):
+        if not self.llm_client:
+            self.llm_client = await get_openai_client(
+                model_id=self.model_id,
+                reasoning_parser=self.reasoning_parser,
+                mem_fraction_static=self.mem_fraction_static,
+                max_running_requests=self.max_running_requests,
+                api_key=self.api_key,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature)
 
     async def _decompose_query(self, query: str) -> List[str]:
         """Decompose a complex query into simpler sub-queries."""
         try:
             self.logger.info("Decomposing query", query=query)
-            if not self.client:
+            await self._ensure_llm_client()
+            if not self.llm_client:
                 raise RuntimeError("SGLang client is not initialized.")
 
             decomposition_prompt = f"""
@@ -137,7 +96,7 @@ Only output the numbered list, nothing else.
                 {"role": "user", "content": decomposition_prompt}
             ]
 
-            response, _ = self.client.complete_chat(messages)
+            response, _ = self.llm_client.complete_chat(messages)
 
             # Parse the numbered list
             sub_queries = []
@@ -209,7 +168,7 @@ Only output the numbered list, nothing else.
     async def _answer_sub_query(self, sub_query: str, context: str) -> str:
         """Generate an answer for a single sub-query using the provided context."""
         try:
-            if not self.client:
+            if not self.llm_client:
                 raise RuntimeError("SGLang client is not initialized.")
             system_message = (
                 "You are a helpful AI assistant. Answer the question using only the provided context. "
@@ -224,7 +183,7 @@ Only output the numbered list, nothing else.
                 {"role": "user", "content": user_message}
             ]
 
-            response, _ = self.client.complete_chat(messages)
+            response, _ = self.llm_client.complete_chat(messages)
             return response.strip()
 
         except Exception as e:
@@ -234,7 +193,7 @@ Only output the numbered list, nothing else.
     async def _synthesize_answers(self, original_query: str, sub_queries: List[str], sub_answers: List[str]) -> str:
         """Synthesize individual sub-query answers into a comprehensive final answer."""
         try:
-            if not self.client:
+            if not self.llm_client:
                 raise RuntimeError("SGLang client is not initialized.")
             synthesis_prompt = f"""
 Original Query: {original_query}
@@ -256,7 +215,7 @@ If there are any contradictions or gaps, note them clearly.
                 {"role": "user", "content": synthesis_prompt}
             ]
 
-            final_answer, _ = self.client.complete_chat(messages)
+            final_answer, _ = self.llm_client.complete_chat(messages)
             return final_answer.strip()
 
         except Exception as e:
@@ -267,16 +226,6 @@ If there are any contradictions or gaps, note them clearly.
     @property
     def name(self) -> str:
         return "decomposition-rag"
-
-    @property
-    def is_running(self) -> bool:
-        """Check if the SGLang server is running."""
-        return self.server_process is not None and self.client is not None
-
-    @property
-    def is_processing(self) -> bool:
-        """Check if the system is currently processing a request."""
-        return self._is_processing
 
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """
@@ -290,8 +239,8 @@ If there are any contradictions or gaps, note them clearly.
         """
         self._is_processing = True
         try:
-            await self._ensure_server_running()
-            if not self.client:
+            await self._ensure_llm_client()
+            if not self.llm_client:
                 raise RuntimeError("SGLang client is not initialized.")
 
             # Step 1: Decompose the query
@@ -361,8 +310,8 @@ If there are any contradictions or gaps, note them clearly.
                     complete=False
                 )
 
-                await self._ensure_server_running()
-                if not self.client:
+                await self._ensure_llm_client()
+                if not self.llm_client:
                     raise RuntimeError("SGLang server failed to launch")
 
                 yield RunStreamingResponse(
@@ -449,10 +398,6 @@ If there are any contradictions or gaps, note them clearly.
 
         return stream
 
-    def __del__(self):
-        """Cleanup when object is destroyed."""
-        self._shutdown_server()
-
 
 if __name__ == "__main__":
     import asyncio
@@ -507,10 +452,5 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f"Error during testing: {str(e)}")
-        finally:
-            print(
-                f"\nFinal status - Is running: {rag.is_running}, Is processing: {rag.is_processing}")
-            rag._shutdown_server()
-            print("Test completed.")
 
     asyncio.run(main())

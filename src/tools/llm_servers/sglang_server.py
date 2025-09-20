@@ -140,9 +140,10 @@ async def terminate_sglang_server():
 
 
 async def get_openai_client(model_id="Qwen/Qwen3-4B",
-                            reasoning_parser: Optional[str] = "qwen3",
+                            max_tokens: int = 4096,
                             mem_fraction_static: Optional[float] = 0.4,
                             max_running_requests: Optional[int] = 4,
+                            reasoning_parser: Optional[str] = "qwen3",
                             api_key: Optional[str] = None,
                             temperature: float = 0.0):
     api_base, port, server_host = await get_sglang_server(
@@ -157,7 +158,8 @@ async def get_openai_client(model_id="Qwen/Qwen3-4B",
         api_base=api_base,
         api_key=api_key,
         model_id=model_id,
-        temperature=temperature
+        temperature=temperature,
+        max_tokens=max_tokens
     )
 ################################################################################
 

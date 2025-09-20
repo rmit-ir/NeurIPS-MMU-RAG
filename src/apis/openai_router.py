@@ -5,6 +5,7 @@ Implements /v1/models and /v1/chat/completions endpoints.
 
 import os
 from typing import List, Dict, Optional, Union
+import uuid
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import StreamingResponse
@@ -12,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
-from systems.rag_interface import RunRequest
+from systems.decomposition_rag.decomposition_rag import DecompositionRAG
+from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.llm_servers.sglang_server import get_sglang_server
 from tools.responses.openai_stream import to_openai_stream
@@ -70,8 +72,9 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Securit
 
 
 # Global RAG system instance
-rag_systems: Dict[str, VanillaRAG] = {
-    "vanilla-rag": VanillaRAG()
+rag_systems: Dict[str, RAGInterface] = {
+    "vanilla-rag": VanillaRAG(),
+    "decomposition-rag": DecompositionRAG(),
 }
 
 
@@ -184,7 +187,7 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
             eval_response = await model.evaluate(eval_request)
 
             return ChatCompletionResponse(
-                id="chatcmpl-123",
+                id=f"chatcmpl-{uuid.uuid4().hex}",
                 model=request.model,
                 choices=[
                     ChatCompletionChoice(
