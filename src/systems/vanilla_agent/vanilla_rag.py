@@ -123,21 +123,21 @@ class VanillaRAG(RAGInterface):
         truncated_results = truncate_docs(
             search_results, self.retrieval_words_threshold)
 
-        context = "<context>"
+        context = "<search-results>"
         context += "\n".join([f"""
 Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
 
 {r.text}""" for r in truncated_results])
-        context += "</context>"
+        context += "</search-results>"
         return context
 
     def _llm_messages(self, results: list[SearchResult | SearchError], query: str) -> List[ChatCompletionMessageParam]:
         # Create a simple RAG prompt
         system_message = """You are a knowledgeable AI search assistant.
 
-Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <context> tags.
+Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <search-results> tags.
 
-The next user message is the full user query, and you need to explain and answer the search query based on the context. Do not make up answers that are not supported by the context. If the context does not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
+The next user message is the full user query, and you need to explain and answer the search query based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
 
 Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
         system_message = \
