@@ -4,6 +4,7 @@ from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterfac
 from tools.llm_servers.sglang_server import launch_server, terminate_server
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
+from tools.web_search import SearchResult, search_fineweb
 
 
 class VanillaRAG(RAGInterface):
@@ -111,6 +112,16 @@ class VanillaRAG(RAGInterface):
         """Check if the system is currently processing a request."""
         return self._is_processing
 
+    async def _to_context(self, query: str) -> str:
+        results = await search_fineweb(query, k=3)
+        context = "<context>"
+        context += "\n".join([f"""
+Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
+
+{r.text}""" for i, r in enumerate(results) if isinstance(r, SearchResult)])
+        context += "</context>"
+        return context
+
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """
         Process an evaluation request using SGLang server.
@@ -128,14 +139,19 @@ class VanillaRAG(RAGInterface):
                 raise RuntimeError("SGLang client is not initialized.")
 
             # Create a simple RAG prompt
-            system_message = (
-                "You are a helpful AI assistant. Provide accurate and informative answers "
-                "to user questions. If you don't know something, say so clearly."
-            )
+            system_message = """You are a knowledgeable AI search assistant.
+
+Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <context> tags.
+
+The next user message is the full user query, and you need to explain and answer the search query based on the context. Do not make up answers that are not supported by the context. If the context does not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
+
+Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
+            system_message = \
+                str(system_message) + await self._to_context(request.query)
 
             messages = [
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": request.query}
+                {"role": "user", "content": request.query},
             ]
 
             # Generate response using SGLang

@@ -13,6 +13,8 @@ class SearchResult(NamedTuple):
     """Typed result from external search sources."""
     text: str
     id: str
+    sid: str
+    """short identifier, e.g. 1_0, 1_1, etc."""
     dump: str
     url: str
     date: str
@@ -36,7 +38,7 @@ class WebSearchError(Exception):
     """Custom exception for web search related errors."""
 
 
-async def _decode_results(json_payload: Dict[str, Any]) -> List[SearchResult | SearchError]:
+def _decode_results(json_payload: Dict[str, Any], id_prefix: Optional[str] = None) -> List[SearchResult | SearchError]:
     """Decode the Base64 JSON documents in the 'results' field.
 
     Any decoding / JSON errors are handled gracefully: problematic entries are
@@ -44,6 +46,7 @@ async def _decode_results(json_payload: Dict[str, Any]) -> List[SearchResult | S
     """
     raw_results = json_payload.get("results", []) or []
     results: List[SearchResult | SearchError] = []
+    idx = 0
     for item in raw_results:
         if not isinstance(item, str):
             continue
@@ -60,6 +63,7 @@ async def _decode_results(json_payload: Dict[str, Any]) -> List[SearchResult | S
                     result = SearchResult(
                         text=obj.get("text", ""),
                         id=obj.get("id", ""),
+                        sid=f"{id_prefix}_{idx}" if id_prefix else str(idx),
                         dump=obj.get("dump", ""),
                         url=obj.get("url", ""),
                         date=obj.get("date", ""),
@@ -77,6 +81,7 @@ async def _decode_results(json_payload: Dict[str, Any]) -> List[SearchResult | S
                     error="decoded_not_dict", value=obj))
         except Exception as e:  # noqa: BLE001
             results.append(SearchError(error=f"json_parse_failed: {e}"))
+        idx += 1
     return results
 
 
@@ -87,7 +92,7 @@ async def _make_search_request(
     session: Optional[aiohttp.ClientSession] = None,
     timeout: float = 20.0,
     service_name: str = "Search"
-) -> List[SearchResult | SearchError]:
+) -> Dict[str, Any]:
     """Make a search request to the specified URL with common error handling."""
     close_session = False
     if session is None:
@@ -103,15 +108,16 @@ async def _make_search_request(
                     f"{service_name} request failed: {resp.status} {text[:200]}"
                 )
             json_resp = await resp.json(content_type=None)
-        return await _decode_results(json_resp)
+        return json_resp
     finally:
         if close_session:
             await session.close()
 
 
-async def fineweb_search(
+async def search_fineweb(
     query: str,
     k: int = 5,
+    id_prefix: Optional[str] = None,
     session: Optional[aiohttp.ClientSession] = None,
     timeout: float = 20.0,
 ) -> List[SearchResult | SearchError]:
@@ -120,6 +126,7 @@ async def fineweb_search(
     Args:
         query: Search query string.
         k: Number of documents to retrieve.
+        id_prefix: e.g. "1" results in "1_0", "1_1", "1_2", etc.
         session: Optional existing aiohttp session.
         timeout: Total request timeout in seconds.
 
@@ -132,12 +139,14 @@ async def fineweb_search(
         raise ValueError("k must be > 0")
 
     params = {"query": query, "k": str(k)}
-    return await _make_search_request(
+    json_resp = await _make_search_request(
         FINEWEB_BASE_URL, params, None, session, timeout, "FineWeb"
     )
+    results = _decode_results(json_resp)
+    return results
 
 
-async def clueweb_search(
+async def search_clueweb(
     query: str,
     k: int = 5,
     api_key: Optional[str] = None,
@@ -195,12 +204,12 @@ def _sync_wrapper(async_func, *args, **kwargs) -> List[SearchResult | SearchErro
         )
 
 
-def fineweb_search_sync(query: str, k: int = 5, timeout: float = 20.0) -> List[SearchResult | SearchError]:
+def search_fineweb_sync(query: str, k: int = 5, timeout: float = 20.0) -> List[SearchResult | SearchError]:
     """Synchronous wrapper for fineweb_search (creates its own loop if needed)."""
-    return _sync_wrapper(fineweb_search, query=query, k=k, timeout=timeout)
+    return _sync_wrapper(search_fineweb, query=query, k=k, timeout=timeout)
 
 
-def clueweb_search_sync(
+def search_clueweb_sync(
     query: str,
     k: int = 5,
     api_key: Optional[str] = None,
@@ -209,12 +218,12 @@ def clueweb_search_sync(
 ) -> List[SearchResult | SearchError]:
     """Synchronous wrapper for clueweb_search (creates its own loop if needed)."""
     return _sync_wrapper(
-        clueweb_search, query=query, k=k, api_key=api_key, cw22_a=cw22_a, timeout=timeout
+        search_clueweb, query=query, k=k, api_key=api_key, cw22_a=cw22_a, timeout=timeout
     )
 
 
 async def main():
-    results = await fineweb_search("machine learning", k=10)
+    results = await search_fineweb("machine learning", k=10)
     for i, doc in enumerate(results):
         print(f"Result {i+1}", doc)
 
