@@ -16,14 +16,15 @@ from pydantic import BaseModel
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
-from tools.llm_servers.sglang_server import get_sglang_server
+from tools.llm_servers.sglang_server import get_llm_server
 from tools.responses.openai_stream import to_openai_stream
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Launch llm
-    await get_sglang_server()
+    default_llm_server = get_llm_server()
+    await default_llm_server.get_server()
     yield
 
 # Create app for standalone usage
