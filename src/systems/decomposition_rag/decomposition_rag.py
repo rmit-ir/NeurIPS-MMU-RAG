@@ -5,7 +5,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
 from tools.llm_servers.sglang_server import launch_server, terminate_server
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
-from tools.web_search import fineweb_search
+from tools.web_search import SearchResult, search_fineweb
 from tools.logging_utils import get_logger
 
 
@@ -63,7 +63,8 @@ class DecompositionRAG(RAGInterface):
             if not self._is_llm_starting:
                 try:
                     self._is_llm_starting = True
-                    self.logger.info("Starting SGLang server", model_id=self.model_id)
+                    self.logger.info("Starting SGLang server",
+                                     model_id=self.model_id)
                     self.server_process, self.server_host, self.api_base, port = launch_server(
                         model_id=self.model_id,
                         reasoning_parser=self.reasoning_parser,
@@ -80,7 +81,8 @@ class DecompositionRAG(RAGInterface):
                         max_tokens=self.max_tokens,
                         llm_name="decomposition_rag_sglang"
                     )
-                    self.logger.info("SGLang server and client initialized", port=port)
+                    self.logger.info(
+                        "SGLang server and client initialized", port=port)
                 finally:
                     self._is_llm_starting = False
 
@@ -88,7 +90,8 @@ class DecompositionRAG(RAGInterface):
         wait_time = 0
         while not (self.client and self.server_host):
             if wait_time >= max_wait_time:
-                raise RuntimeError(f"Server failed to initialize within {max_wait_time} seconds")
+                raise RuntimeError(
+                    f"Server failed to initialize within {max_wait_time} seconds")
             await asyncio.sleep(1)
             wait_time += 1
 
@@ -105,6 +108,8 @@ class DecompositionRAG(RAGInterface):
         """Decompose a complex query into simpler sub-queries."""
         try:
             self.logger.info("Decomposing query", query=query)
+            if not self.client:
+                raise RuntimeError("SGLang client is not initialized.")
 
             decomposition_prompt = f"""
 You are an expert at breaking down complex questions into simpler, focused sub-questions.
@@ -127,7 +132,7 @@ Format your response as a numbered list:
 Only output the numbered list, nothing else.
 """
 
-            messages = [
+            messages: List[ChatCompletionMessageParam] = [
                 {"role": "system", "content": "You are a helpful assistant that decomposes complex queries."},
                 {"role": "user", "content": decomposition_prompt}
             ]
@@ -148,7 +153,8 @@ Only output the numbered list, nothing else.
             # Limit to max_sub_queries
             sub_queries = sub_queries[:self.max_sub_queries]
 
-            self.logger.info("Decomposed into sub-queries", count=len(sub_queries), sub_queries=sub_queries)
+            self.logger.info("Decomposed into sub-queries",
+                             count=len(sub_queries), sub_queries=sub_queries)
             return sub_queries
 
         except Exception as e:
@@ -159,22 +165,22 @@ Only output the numbered list, nothing else.
     async def _retrieve_documents(self, query: str) -> List[Dict[str, str]]:
         """Retrieve relevant documents using FineWeb search."""
         try:
-            self.logger.info("Searching FineWeb", query=query, k=self.search_results_k)
-            search_results = await fineweb_search(query=query, k=self.search_results_k)
+            self.logger.info("Searching FineWeb", query=query,
+                             k=self.search_results_k)
+            search_results = await search_fineweb(query=query, k=self.search_results_k)
+            search_results = [
+                res for res in search_results if isinstance(res, SearchResult)]
 
             documents = []
             for result in search_results:
-                if isinstance(result, dict) and "_error" not in result:
-                    title = result.get("title", "")
-                    content = result.get("text", result.get("content", ""))
-                    url = result.get("url", "")
+                content = result.text
+                url = result.url
 
-                    if content:
-                        documents.append({
-                            "title": title,
-                            "content": content[:self.max_context_length],
-                            "url": url
-                        })
+                if content:
+                    documents.append({
+                        "content": content[:self.max_context_length],
+                        "url": url
+                    })
 
             self.logger.info("Retrieved documents", count=len(documents))
             return documents
@@ -190,11 +196,10 @@ Only output the numbered list, nothing else.
 
         context_parts = []
         for i, doc in enumerate(documents, 1):
-            title = doc.get("title", f"Document {i}")
             content = doc.get("content", "")
             url = doc.get("url", "")
 
-            context_part = f"[{i}] {title}\n{content}"
+            context_part = f"[{i}]\n{content}"
             if url:
                 context_part += f"\nSource: {url}"
             context_parts.append(context_part)
@@ -204,6 +209,8 @@ Only output the numbered list, nothing else.
     async def _answer_sub_query(self, sub_query: str, context: str) -> str:
         """Generate an answer for a single sub-query using the provided context."""
         try:
+            if not self.client:
+                raise RuntimeError("SGLang client is not initialized.")
             system_message = (
                 "You are a helpful AI assistant. Answer the question using only the provided context. "
                 "Be concise but comprehensive. If the context doesn't contain relevant information, "
@@ -212,7 +219,7 @@ Only output the numbered list, nothing else.
 
             user_message = f"Context:\n{context}\n\nQuestion: {sub_query}"
 
-            messages = [
+            messages: List[ChatCompletionMessageParam] = [
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
             ]
@@ -227,6 +234,8 @@ Only output the numbered list, nothing else.
     async def _synthesize_answers(self, original_query: str, sub_queries: List[str], sub_answers: List[str]) -> str:
         """Synthesize individual sub-query answers into a comprehensive final answer."""
         try:
+            if not self.client:
+                raise RuntimeError("SGLang client is not initialized.")
             synthesis_prompt = f"""
 Original Query: {original_query}
 
@@ -242,7 +251,7 @@ Synthesize the information coherently, avoid redundancy, and ensure the answer i
 If there are any contradictions or gaps, note them clearly.
 """
 
-            messages = [
+            messages: List[ChatCompletionMessageParam] = [
                 {"role": "system", "content": "You are an expert at synthesizing information from multiple sources into coherent answers."},
                 {"role": "user", "content": synthesis_prompt}
             ]
@@ -294,7 +303,8 @@ If there are any contradictions or gaps, note them clearly.
             all_documents = []
 
             for i, sub_query in enumerate(sub_queries):
-                self.logger.info(f"Processing sub-query {i+1}/{len(sub_queries)}", sub_query=sub_query)
+                self.logger.info(
+                    f"Processing sub-query {i+1}/{len(sub_queries)}", sub_query=sub_query)
 
                 # Retrieve documents for this sub-query
                 documents = await self._retrieve_documents(sub_query)
@@ -498,7 +508,8 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Error during testing: {str(e)}")
         finally:
-            print(f"\nFinal status - Is running: {rag.is_running}, Is processing: {rag.is_processing}")
+            print(
+                f"\nFinal status - Is running: {rag.is_running}, Is processing: {rag.is_processing}")
             rag._shutdown_server()
             print("Test completed.")
 
