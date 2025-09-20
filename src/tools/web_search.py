@@ -231,6 +231,11 @@ def search_clueweb_sync(
     )
 
 
+# Backward compatibility aliases
+fineweb_search = search_fineweb
+clueweb_search = search_clueweb
+
+
 async def main():
     results = await search_fineweb("machine learning", k=10)
     for i, doc in enumerate(results):
