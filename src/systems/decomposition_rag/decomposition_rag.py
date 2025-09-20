@@ -308,7 +308,7 @@ If there are any contradictions or gaps, note them clearly.
             self._is_processing = True
             try:
                 yield RunStreamingResponse(
-                    intermediate_steps="Initializing SGLang server...",
+                    intermediate_steps="Initializing SGLang server...\n\n",
                     is_intermediate=True,
                     complete=False
                 )
@@ -318,7 +318,7 @@ If there are any contradictions or gaps, note them clearly.
                     raise RuntimeError("SGLang server failed to launch")
 
                 yield RunStreamingResponse(
-                    intermediate_steps="Decomposing complex query into sub-questions...",
+                    intermediate_steps="Decomposing complex query into sub-questions...\n\n",
                     is_intermediate=True,
                     complete=False
                 )
@@ -338,7 +338,7 @@ If there are any contradictions or gaps, note them clearly.
 
                 for i, sub_query in enumerate(sub_queries):
                     yield RunStreamingResponse(
-                        intermediate_steps=f"Processing sub-question {i+1}/{len(sub_queries)}: {sub_query}\n",
+                        intermediate_steps=f"Processing sub-question {i+1}/{len(sub_queries)}: {sub_query}\n\n",
                         is_intermediate=True,
                         complete=False
                     )
@@ -353,7 +353,7 @@ If there are any contradictions or gaps, note them clearly.
                     sub_answers.append(answer)
 
                     yield RunStreamingResponse(
-                        intermediate_steps=f"✓ Completed sub-question {i+1}\n",
+                        intermediate_steps=f"✓ Completed sub-question {i+1}\n\n",
                         is_intermediate=True,
                         complete=False
                     )
