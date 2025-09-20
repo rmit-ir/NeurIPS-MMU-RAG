@@ -4,7 +4,7 @@ from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterfac
 from tools.llm_servers.sglang_server import launch_server, terminate_server
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
-from tools.web_search import SearchResult, search_fineweb
+from tools.web_search import SearchError, SearchResult, search_fineweb
 
 
 class VanillaRAG(RAGInterface):
@@ -112,8 +112,7 @@ class VanillaRAG(RAGInterface):
         """Check if the system is currently processing a request."""
         return self._is_processing
 
-    async def _to_context(self, query: str) -> str:
-        results = await search_fineweb(query, k=3)
+    async def _to_context(self, results: list[SearchResult | SearchError]) -> str:
         context = "<context>"
         context += "\n".join([f"""
 Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
@@ -203,18 +202,40 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     complete=False
                 )
 
-                # Create a comprehensive RAG prompt
-                system_message = (
-                    "You are a knowledgeable AI search assistant. "
-                    "The user has sent you a search query, and you need to provide information about the query. "
-                    "Reply with a search response to explain and answer things, do not answer to greetings or chat with the user. "
-                    "Keep your response concise and to the point."
+                # Create a simple RAG prompt
+                system_message = """You are a knowledgeable AI search assistant.
+
+    Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <context> tags.
+
+    The next user message is the full user query, and you need to explain and answer the search query based on the context. Do not make up answers that are not supported by the context. If the context does not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
+
+    Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
+
+                yield RunStreamingResponse(
+                    intermediate_steps=f"Searching: {request.question}\n\n",
+                    is_intermediate=True,
+                    complete=False
                 )
+                results = await search_fineweb(request.question, k=5)
+                yield RunStreamingResponse(
+                    intermediate_steps=f"Found {len(results)} results\n\n",
+                    is_intermediate=True,
+                    complete=False
+                )
+
+                system_message = \
+                    str(system_message) + await self._to_context(results)
 
                 messages: List[ChatCompletionMessageParam] = [
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": request.question}
                 ]
+
+                yield RunStreamingResponse(
+                    intermediate_steps="Starting to answer\n\n",
+                    is_intermediate=True,
+                    complete=False
+                )
 
                 async for chunk in self.client.complete_chat_streaming(messages):
                     if chunk.choices[0].finish_reason is not None:
