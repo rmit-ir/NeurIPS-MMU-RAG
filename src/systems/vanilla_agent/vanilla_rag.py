@@ -143,6 +143,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
         """
         async def stream():
             try:
+                # TODO: this message is not sent to frontend, it's blocked by SGLang startup
                 # Ensure server is running
                 yield RunStreamingResponse(
                     intermediate_steps="Initializing SGLang server...\n\n",
