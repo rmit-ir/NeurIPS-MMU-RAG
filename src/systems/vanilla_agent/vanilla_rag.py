@@ -135,7 +135,7 @@ Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
         # Create a simple RAG prompt
         system_message = """You are a knowledgeable AI search assistant.
 
-Your supporting system has provided you a list of relevant webpages based on the user's query, listed below in <search-results> tags.
+Your search engine has returned a list of relevant webpages based on the user's query, listed below in <search-results> tags.
 
 The next user message is the full user query, and you need to explain and answer the search query based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
 
