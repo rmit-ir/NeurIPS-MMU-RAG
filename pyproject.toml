@@ -12,6 +12,7 @@ dependencies = [
     "openai>=1.99.1",
     "pydantic>=2.11.7",
     "structlog>=25.4.0",
+    "tiktoken>=0.8.0",
     "transformers>=4.56.1",
 ]
 
