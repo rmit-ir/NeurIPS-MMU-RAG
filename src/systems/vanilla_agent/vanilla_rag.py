@@ -115,12 +115,12 @@ Keep your response concise and to the point, and do not answer to greetings or c
             messages = self._llm_messages(results, request.query)
 
             # Generate response using SGLang
-            generated_response, _ = self.llm_client.complete_chat(messages)
+            generated_response, _ = await self.llm_client.complete_chat(messages)
 
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=[],  # TODO: Add citation extraction logic
-                generated_response=generated_response
+                generated_response=generated_response or "Answer unavailable."
             )
 
         except Exception as e:

@@ -147,7 +147,7 @@ class GeneralOpenAIClient(LLMInterface):
 
     # another level of retry, this wait time is increased exponentially
     @retry(max_retries=8, retry_on=(APIError, APIConnectionError, RateLimitError))
-    def complete_chat(self, messages: List[ChatCompletionMessageParam]) -> Tuple[str, Any]:
+    async def complete_chat(self, messages: List[ChatCompletionMessageParam]) -> Tuple[str | None, Any]:
         """
         Generate a response for a chat conversation.
 
@@ -165,7 +165,7 @@ class GeneralOpenAIClient(LLMInterface):
 
         try:
             # Send the message and get the response
-            response = self.client.chat.completions.create(
+            response = await self.async_client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
                 temperature=self.temperature,
@@ -209,7 +209,7 @@ class GeneralOpenAIClient(LLMInterface):
             self.logger.error(f"Unexpected error: {str(e)}")
             raise
 
-    def complete_chat_once(self, message: str, system_message: Optional[str] = None) -> Tuple[str, Any]:
+    async def complete_chat_once(self, message: str, system_message: Optional[str] = None) -> Tuple[str, Any]:
         """
         Generate a response for a chat conversation with a single call.
 
@@ -233,7 +233,7 @@ class GeneralOpenAIClient(LLMInterface):
         ]
 
         # Use complete_chat to handle the request
-        return self.complete_chat(messages)
+        return await self.complete_chat(messages)
 
     async def complete_chat_streaming(self, messages: List[ChatCompletionMessageParam]) -> AsyncGenerator[CustomChatCompletionChunk, None]:
         """

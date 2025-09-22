@@ -99,11 +99,11 @@ Only output the numbered list, nothing else.
                 {"role": "user", "content": decomposition_prompt}
             ]
 
-            response, _ = self.llm_client.complete_chat(messages)
+            response, _ = await self.llm_client.complete_chat(messages)
 
             # Parse the numbered list
+            lines = response.strip().split('\n') if response else []
             sub_queries = []
-            lines = response.strip().split('\n')
             for line in lines:
                 line = line.strip()
                 if re.match(r'^\d+\.', line):
@@ -186,8 +186,8 @@ Only output the numbered list, nothing else.
                 {"role": "user", "content": user_message}
             ]
 
-            response, _ = self.llm_client.complete_chat(messages)
-            return response.strip()
+            response, _ = await self.llm_client.complete_chat(messages)
+            return response.strip() if response else "No response generated"
 
         except Exception as e:
             self.logger.error("Error answering sub-query", error=str(e))
@@ -218,8 +218,8 @@ If there are any contradictions or gaps, note them clearly.
                 {"role": "user", "content": synthesis_prompt}
             ]
 
-            final_answer, _ = self.llm_client.complete_chat(messages)
-            return final_answer.strip()
+            final_answer, _ = await self.llm_client.complete_chat(messages)
+            return final_answer.strip() if final_answer else "Answer unavailable"
 
         except Exception as e:
             self.logger.error("Error synthesizing answers", error=str(e))

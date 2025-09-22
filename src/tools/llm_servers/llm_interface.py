@@ -63,22 +63,6 @@ class LLMInterface(ABC):
         """
         pass
 
-    @abstractmethod
-    def complete_chat_once(self, message: str, system_message: Optional[str]) -> Tuple[str, Any]:
-        """
-        Generate a response for a chat conversation with a single call.
-
-        Args:
-            messages (str): A single prompt message, just like prompt(), the implementation will use a chat style
-                conversation with the model.
-
-        Returns:
-            Tuple[str, Any]: A tuple containing:
-                - content: The generated text content from the model
-                - raw_response: The complete API response object
-        """
-        pass
-
     def complete_chat_stream(self, messages: List[Dict[str, str]]):
         """
         Generate a streaming response for a chat conversation.
