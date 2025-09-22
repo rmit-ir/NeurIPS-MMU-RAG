@@ -232,7 +232,7 @@ If there are any contradictions or gaps, note them clearly.
     def name(self) -> str:
         return "decomposition-rag"
 
-    async def _process_sub_query(self, i: int, sub_queries: List[str], sub_query: str) -> tuple[int, str, List[Dict[str, str]]]:
+    async def _process_sub_query(self, i: int, sub_queries: List[str], sub_query: str) -> tuple[int, str, str, List[Dict[str, str]]]:
         self.logger.info(
             f"Processing sub-query {i+1}/{len(sub_queries)}", sub_query=sub_query)
 
@@ -245,7 +245,7 @@ If there are any contradictions or gaps, note them clearly.
         # Generate answer for this sub-query
         answer = await self._answer_sub_query(sub_query, context)
 
-        return i, answer, documents
+        return i, sub_query, answer, documents
 
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """
@@ -286,7 +286,7 @@ If there are any contradictions or gaps, note them clearly.
                     # Handle the exception by using a fallback answer
                     sub_answers[idx] = f"Error processing sub-query {idx+1}: {str(result)}"
                 else:
-                    i, answer, documents = result
+                    i, sub_query, answer, documents = result
                     sub_answers[i] = answer
                     all_documents.extend(documents)
 
@@ -379,13 +379,13 @@ If there are any contradictions or gaps, note them clearly.
                 for coro in asyncio.as_completed(tasks):
                     try:
                         result = await coro
-                        i, answer, documents = result
+                        i, sub_query, answer, documents = result
                         sub_answers[i] = answer
                         all_documents.extend(documents)
                         completed_count += 1
 
                         yield RunStreamingResponse(
-                            intermediate_steps=f"✓ Completed sub-question {i+1}/{len(sub_queries)} ({completed_count}/{len(sub_queries)} total)\n\n",
+                            intermediate_steps=f"✓ Completed sub-question {completed_count}/{len(sub_queries)}: {sub_query}\n\n",
                             is_intermediate=True,
                             complete=False
                         )
