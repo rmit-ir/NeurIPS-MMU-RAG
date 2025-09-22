@@ -31,7 +31,9 @@ async def to_mmu_rag_stream(
 
             # Add optional fields if present
             if response.citations:
-                response_dict["citations"] = response.citations
+                # Convert CitationItem objects to URL strings for MMU-RAG format
+                response_dict["citations"] = [citation["url"]
+                                              for citation in response.citations]
             if response.error:
                 response_dict["error"] = response.error
 

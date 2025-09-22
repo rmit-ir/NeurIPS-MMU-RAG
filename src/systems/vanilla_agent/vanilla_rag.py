@@ -1,9 +1,11 @@
 import asyncio
 from typing import AsyncGenerator, Callable, List, Optional
+from urllib.parse import urlparse
 from openai.types.chat import ChatCompletionMessageParam
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.llm_servers.sglang_server import get_llm_server
 from tools.logging_utils import get_logger
+from tools.path_utils import to_icon_url
 from tools.web_search import SearchError, SearchResult, search_fineweb
 from tools.doc_truncation import truncate_docs
 
@@ -204,7 +206,13 @@ Keep your response concise and to the point, and do not answer to greetings or c
                     # otherwise ignore empty deltas
 
                 citations = [
-                    r.url for r in results if isinstance(r, SearchResult)]
+                    CitationItem(
+                        url=r.url,
+                        icon_url=to_icon_url(r.url),
+                        title=None
+                    )
+                    for r in results if isinstance(r, SearchResult)
+                ]
                 # Final response
                 yield RunStreamingResponse(
                     citations=citations,  # TODO: Add real citation extraction logic

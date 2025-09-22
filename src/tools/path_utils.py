@@ -2,6 +2,7 @@
 Utility functions for path handling in LiveRAG.
 """
 import os
+from urllib.parse import urlparse
 
 from tools.logging_utils import get_logger
 
@@ -62,3 +63,16 @@ def ensure_dir(file_path, create_if_not=True):
                 f"The directory {directory} doesn't exist, create it or pass create_if_not=True"
             )
     return directory
+
+
+def to_icon_url(url: str) -> str:
+    """
+    Convert a URL to its favicon URL using Google's favicon service.
+
+    Args:
+        url (str): The original URL
+
+    Returns:
+        str: The favicon URL
+    """
+    return f"https://www.google.com/s2/favicons?domain={urlparse(url).netloc}&sz=64"

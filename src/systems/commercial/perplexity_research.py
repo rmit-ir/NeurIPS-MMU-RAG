@@ -7,8 +7,9 @@ import os
 import asyncio
 from typing import AsyncGenerator, Callable, List
 import aiohttp
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.logging_utils import get_logger
+from tools.path_utils import to_icon_url
 from tools.retry_utils import retry
 
 PERPLEXITY_MODELS = set(['sonar', 'sonar-pro',
@@ -87,10 +88,21 @@ class PerplexityResearchRAG(RAGInterface):
 
                 return await response.json()
 
-    def _extract_citations(self, response_data: dict) -> List[str]:
+    def _extract_citations(self, response_data: dict) -> List[CitationItem]:
         """Extract citations from Perplexity response."""
         citations = response_data.get("citations", [])
-        return citations if isinstance(citations, list) else []
+        if not isinstance(citations, list):
+            return []
+
+        citation_items = []
+        for url in citations:
+            if isinstance(url, str):
+                citation_items.append(CitationItem(
+                    url=url,
+                    icon_url=to_icon_url(url),
+                    title=None
+                ))
+        return citation_items
 
     def _extract_content(self, response_data: dict) -> str:
         """Extract the main content from Perplexity response."""
@@ -123,7 +135,7 @@ class PerplexityResearchRAG(RAGInterface):
 
             return EvaluateResponse(
                 query_id=request.iid,
-                citations=citations,
+                citations=[citation["url"] for citation in citations],
                 generated_response=generated_response
             )
 

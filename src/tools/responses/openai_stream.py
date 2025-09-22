@@ -4,7 +4,7 @@ OpenAI streaming response utility.
 
 from typing import AsyncGenerator, Callable, Optional, List
 from pydantic import BaseModel
-from systems.rag_interface import RunStreamingResponse
+from systems.rag_interface import RunStreamingResponse, CitationItem
 
 
 # OpenAI API Response Models
@@ -12,7 +12,7 @@ class OpenAIDelta(BaseModel):
     """Delta content in OpenAI streaming response."""
     content: Optional[str] = None
     reasoning_content: Optional[str] = None
-    citations: Optional[List[str]] = None
+    citations: Optional[List[CitationItem]] = None
     role: Optional[str] = None
 
 

@@ -4,7 +4,15 @@ Abstract interface for RAG systems following MMU-RAG challenge requirements.
 
 from abc import ABC, abstractmethod
 from typing import Callable, List, AsyncGenerator, Optional
+from typing_extensions import TypedDict
 from pydantic import BaseModel
+
+
+class CitationItem(TypedDict):
+    """TypedDict for citation objects with structured metadata."""
+    url: str
+    icon_url: Optional[str]
+    title: Optional[str]
 
 
 # MMU-RAG Challenge Request/Response Models
@@ -32,7 +40,7 @@ class RunStreamingResponse(BaseModel):
     final_report: Optional[str] = None
     is_intermediate: bool = False
     complete: bool = False
-    citations: Optional[List[str]] = None
+    citations: Optional[List[CitationItem]] = None
     error: Optional[str] = None
 
 

@@ -1,9 +1,11 @@
 from typing import AsyncGenerator, Callable, List, Optional, Dict
 import asyncio
 import re
+from urllib.parse import urlparse
 from openai.types.chat import ChatCompletionMessageParam
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.llm_servers.sglang_server import get_llm_server
+from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_fineweb
 from tools.logging_utils import get_logger
 
@@ -420,13 +422,19 @@ If there are any contradictions or gaps, note them clearly.
 
                 # Extract citations
                 citations = []
+                unique_urls = set()
                 for doc in all_documents:
-                    if doc.get("url"):
-                        citations.append(doc["url"])
+                    if doc.get("url") and doc["url"] not in unique_urls:
+                        unique_urls.add(doc["url"])
+                        citations.append(CitationItem(
+                            url=doc["url"],
+                            icon_url=to_icon_url(doc["url"]),
+                            title=None
+                        ))
 
                 # Final response
                 yield RunStreamingResponse(
-                    citations=list(set(citations)),  # Remove duplicates
+                    citations=citations,
                     is_intermediate=False,
                     complete=True
                 )
