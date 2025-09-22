@@ -1,0 +1,93 @@
+# Deploy this CloudFormation template using AWS CLI:
+# 
+# aws cloudformation deploy \
+#   --template-file cloud/ec2_profiles/ec2_bedrock.yaml \
+#   --stack-name mmu-rag-ec2-bedrock-stack \
+#   --capabilities CAPABILITY_NAMED_IAM \
+#   --region us-west-2
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Role and Instance Profile for EC2 instances with Bedrock access for MMU-RAG project'
+
+Resources:
+  # IAM Role for EC2 instances
+  EC2BedrockRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 'rmit-workload-ec2-bedrock-role'
+      PermissionsBoundary: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/RMIT-ResearchAdminPermissionBoundary'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BedrockInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                  - bedrock:GetModelInvocationLoggingConfiguration
+                  - bedrock:ListCustomModels
+                Resource: '*'
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                  - logs:DescribeLogGroups
+                Resource: '*'
+        - PolicyName: EC2BasicPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                Resource: '*'
+
+  # Instance Profile for EC2
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: 'rmit-workload-ec2-bedrock-profile'
+      Roles:
+        - !Ref EC2BedrockRole
+
+Outputs:
+  RoleName:
+    Description: 'Name of the created IAM role'
+    Value: !Ref EC2BedrockRole
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-RoleName'
+  
+  InstanceProfileName:
+    Description: 'Name of the instance profile for EC2 attachment'
+    Value: !Ref EC2InstanceProfile
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-InstanceProfileName'
+  
+  InstanceProfileArn:
+    Description: 'ARN of the instance profile for EC2 attachment'
+    Value: !GetAtt EC2InstanceProfile.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-InstanceProfileArn'
+  
+  RoleArn:
+    Description: 'ARN of the created IAM role'
+    Value: !GetAtt EC2BedrockRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-RoleArn'
