@@ -12,6 +12,7 @@ class OpenAIDelta(BaseModel):
     """Delta content in OpenAI streaming response."""
     content: Optional[str] = None
     reasoning_content: Optional[str] = None
+    citations: Optional[List[str]] = None
     role: Optional[str] = None
 
 
@@ -73,7 +74,8 @@ async def to_openai_stream(
                         OpenAIChoice(
                             index=0,
                             delta=OpenAIDelta(
-                                reasoning_content=response.intermediate_steps),
+                                reasoning_content=response.intermediate_steps,
+                                citations=response.citations),
                             finish_reason="stop" if response.complete else None
                         )
                     ]
@@ -86,7 +88,9 @@ async def to_openai_stream(
                     choices=[
                         OpenAIChoice(
                             index=0,
-                            delta=OpenAIDelta(content=response.final_report),
+                            delta=OpenAIDelta(
+                                content=response.final_report,
+                                citations=response.citations),
                             finish_reason="stop" if response.complete else None
                         )
                     ]
