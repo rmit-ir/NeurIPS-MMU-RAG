@@ -230,6 +230,21 @@ If there are any contradictions or gaps, note them clearly.
     def name(self) -> str:
         return "decomposition-rag"
 
+    async def _process_sub_query(self, i: int, sub_queries: List[str], sub_query: str) -> tuple[int, str, List[Dict[str, str]]]:
+        self.logger.info(
+            f"Processing sub-query {i+1}/{len(sub_queries)}", sub_query=sub_query)
+
+        # Retrieve documents for this sub-query
+        documents = await self._retrieve_documents(sub_query)
+
+        # Format context
+        context = self._format_context(documents)
+
+        # Generate answer for this sub-query
+        answer = await self._answer_sub_query(sub_query, context)
+
+        return i, answer, documents
+
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """
         Process an evaluation request using decomposition RAG.
@@ -250,24 +265,33 @@ If there are any contradictions or gaps, note them clearly.
             sub_queries = await self._decompose_query(request.query)
             self.logger.info("Query decomposed", sub_queries=sub_queries)
 
-            # Step 2: Answer each sub-query
+            # Step 2: Answer each sub-query in parallel
             sub_answers = []
             all_documents = []
 
-            for i, sub_query in enumerate(sub_queries):
-                self.logger.info(
-                    f"Processing sub-query {i+1}/{len(sub_queries)}", sub_query=sub_query)
+            # Process all sub-queries concurrently
+            tasks = [self._process_sub_query(i, sub_queries, sub_query)
+                     for i, sub_query in enumerate(sub_queries)]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                # Retrieve documents for this sub-query
-                documents = await self._retrieve_documents(sub_query)
-                all_documents.extend(documents)
+            # Process results and handle any exceptions
+            # Initialize with correct size and type
+            sub_answers: List[str] = [""] * len(sub_queries)
+            for idx, result in enumerate(results):
+                if isinstance(result, Exception) or isinstance(result, BaseException):
+                    self.logger.error(
+                        "Error processing sub-query", error=str(result))
+                    # Handle the exception by using a fallback answer
+                    sub_answers[idx] = f"Error processing sub-query {idx+1}: {str(result)}"
+                else:
+                    i, answer, documents = result
+                    sub_answers[i] = answer
+                    all_documents.extend(documents)
 
-                # Format context
-                context = self._format_context(documents)
-
-                # Generate answer for this sub-query
-                answer = await self._answer_sub_query(sub_query, context)
-                sub_answers.append(answer)
+            # Fill any empty values with error messages (in case of exceptions)
+            for i, answer in enumerate(sub_answers):
+                if not answer:
+                    sub_answers[i] = f"Error processing sub-query {i+1}"
 
             # Step 3: Synthesize final answer
             final_answer = await self._synthesize_answers(request.query, sub_queries, sub_answers)
@@ -332,31 +356,51 @@ If there are any contradictions or gaps, note them clearly.
                     complete=False
                 )
 
-                # Step 2: Answer each sub-query
+                # Step 2: Answer each sub-query in parallel
                 sub_answers = []
                 all_documents = []
 
-                for i, sub_query in enumerate(sub_queries):
-                    yield RunStreamingResponse(
-                        intermediate_steps=f"Processing sub-question {i+1}/{len(sub_queries)}: {sub_query}\n\n",
-                        is_intermediate=True,
-                        complete=False
-                    )
+                yield RunStreamingResponse(
+                    intermediate_steps=f"Processing {len(sub_queries)} sub-questions...\n\n",
+                    is_intermediate=True,
+                    complete=False
+                )
 
-                    # Retrieve documents
-                    documents = await self._retrieve_documents(sub_query)
-                    all_documents.extend(documents)
-                    context = self._format_context(documents)
+                # Process all sub-queries concurrently
+                tasks = [self._process_sub_query(i, sub_queries, sub_query)
+                         for i, sub_query in enumerate(sub_queries)]
 
-                    # Generate answer
-                    answer = await self._answer_sub_query(sub_query, context)
-                    sub_answers.append(answer)
+                # Use asyncio.as_completed to show progress as tasks complete
+                completed_count = 0
+                sub_answers: List[str] = [""] * len(sub_queries)
 
-                    yield RunStreamingResponse(
-                        intermediate_steps=f"✓ Completed sub-question {i+1}\n\n",
-                        is_intermediate=True,
-                        complete=False
-                    )
+                for coro in asyncio.as_completed(tasks):
+                    try:
+                        result = await coro
+                        i, answer, documents = result
+                        sub_answers[i] = answer
+                        all_documents.extend(documents)
+                        completed_count += 1
+
+                        yield RunStreamingResponse(
+                            intermediate_steps=f"✓ Completed sub-question {i+1}/{len(sub_queries)} ({completed_count}/{len(sub_queries)} total)\n\n",
+                            is_intermediate=True,
+                            complete=False
+                        )
+                    except Exception as e:
+                        self.logger.error(
+                            "Error processing sub-query in streaming", error=str(e))
+                        completed_count += 1
+                        yield RunStreamingResponse(
+                            intermediate_steps=f"✗ Error in sub-question ({completed_count}/{len(sub_queries)} total)\n\n",
+                            is_intermediate=True,
+                            complete=False
+                        )
+
+                # Fill any empty values with error messages (in case of exceptions)
+                for i, answer in enumerate(sub_answers):
+                    if not answer:
+                        sub_answers[i] = f"Error processing sub-query {i+1}"
 
                 yield RunStreamingResponse(
                     intermediate_steps="Synthesizing comprehensive answer from all sub-question responses...\n\n",

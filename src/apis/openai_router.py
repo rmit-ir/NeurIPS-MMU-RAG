@@ -23,7 +23,7 @@ from tools.responses.openai_stream import to_openai_stream
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Launch llm
-    default_llm_server = get_llm_server()
+    default_llm_server = get_llm_server(max_running_requests=5)
     await default_llm_server.get_server()
     yield
 
