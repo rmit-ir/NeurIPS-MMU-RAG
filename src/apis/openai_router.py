@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
+from systems.commercial.azure_o3_research import AzureO3ResearchRAG
+from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
@@ -76,6 +78,12 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Securit
 rag_systems: Dict[str, RAGInterface] = {
     "vanilla-rag": VanillaRAG(),
     "decomposition-rag": DecompositionRAG(),
+    "perplexity-sonar": PerplexityResearchRAG(model="sonar"),
+    "perplexity-sonar-pro": PerplexityResearchRAG(model="sonar-pro"),
+    "perplexity-sonar-reasoning": PerplexityResearchRAG(model="sonar-reasoning"),
+    "perplexity-sonar-reasoning-pro": PerplexityResearchRAG(model="sonar-reasoning-pro"),
+    "perplexity-deep-research": PerplexityResearchRAG(model="sonar-deep-research"),
+    "azure-o3-deep-research": AzureO3ResearchRAG(),
 }
 
 
