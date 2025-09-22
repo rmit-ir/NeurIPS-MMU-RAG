@@ -203,9 +203,11 @@ Keep your response concise and to the point, and do not answer to greetings or c
                         )
                     # otherwise ignore empty deltas
 
+                citations = [
+                    r.url for r in results if isinstance(r, SearchResult)]
                 # Final response
                 yield RunStreamingResponse(
-                    citations=[],  # TODO: Add citation extraction logic
+                    citations=citations,  # TODO: Add real citation extraction logic
                     is_intermediate=False,
                     complete=True
                 )
