@@ -4,7 +4,7 @@ Client for interacting with Amazon Bedrock API using LangChain.
 import os
 import json
 import time
-from typing import Dict, Optional, Any, List, AsyncIterator
+from typing import Dict, Optional, Any, List, AsyncIterator, TypedDict
 from datetime import datetime
 from langchain_aws import ChatBedrock
 from langchain_core.messages import BaseMessage, BaseMessageChunk
@@ -15,6 +15,25 @@ from tools.logging_utils import get_logger
 from tools.path_utils import get_data_dir
 from tools.retry_utils import retry
 from dotenv import load_dotenv
+
+
+class ModelLifecycle(TypedDict):
+    """Type definition for model lifecycle information."""
+    status: str
+
+
+class BedrockModelSummary(TypedDict):
+    """Type definition for Bedrock model summary information."""
+    modelArn: str
+    modelId: str
+    modelName: str
+    providerName: str
+    inputModalities: List[str]
+    outputModalities: List[str]
+    responseStreamingSupported: bool
+    customizationsSupported: List[str]
+    inferenceTypesSupported: List[str]
+    modelLifecycle: ModelLifecycle
 
 
 class BedrockClient:
@@ -228,6 +247,20 @@ class BedrockClient:
             self.logger.error(f"Unexpected error in streaming: {str(e)}")
             raise
 
+    async def list_models(self) -> List[BedrockModelSummary]:
+        """
+        List available Bedrock models.
+
+        Returns:
+            List[BedrockModelSummary]: List of model summaries with detailed information
+        """
+        try:
+            models = self.chat_model.bedrock_client.list_foundation_models()
+            return models.get('modelSummaries', [])
+        except Exception as e:
+            self.logger.error(f"Error listing models: {str(e)}")
+            return []
+
     def _extract_token_usage(self, response: Any) -> Dict[str, int]:
         """
         Extract token usage information from the API response.
@@ -336,7 +369,7 @@ class BedrockClient:
 
 async def main():
     from langchain_core.messages import HumanMessage, SystemMessage
-    client = BedrockClient()
+    client = BedrockClient(model_id="meta.llama3-1-8b-instruct-v1:0")
 
     # Send the query and get the response
     messages = [
@@ -352,6 +385,11 @@ async def main():
     print("-" * 50)
     print(response.content)
     print("-" * 50)
+
+    # list models
+    models = await client.list_models()
+    print(f"Available models ({len(models)})")
+    print('\n'.join([model['modelId'] for model in models]))
 
 if __name__ == "__main__":
     import asyncio
