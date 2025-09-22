@@ -209,32 +209,6 @@ class GeneralOpenAIClient(LLMInterface):
             self.logger.error(f"Unexpected error: {str(e)}")
             raise
 
-    async def complete_chat_once(self, message: str, system_message: Optional[str] = None) -> Tuple[str, Any]:
-        """
-        Generate a response for a chat conversation with a single call.
-
-        Args:
-            message (str): A single prompt message
-            system_message (Optional[str]): System message to use for this conversation.
-                If None, uses a default system message.
-
-        Returns:
-            Tuple[str, Any]: A tuple containing:
-                - content: The generated text content from the model
-                - raw_response: The complete API response object
-        """
-        # Use provided system message or default to a standard assistant message
-        system_message = system_message or "You are an AI assistant that provides clear, concise explanations."
-
-        # Format messages with system message and user prompt
-        messages: List[ChatCompletionMessageParam] = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": message}
-        ]
-
-        # Use complete_chat to handle the request
-        return await self.complete_chat(messages)
-
     async def complete_chat_streaming(self, messages: List[ChatCompletionMessageParam]) -> AsyncGenerator[CustomChatCompletionChunk, None]:
         """
         Generate a streaming response for a chat conversation using AsyncOpenAI.
@@ -345,9 +319,8 @@ class GeneralOpenAIClient(LLMInterface):
             self.logger.error(f"Failed to save raw response: {str(e)}")
 
 
-if __name__ == "__main__":
+async def main():
     from dotenv import load_dotenv
-
     # Load environment variables from .env file
     load_dotenv()
 
@@ -362,13 +335,17 @@ if __name__ == "__main__":
     )
 
     # Send the query and get the response with a custom system message
-    content, raw_response = client.complete_chat_once(
-        "What is retrieval-augmented generation (RAG)?",
-        system_message="You are an AI assistant that provides clear, concise explanations."
-    )
+    messages: List[ChatCompletionMessageParam] = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain the concept of retrieval-augmented generation in simple terms."}
+    ]
+    content, raw_response = await client.complete_chat(messages=messages)
 
     # Print the response content
     print("\nResponse from API:")
     print("-" * 50)
     print(content)
     print("-" * 50)
+
+if __name__ == "__main__":
+    asyncio.run(main())
