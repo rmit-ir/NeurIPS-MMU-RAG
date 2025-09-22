@@ -1,8 +1,11 @@
 {
   "cSpell.words": [
+    "ainvoke",
+    "astream",
     "Caddyfile",
     "chatcmpl",
     "clueweb",
+    "dotenv",
     "expiredtoken",
     "fastapi",
     "FINEWEB",
@@ -11,6 +14,7 @@
     "Ragent",
     "retryable",
     "sglang",
-    "signum"
+    "signum",
+    "tiiuae"
   ]
 }

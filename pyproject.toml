@@ -6,10 +6,13 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.12.15",
+    "botocore>=1.40.35",
     "datasets>=4.1.0",
     "fastapi[standard]>=0.116.1",
     "ipykernel>=6.30.1",
     "jsonlines>=4.0.0",
+    "langchain-aws>=0.2.33",
+    "langchain-core>=0.3.76",
     "langchain-openai>=0.3.29",
     "litellm>=1.75.3",
     "nltk>=3.9.1",
@@ -21,7 +24,6 @@ dependencies = [
     "rouge-score>=0.1.2",
     "structlog>=25.4.0",
     "tiktoken>=0.8.0",
-    "transformers>=4.56.1",
 ]
 
 [project.optional-dependencies]
