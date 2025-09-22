@@ -5,6 +5,8 @@
 #   --stack-name mmu-rag-ec2-bedrock-stack \
 #   --capabilities CAPABILITY_NAMED_IAM \
 #   --region us-west-2
+# 
+# aws ec2 associate-iam-instance-profile --instance-id i-04fab8448e7b48317 --iam-instance-profile Name=rmit-workload-ec2-bedrock-profile --region us-west-2
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'IAM Role and Instance Profile for EC2 instances with Bedrock access for MMU-RAG project'
