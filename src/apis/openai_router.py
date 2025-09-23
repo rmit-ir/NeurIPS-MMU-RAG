@@ -25,7 +25,11 @@ from tools.responses.openai_stream import to_openai_stream
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Launch llm
-    default_llm_mgr = get_llm_mgr(max_running_requests=100)
+    default_llm_mgr = get_llm_mgr(
+        model_id="Qwen/Qwen3-4B",
+        reasoning_parser="qwen3",
+        max_running_requests=100,
+        mem_fraction_static=0.6)
     await default_llm_mgr.get_server()
     yield
 
