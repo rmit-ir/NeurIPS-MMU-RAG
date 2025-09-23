@@ -34,6 +34,7 @@ async def launch_server(model_id="Qwen/Qwen3-4B",
         "--host", "0.0.0.0",
         *(["--api-key", api_key] if api_key else []),
     ]
+    logger.info("Launching SGLang server", command=' '.join(command))
 
     # Run the server launch in a thread pool to avoid blocking the event loop
     loop = asyncio.get_event_loop()
