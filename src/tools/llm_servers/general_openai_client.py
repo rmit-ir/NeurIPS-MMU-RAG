@@ -236,9 +236,9 @@ class GeneralOpenAIClient(LLMInterface):
                 self.logger.debug("Received chunk", chunk=chunk)
                 yield chunk
                 first_choice = chunk.choices[0]
-                if first_choice.delta.content:
+                if hasattr(first_choice.delta, 'content') and first_choice.delta.content:
                     full_content["content"] += first_choice.delta.content
-                if first_choice.delta.reasoning_content:
+                if hasattr(first_choice.delta, 'reasoning_content') and first_choice.delta.reasoning_content:
                     full_content["reasoning_content"] += first_choice.delta.reasoning_content
                 # """
                 # # TODO: here when outputting reasoning, we need to deal with this differently, what does OpenAI do?
