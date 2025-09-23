@@ -190,13 +190,13 @@ Keep your response concise and to the point, and do not answer to greetings or c
                         # Stream finished
                         break
                     delta = chunk.choices[0].delta
-                    if delta.reasoning_content:
+                    if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         yield RunStreamingResponse(
                             intermediate_steps=delta.reasoning_content,
                             is_intermediate=True,
                             complete=False
                         )
-                    elif delta.content:
+                    elif hasattr(delta, 'content') and delta.content:
                         yield RunStreamingResponse(
                             final_report=delta.content,
                             is_intermediate=False,
