@@ -1,5 +1,5 @@
 # Use cuda heavy duty image, devel is needed for flash attention compilation
-FROM docker.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
+FROM docker.io/ubuntu:24.04
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
@@ -12,21 +12,17 @@ RUN apt update \
     && apt install -y curl numactl build-essential pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust (to compile outlines-core, which is required by sglang)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
 # Copy uv configuration files
 COPY ./pyproject.toml ./uv.lock ./
 
 # Install dependencies in a virtual environment
-RUN mkdir ./src; uv sync --frozen --no-cache --extra sglang; rm -rf ./src
+RUN mkdir ./src; uv sync --frozen --no-cache --extra vllm; rm -rf ./src
 
 # Copy source code
 COPY ./src ./src
 
 # Run again with source code
-RUN uv sync --frozen --no-cache --extra sglang
+RUN uv sync --frozen --no-cache --extra vllm
 
 # Expose port
 EXPOSE 5025

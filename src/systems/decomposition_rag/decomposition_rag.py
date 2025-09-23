@@ -3,7 +3,7 @@ import asyncio
 import re
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
-from tools.llm_servers.sglang_server import get_llm_mgr
+from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_fineweb
 from tools.logging_utils import get_logger
@@ -14,8 +14,8 @@ class DecompositionRAG(RAGInterface):
         self,
         model_id: str = "Qwen/Qwen3-4B",
         reasoning_parser: Optional[str] = "qwen3",
-        mem_fraction_static: Optional[float] = 0.4,
-        max_running_requests: Optional[int] = 4,
+        gpu_memory_utilization: Optional[float] = 0.6,
+        max_model_len: Optional[int] = 20000,
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
@@ -24,13 +24,13 @@ class DecompositionRAG(RAGInterface):
         max_sub_queries: int = 5,
     ):
         """
-        Initialize DecompositionRAG with SGLang server and FineWeb search.
+        Initialize DecompositionRAG with vLLM server and FineWeb search.
 
         Args:
-            model_id: The model ID to use for SGLang server
+            model_id: The model ID to use for vLLM server
             reasoning_parser: Parser for reasoning models
-            mem_fraction_static: Memory fraction for static allocation
-            max_running_requests: Maximum concurrent requests
+            gpu_memory_utilization: GPU memory utilization fraction
+            max_model_len: Maximum model length
             api_key: API key for the server (optional)
             temperature: Generation temperature
             max_tokens: Maximum tokens to generate
@@ -40,8 +40,8 @@ class DecompositionRAG(RAGInterface):
         """
         self.model_id = model_id
         self.reasoning_parser = reasoning_parser
-        self.mem_fraction_static = mem_fraction_static
-        self.max_running_requests = max_running_requests
+        self.gpu_memory_utilization = gpu_memory_utilization
+        self.max_model_len = max_model_len
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -57,8 +57,8 @@ class DecompositionRAG(RAGInterface):
             llm_mgr = get_llm_mgr(
                 model_id=self.model_id,
                 reasoning_parser=self.reasoning_parser,
-                mem_fraction_static=self.mem_fraction_static,
-                max_running_requests=self.max_running_requests,
+                gpu_memory_utilization=self.gpu_memory_utilization,
+                max_model_len=self.max_model_len,
                 api_key=self.api_key
             )
             self.llm_client = await llm_mgr.get_openai_client(
@@ -72,7 +72,7 @@ class DecompositionRAG(RAGInterface):
             self.logger.info("Decomposing query", query=query)
             await self._ensure_llm_client()
             if not self.llm_client:
-                raise RuntimeError("SGLang client is not initialized.")
+                raise RuntimeError("LLM client is not initialized.")
 
             decomposition_prompt = f"""
 You are an expert at breaking down complex questions into simpler, focused sub-questions.
@@ -173,7 +173,7 @@ Only output the numbered list, nothing else.
         """Generate an answer for a single sub-query using the provided context."""
         try:
             if not self.llm_client:
-                raise RuntimeError("SGLang client is not initialized.")
+                raise RuntimeError("LLM client is not initialized.")
             system_message = (
                 "You are a helpful AI assistant. Answer the question using only the provided context. "
                 "Be concise but comprehensive. If the context doesn't contain relevant information, "
@@ -198,7 +198,7 @@ Only output the numbered list, nothing else.
         """Synthesize individual sub-query answers into a comprehensive final answer."""
         try:
             if not self.llm_client:
-                raise RuntimeError("SGLang client is not initialized.")
+                raise RuntimeError("LLM client is not initialized.")
             synthesis_prompt = f"""
 Original Query: {original_query}
 
@@ -260,7 +260,7 @@ If there are any contradictions or gaps, note them clearly.
         try:
             await self._ensure_llm_client()
             if not self.llm_client:
-                raise RuntimeError("SGLang client is not initialized.")
+                raise RuntimeError("LLM client is not initialized.")
 
             # Step 1: Decompose the query
             sub_queries = await self._decompose_query(request.query)
@@ -333,14 +333,14 @@ If there are any contradictions or gaps, note them clearly.
             self._is_processing = True
             try:
                 yield RunStreamingResponse(
-                    intermediate_steps="Initializing SGLang server...\n\n",
+                    intermediate_steps="Initializing LLM server...\n\n",
                     is_intermediate=True,
                     complete=False
                 )
 
                 await self._ensure_llm_client()
                 if not self.llm_client:
-                    raise RuntimeError("SGLang server failed to launch")
+                    raise RuntimeError("LLM server failed to launch")
 
                 yield RunStreamingResponse(
                     intermediate_steps="Decomposing complex query into sub-questions...\n\n",

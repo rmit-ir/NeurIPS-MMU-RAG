@@ -29,10 +29,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# uv add torch --optional sglang
-# uv sync --extra sglang
+# uv add torch --optional vllm
+# uv sync --extra vllm
 # or | uv sync --all-extras
-sglang = ["sglang[all]>=0.5.3rc0"]
+# flashinfer-python 0.3.1 has issues with our installation, pin to 0.2.2
+vllm = ["vllm==0.10.2", "flashinfer-python==0.2.2", "numpy==1.26.4"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

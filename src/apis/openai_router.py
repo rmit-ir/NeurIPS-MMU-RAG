@@ -18,7 +18,7 @@ from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
-from tools.llm_servers.sglang_server import get_llm_mgr
+from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.responses.openai_stream import to_openai_stream
 
 
@@ -28,8 +28,8 @@ async def lifespan(_app: FastAPI):
     default_llm_mgr = get_llm_mgr(
         model_id="Qwen/Qwen3-4B",
         reasoning_parser="qwen3",
-        max_running_requests=100,
-        mem_fraction_static=0.7)
+        gpu_memory_utilization=0.7,
+        max_model_len=20000)
     await default_llm_mgr.get_server()
     yield
 

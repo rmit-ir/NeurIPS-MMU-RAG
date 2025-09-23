@@ -2,7 +2,7 @@ import asyncio
 from typing import AsyncGenerator, Callable, List, Optional
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
-from tools.llm_servers.sglang_server import get_llm_mgr
+from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchError, SearchResult, search_fineweb
@@ -14,8 +14,8 @@ class VanillaRAG(RAGInterface):
         self,
         model_id: str = "Qwen/Qwen3-4B",
         reasoning_parser: Optional[str] = "qwen3",
-        mem_fraction_static: Optional[float] = 0.4,
-        max_running_requests: Optional[int] = 4,
+        gpu_memory_utilization: Optional[float] = 0.6,
+        max_model_len: Optional[int] = 20000,
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
@@ -35,8 +35,8 @@ class VanillaRAG(RAGInterface):
         """
         self.model_id = model_id
         self.reasoning_parser = reasoning_parser
-        self.mem_fraction_static = mem_fraction_static
-        self.max_running_requests = max_running_requests
+        self.gpu_memory_utilization = gpu_memory_utilization
+        self.max_model_len = max_model_len
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -54,8 +54,8 @@ class VanillaRAG(RAGInterface):
             llm_mgr = get_llm_mgr(
                 model_id=self.model_id,
                 reasoning_parser=self.reasoning_parser,
-                mem_fraction_static=self.mem_fraction_static,
-                max_running_requests=self.max_running_requests,
+                gpu_memory_utilization=self.gpu_memory_utilization,
+                max_model_len=self.max_model_len,
                 api_key=self.api_key
             )
             self.llm_client = await llm_mgr.get_openai_client(
