@@ -1,5 +1,5 @@
 # Use cuda heavy duty image, devel is needed for flash attention compilation
-FROM docker.io/ubuntu:24.04
+FROM docker.io/nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
