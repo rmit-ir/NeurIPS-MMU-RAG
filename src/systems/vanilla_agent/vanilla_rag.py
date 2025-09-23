@@ -22,10 +22,10 @@ class VanillaRAG(RAGInterface):
         retrieval_words_threshold: int = 5000,
     ):
         """
-        Initialize VanillaRAG with SGLang server.
+        Initialize VanillaRAG with LLM server.
 
         Args:
-            model_id: The model ID to use for SGLang server
+            model_id: The model ID to use for LLM server
             reasoning_parser: Parser for reasoning models
             mem_fraction_static: Memory fraction for static allocation
             max_running_requests: Maximum concurrent requests
@@ -98,7 +98,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
 
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """
-        Process an evaluation request using SGLang server.
+        Process an evaluation request using LLM server.
 
         Args:
             request: EvaluateRequest containing query and iid
@@ -109,13 +109,13 @@ Keep your response concise and to the point, and do not answer to greetings or c
         try:
             await self._ensure_llm_client()
             if not self.llm_client:
-                raise RuntimeError("SGLang client is not initialized.")
+                raise RuntimeError("LLM client is not initialized.")
 
             # Search for relevant documents
             results = await search_fineweb(request.query, k=5)
             messages = self._llm_messages(results, request.query)
 
-            # Generate response using SGLang
+            # Generate response using LLM
             generated_response, _ = await self.llm_client.complete_chat(messages)
 
             return EvaluateResponse(
@@ -134,7 +134,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
-        Process a streaming request using SGLang server.
+        Process a streaming request using LLM server.
 
         Args:
             request: RunRequest containing the question
@@ -144,17 +144,17 @@ Keep your response concise and to the point, and do not answer to greetings or c
         """
         async def stream():
             try:
-                # TODO: this message is not sent to frontend, it's blocked by SGLang startup
+                # TODO: this message is not sent to frontend, it's blocked by LLM startup
                 # Ensure server is running
                 yield RunStreamingResponse(
-                    intermediate_steps="Initializing SGLang server...\n\n",
+                    intermediate_steps="Initializing LLM server...\n\n",
                     is_intermediate=True,
                     complete=False
                 )
 
                 await self._ensure_llm_client()
                 if not self.llm_client:
-                    raise RuntimeError("SGLang server failed to launch\n\n")
+                    raise RuntimeError("LLM server failed to launch\n\n")
 
                 yield RunStreamingResponse(
                     intermediate_steps="Processing question with language model...\n\n",
@@ -237,7 +237,7 @@ if __name__ == "__main__":
 
     async def main():
         """Simple test execution for VanillaRAG."""
-        print("Testing VanillaRAG with SGLang server...")
+        print("Testing VanillaRAG with LLM server...")
 
         # Initialize VanillaRAG
         rag = VanillaRAG(
