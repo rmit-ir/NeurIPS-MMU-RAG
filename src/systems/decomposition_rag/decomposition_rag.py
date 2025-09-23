@@ -378,8 +378,7 @@ If there are any contradictions or gaps, note them clearly.
 
                 for coro in asyncio.as_completed(tasks):
                     try:
-                        result = await coro
-                        i, sub_query, answer, documents = result
+                        i, sub_query, answer, documents = await coro
                         sub_answers[i] = answer
                         all_documents.extend(documents)
                         completed_count += 1

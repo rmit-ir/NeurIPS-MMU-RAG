@@ -5,6 +5,7 @@
     "Caddyfile",
     "chatcmpl",
     "clueweb",
+    "coro",
     "dotenv",
     "expiredtoken",
     "fastapi",
