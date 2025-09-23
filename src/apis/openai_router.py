@@ -29,7 +29,7 @@ async def lifespan(_app: FastAPI):
         model_id="Qwen/Qwen3-4B",
         reasoning_parser="qwen3",
         max_running_requests=100,
-        mem_fraction_static=0.6)
+        mem_fraction_static=0.7)
     await default_llm_mgr.get_server()
     yield
 
