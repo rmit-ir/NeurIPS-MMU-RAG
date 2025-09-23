@@ -61,10 +61,10 @@ class SGLangServerManager:
 
     Usage:
         llm_server = SGLangServerManager(model_id="Qwen/Qwen3-4B")
-        
+
         # This is where the server is actually launched
         api_base, port, server_host = await llm_server.get_server()
-        
+
         openai_client = await llm_server.get_openai_client()
         # Use openai_client for requests
     """
@@ -224,11 +224,11 @@ class SGLangServerManager:
 ALL_SGLANG_SERVERS: Dict[str, SGLangServerManager] = {}
 
 
-def get_llm_server(model_id="Qwen/Qwen3-4B",
-                   reasoning_parser: Optional[str] = "qwen3",
-                   mem_fraction_static: Optional[float] = 0.4,
-                   max_running_requests: Optional[int] = 4,
-                   api_key: Optional[str] = None):
+def get_llm_mgr(model_id="Qwen/Qwen3-4B",
+                reasoning_parser: Optional[str] = "qwen3",
+                mem_fraction_static: Optional[float] = 0.4,
+                max_running_requests: Optional[int] = 4,
+                api_key: Optional[str] = None):
     if model_id not in ALL_SGLANG_SERVERS:
         ALL_SGLANG_SERVERS[model_id] = SGLangServerManager(
             model_id=model_id,
@@ -249,7 +249,7 @@ async def main():
 
     try:
         # Get server instance using the new async method
-        llm_server = get_llm_server(
+        llm_server = get_llm_mgr(
             model_id=model_id,
             api_key=api_key
         )

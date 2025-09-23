@@ -18,15 +18,15 @@ from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
-from tools.llm_servers.sglang_server import get_llm_server
+from tools.llm_servers.sglang_server import get_llm_mgr
 from tools.responses.openai_stream import to_openai_stream
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Launch llm
-    default_llm_server = get_llm_server(max_running_requests=100)
-    await default_llm_server.get_server()
+    default_llm_mgr = get_llm_mgr(max_running_requests=100)
+    await default_llm_mgr.get_server()
     yield
 
 # Create app for standalone usage

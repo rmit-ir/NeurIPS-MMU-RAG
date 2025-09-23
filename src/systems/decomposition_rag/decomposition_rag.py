@@ -1,10 +1,9 @@
 from typing import AsyncGenerator, Callable, List, Optional, Dict
 import asyncio
 import re
-from urllib.parse import urlparse
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
-from tools.llm_servers.sglang_server import get_llm_server
+from tools.llm_servers.sglang_server import get_llm_mgr
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_fineweb
 from tools.logging_utils import get_logger
@@ -55,14 +54,14 @@ class DecompositionRAG(RAGInterface):
 
     async def _ensure_llm_client(self):
         if not self.llm_client:
-            llm_server = get_llm_server(
+            llm_mgr = get_llm_mgr(
                 model_id=self.model_id,
                 reasoning_parser=self.reasoning_parser,
                 mem_fraction_static=self.mem_fraction_static,
                 max_running_requests=self.max_running_requests,
                 api_key=self.api_key
             )
-            self.llm_client = await llm_server.get_openai_client(
+            self.llm_client = await llm_mgr.get_openai_client(
                 max_tokens=self.max_tokens,
                 temperature=self.temperature
             )
