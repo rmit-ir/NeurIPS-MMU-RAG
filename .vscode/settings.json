@@ -6,16 +6,25 @@
     "chatcmpl",
     "clueweb",
     "coro",
+    "cuda",
+    "cudnn",
+    "devel",
     "dotenv",
     "expiredtoken",
     "fastapi",
     "FINEWEB",
     "Neur",
+    "numactl",
+    "pyproject",
+    "PYTHONPATH",
     "Qwen",
     "Ragent",
     "retryable",
     "sglang",
     "signum",
-    "tiiuae"
+    "tiiuae",
+    "tlsv",
+    "urllib",
+    "urlopen"
   ]
 }
