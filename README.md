@@ -2,7 +2,7 @@
 
 This project is for the MMU-RAG challenge at NeurIPS 2025.
 
-## 🎯 Purpose
+## Purpose
 
 Build RAG systems that can:
 
@@ -10,7 +10,7 @@ Build RAG systems that can:
 2. **Static Evaluation**: Support batch evaluation via `/evaluate` endpoint
 3. **OpenAI Compatibility**: Support OpenAI-compatible API endpoints for ASE 2.0 website and OpenWebUI integration
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -59,7 +59,7 @@ See `cloud/openai_server/docker-compose.yaml` for example.
 <details>
 <summary>What's Included</summary>
 
-### 📁 What's Included
+### What's Included
 
 #### RAG Implementation Templates (`src/tools/`)
 
@@ -97,7 +97,7 @@ python local_test.py --base-url http://localhost:5010 \
 <details>
 <summary>Requirements Specification</summary>
 
-### 📋 Requirements Specification
+### Requirements Specification
 
 #### Dynamic Evaluation (`/run` endpoint)
 
@@ -120,7 +120,7 @@ python local_test.py --base-url http://localhost:5010 \
 <details>
 <summary>Creating a New RAG System</summary>
 
-### 🔧 Creating a New RAG System
+### Creating a New RAG System
 
 The project uses a modular architecture where you can easily create new RAG systems by implementing the `RAGInterface`.
 
@@ -162,7 +162,7 @@ python local_test.py --base-url http://localhost:8000
 <details>
 <summary>Additional Resources</summary>
 
-### 📚 Additional Resources
+### Additional Resources
 
 - **MMU-RAG Challenge**: [Official Challenge Details](https://agi-lti.github.io/MMU-RAgent/text-to-text)
 
