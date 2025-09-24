@@ -177,7 +177,7 @@ Search results knowledge cutoff: 01 Jan 2022
                     is_intermediate=True,
                     complete=False
                 )
-                results = await search_fineweb(request.question, k=5)
+                results = await search_fineweb(request.question, k=20)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in results if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
