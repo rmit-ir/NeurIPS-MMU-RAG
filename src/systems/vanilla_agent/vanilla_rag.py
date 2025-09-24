@@ -20,7 +20,8 @@ class VanillaRAG(RAGInterface):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        retrieval_words_threshold: int = 5000,
+        retrieval_words_threshold: int = 8000,
+        enable_think: bool = True,
     ):
         """
         Initialize VanillaRAG with LLM server.
@@ -42,6 +43,7 @@ class VanillaRAG(RAGInterface):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.retrieval_words_threshold = retrieval_words_threshold
+        self.enable_think = enable_think
 
         self.logger = get_logger("vanilla_rag")
         self.llm_client = None
@@ -90,9 +92,11 @@ The next user message is the full user query, and you need to explain and answer
 
 Keep your response concise and to the point, and do not answer to greetings or chat with the user.
 
+Cite your sources using [ID] notation after the sentence where the source is used, where ID is the webpage ID, e.g. [1].
+
 Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
 Search results knowledge cutoff: 01 Jan 2022
-/nothink
+{'/nothink' if self.enable_think is not True else ''}
 """
         system_message = \
             str(system_message) + self._to_context(results)
@@ -118,7 +122,7 @@ Search results knowledge cutoff: 01 Jan 2022
                 raise RuntimeError("LLM client is not initialized.")
 
             # Search for relevant documents
-            results = await search_fineweb(request.query, k=5)
+            results = await search_fineweb(request.query, k=20)
             messages = self._llm_messages(results, request.query)
 
             # Generate response using LLM
