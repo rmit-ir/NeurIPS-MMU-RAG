@@ -196,31 +196,35 @@ Only output the numbered list, nothing else.
             self.logger.error("Error answering sub-query", error=str(e))
             return f"Error answering sub-query: {str(e)}"
 
-    async def _synthesize_answers(self, original_query: str, sub_queries: List[str], sub_answers: List[str]) -> str:
-        """Synthesize individual sub-query answers into a comprehensive final answer."""
-        try:
-            if not self.llm_client:
-                raise RuntimeError("LLM client is not initialized.")
-            synthesis_prompt = f"""
+    def _prepare_synthesis_messages(self, original_query: str, sub_queries: List[str], sub_answers: List[str]) -> List[ChatCompletionMessageParam]:
+        """Prepare messages for synthesizing individual sub-query answers into a comprehensive final answer."""
+        synthesis_prompt = f"""
 Original Query: {original_query}
 
 Sub-questions and their answers:
 """
 
-            for i, (sub_query, answer) in enumerate(zip(sub_queries, sub_answers), 1):
-                synthesis_prompt += f"\n{i}. {sub_query}\nAnswer: {answer}\n"
+        for i, (sub_query, answer) in enumerate(zip(sub_queries, sub_answers), 1):
+            synthesis_prompt += f"\n{i}. {sub_query}\nAnswer: {answer}\n"
 
-            synthesis_prompt += """
+        synthesis_prompt += """
 Based on the above sub-question answers, provide a comprehensive and well-structured final answer to the original query.
 Synthesize the information coherently, avoid redundancy, and ensure the answer is complete.
 If there are any contradictions or gaps, note them clearly.
 """
 
-            messages: List[ChatCompletionMessageParam] = [
-                {"role": "system", "content": "You are an expert at synthesizing information from multiple sources into coherent answers."},
-                {"role": "user", "content": synthesis_prompt}
-            ]
+        return [
+            {"role": "system", "content": "You are an expert at synthesizing information from multiple sources into coherent answers."},
+            {"role": "user", "content": synthesis_prompt}
+        ]
 
+    async def _synthesize_answers(self, original_query: str, sub_queries: List[str], sub_answers: List[str]) -> str:
+        """Synthesize individual sub-query answers into a comprehensive final answer."""
+        try:
+            if not self.llm_client:
+                raise RuntimeError("LLM client is not initialized.")
+            
+            messages = self._prepare_synthesis_messages(original_query, sub_queries, sub_answers)
             final_answer, _ = await self.llm_client.complete_chat(messages)
             return final_answer.strip() if final_answer else "Answer unavailable"
 
@@ -418,15 +422,34 @@ If there are any contradictions or gaps, note them clearly.
                     complete=False
                 )
 
-                # Step 3: Synthesize final answer
-                final_answer = await self._synthesize_answers(request.question, sub_queries, sub_answers)
-
-                # Stream the final answer
+                # Step 3: Stream the synthesis process
+                messages = self._prepare_synthesis_messages(request.question, sub_queries, sub_answers)
+                
                 yield RunStreamingResponse(
-                    final_report=final_answer,
-                    is_intermediate=False,
+                    intermediate_steps="Starting to synthesize final answer...\n\n",
+                    is_intermediate=True,
                     complete=False
                 )
+
+                # Stream the final synthesis using complete_chat_streaming like vanilla_rag
+                async for chunk in self.llm_client.complete_chat_streaming(messages):
+                    if chunk.choices[0].finish_reason is not None:
+                        # Stream finished
+                        break
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                        yield RunStreamingResponse(
+                            intermediate_steps=delta.reasoning_content,
+                            is_intermediate=True,
+                            complete=False
+                        )
+                    elif hasattr(delta, 'content') and delta.content:
+                        yield RunStreamingResponse(
+                            final_report=delta.content,
+                            is_intermediate=False,
+                            complete=False
+                        )
+                    # otherwise ignore empty deltas
 
                 # Extract citations
                 citations = []
