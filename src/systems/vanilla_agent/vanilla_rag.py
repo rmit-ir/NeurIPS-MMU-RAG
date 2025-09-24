@@ -123,9 +123,13 @@ Search results knowledge cutoff: 01 Jan 2022
             # Generate response using LLM
             generated_response, _ = await self.llm_client.complete_chat(messages)
 
+            # Extract contexts from search results
+            contexts = [doc.text for doc in docs if doc.text]
+
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=[r.url for r in docs],
+                contexts=contexts,  # Actual document contexts used
                 generated_response=generated_response or "Answer unavailable."
             )
 
@@ -134,6 +138,7 @@ Search results knowledge cutoff: 01 Jan 2022
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=[],
+                contexts=[],
                 generated_response=f"Error processing query: {str(e)}"
             )
 

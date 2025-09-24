@@ -136,6 +136,7 @@ class PerplexityResearchRAG(RAGInterface):
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=[citation["url"] for citation in citations],
+                contexts=[],  # Document contexts not available from Perplexity API
                 generated_response=generated_response
             )
 

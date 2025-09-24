@@ -95,6 +95,7 @@ class AzureO3ResearchRAG(RAGInterface):
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=[],
+                contexts=[],  # No document retrieval in this system
                 generated_response=generated_response
             )
 

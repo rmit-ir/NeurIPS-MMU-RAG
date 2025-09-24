@@ -297,15 +297,22 @@ If there are any contradictions or gaps, note them clearly.
             # Step 3: Synthesize final answer
             final_answer = await self._synthesize_answers(request.query, sub_queries, sub_answers)
 
-            # Extract citations
+            # Extract citations and contexts
             citations = []
+            contexts = []
             for doc in all_documents:
                 if doc.get("url"):
                     citations.append(doc["url"])
+                if doc.get("content") or doc.get("text"):
+                    # Use content or text field from the document
+                    doc_content = doc.get("content") or doc.get("text", "")
+                    if doc_content:
+                        contexts.append(doc_content)
 
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=list(set(citations)),  # Remove duplicates
+                contexts=contexts,  # Actual document contexts used
                 generated_response=final_answer
             )
 
@@ -314,6 +321,7 @@ If there are any contradictions or gaps, note them clearly.
             return EvaluateResponse(
                 query_id=request.iid,
                 citations=[],
+                contexts=[],
                 generated_response=f"Error processing query: {str(e)}"
             )
         finally:

@@ -33,10 +33,12 @@ class RAGASEvaluator(EvaluatorInterface):
         Initialize RAGAS evaluator.
         
         Args:
-            model_name: Model name for evaluation (supports OpenRouter format)
-            api_key: API key for the model provider
+            model_name: Model name for evaluation (supports OpenRouter format: provider/model, 
+                       Bedrock format: bedrock/model_id, or OpenAI format: openai/model)
+            api_key: API key for the model provider (not needed for Bedrock)
             include_faithfulness: Whether to include faithfulness metric
-            include_context_precision: Whether to include context precision metric
+            include_context_precision: Whether to include context precision metric (only evaluated 
+                                     if RAG system provides actual document contexts)
         """
         self.model_name = model_name
         self.api_key = api_key
@@ -70,7 +72,7 @@ class RAGASEvaluator(EvaluatorInterface):
         Evaluate system outputs using RAGAS metrics.
         
         Args:
-            system_outputs: List of system outputs with keys: query_id, generated_response, citations
+            system_outputs: List of system outputs with keys: query_id, generated_response, citations, contexts
             references: List of references with keys: iid/query_id, query, reference
             
         Returns:
@@ -162,12 +164,15 @@ class RAGASEvaluator(EvaluatorInterface):
             formatted_data = self._format_for_ragas(merged_data)
             dataset = Dataset.from_pandas(pd.DataFrame(formatted_data))
             
+            # Check if real contexts are available for context precision
+            has_real_contexts = any(item.get('contexts', []) for item in merged_data)
+            
             # Configure metrics
             metrics_to_use = []
             if self.include_faithfulness:
                 faithfulness.llm = ragas_llm
                 metrics_to_use.append(faithfulness)
-            if self.include_context_precision:
+            if self.include_context_precision and has_real_contexts:
                 context_precision.llm = ragas_llm
                 metrics_to_use.append(context_precision)
             
@@ -184,7 +189,7 @@ class RAGASEvaluator(EvaluatorInterface):
                 aggregated_metrics['min_faithfulness'] = float(faith_scores.min())
                 aggregated_metrics['max_faithfulness'] = float(faith_scores.max())
             
-            if self.include_context_precision and 'context_precision' in result_df.columns:
+            if self.include_context_precision and has_real_contexts and 'context_precision' in result_df.columns:
                 cp_scores = result_df['context_precision'].dropna()
                 aggregated_metrics['mean_context_precision'] = float(cp_scores.mean())
                 aggregated_metrics['std_context_precision'] = float(cp_scores.std())
@@ -216,7 +221,10 @@ class RAGASEvaluator(EvaluatorInterface):
     
     def _configure_model(self):
         """Configure environment variables for model access."""
-        if self.api_key and self.api_key.startswith("sk-or-"):
+        if self.model_name.startswith("bedrock/"):
+            # AWS Bedrock configuration - no API key needed
+            pass  # Bedrock uses AWS credentials from environment or IAM roles
+        elif self.api_key and self.api_key.startswith("sk-or-"):
             # OpenRouter configuration
             os.environ["OPENROUTER_API_KEY"] = self.api_key
             os.environ["OPENAI_API_KEY"] = self.api_key
@@ -227,10 +235,22 @@ class RAGASEvaluator(EvaluatorInterface):
     
     def _create_langchain_model(self):
         """Create LangChain model for RAGAS."""
-        from langchain_openai import ChatOpenAI
-        
-        if self.api_key and self.api_key.startswith("sk-or-"):
+        if self.model_name.startswith("bedrock/"):
+            # AWS Bedrock model
+            from langchain_aws import ChatBedrock
+            
+            # Extract model ID from model_name (remove "bedrock/" prefix)
+            model_id = self.model_name.replace("bedrock/", "")
+            
+            return ChatBedrock(
+                model_id=model_id,
+                temperature=0,
+                max_tokens=4096
+            )
+        elif self.api_key and self.api_key.startswith("sk-or-"):
             # OpenRouter model
+            from langchain_openai import ChatOpenAI
+            
             return ChatOpenAI(
                 model_name=self.model_name,
                 openai_api_key=self.api_key,
@@ -241,6 +261,8 @@ class RAGASEvaluator(EvaluatorInterface):
             )
         else:
             # Standard OpenAI model
+            from langchain_openai import ChatOpenAI
+            
             return ChatOpenAI(
                 model_name=self.model_name,
                 temperature=0
@@ -254,13 +276,9 @@ class RAGASEvaluator(EvaluatorInterface):
         formatted_data = []
         
         for item in merged_data:
-            # Create contexts from citations or use response excerpt
-            citations = item.get('citations', [])
-            if citations:
-                contexts = [f"Retrieved context from {cite}" for cite in citations[:5]]
-            else:
-                response = item['generated_response']
-                contexts = [f"Context: {response[:300]}..." if len(response) > 300 else response]
+            # Use actual contexts from the system output
+            contexts = item.get('contexts', [])
+            # Note: If no contexts are available, context_precision metric will be skipped
             
             formatted_data.append({
                 'question': item['query'],
@@ -281,7 +299,8 @@ if __name__ == "__main__":
         {
             'query_id': '1',
             'generated_response': 'Paris is the capital of France.',
-            'citations': ['France_Wikipedia']
+            'citations': ['France_Wikipedia'],
+            'contexts': ['France is a country in Western Europe. Its capital and largest city is Paris, which is located in the north-central part of the country.']
         }
     ]
     
@@ -293,13 +312,16 @@ if __name__ == "__main__":
         }
     ]
     
+    # Test with AWS Bedrock gpt-oss-120b model
     evaluator = RAGASEvaluator(
-        model_name="openai/gpt-4o-mini",
-        api_key=None  # Would need real API key for actual testing
+        model_name="bedrock/openai.gpt-oss-120b-1:0",
+        api_key=None  # Not needed for Bedrock - uses AWS credentials
     )
     
     print(f"Evaluator: {evaluator.name}")
     print(f"Description: {evaluator.description}")
+    print("Model configured for AWS Bedrock: openai.gpt-oss-120b-1:0")
     
-    # Note: Actual evaluation would require API key
-    print("Test setup complete. Actual evaluation requires API key.")
+    # Note: Actual evaluation would require AWS credentials and RAGAS dependencies
+    # Context precision metric will only be evaluated if 'contexts' field contains actual document content
+    print("Test setup complete. Actual evaluation requires AWS credentials and RAGAS dependencies.")

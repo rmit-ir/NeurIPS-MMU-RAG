@@ -196,6 +196,15 @@ BEDROCK_MODEL_PRICING = {
         "input_price": 1.35,  # $1.35 per 1M input tokens ($0.00135 per 1K)
         "output_price": 5.40   # $5.40 per 1M output tokens ($0.0054 per 1K)
     },
+    # GPT-OSS models (Open Source GPT models)
+    "openai.gpt-oss-120b-1:0": {
+        "input_price": 0.18,  # $0.18 per 1M input tokens ($0.00018 per 1K)
+        "output_price": 0.71   # $0.71 per 1M output tokens ($0.00071 per 1K)
+    },
+    "openai.gpt-oss-20b-1:0": {
+        "input_price": 0.08,  # $0.08 per 1M input tokens ($0.00008 per 1K)
+        "output_price": 0.35   # $0.35 per 1M output tokens ($0.00035 per 1K)
+    },
     # Writer models
     "writer.palmyra-x4-v1:0": {
         "input_price": 2.50,  # $2.50 per 1M input tokens ($0.0025 per 1K)
