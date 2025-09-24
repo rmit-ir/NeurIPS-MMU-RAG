@@ -220,6 +220,7 @@ Search results knowledge cutoff: 01 Jan 2022
                     CitationItem(
                         url=r.url,
                         icon_url=to_icon_url(r.url),
+                        date=str(r.date) if r.date else None,
                         title=None
                     )
                     for r in docs if isinstance(r, SearchResult)

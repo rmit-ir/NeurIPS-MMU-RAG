@@ -12,6 +12,7 @@ class CitationItem(TypedDict):
     """TypedDict for citation objects with structured metadata."""
     url: str
     icon_url: Optional[str]
+    date: Optional[str]
     title: Optional[str]
 
 
