@@ -19,7 +19,7 @@ class RAGASEvaluator(EvaluatorInterface):
     """
     Evaluator using RAGAS framework for semantic evaluation of RAG systems.
     
-    Measures faithfulness and context precision using LLM-based evaluation.
+    Measures faithfulness, context precision, and answer relevancy using LLM-based evaluation.
     """
     
     def __init__(
@@ -27,7 +27,8 @@ class RAGASEvaluator(EvaluatorInterface):
         model_name: str = "openai/gpt-4o-mini",
         api_key: Optional[str] = None,
         include_faithfulness: bool = True,
-        include_context_precision: bool = True
+        include_context_precision: bool = False,
+        include_answer_relevancy: bool = False
     ):
         """
         Initialize RAGAS evaluator.
@@ -39,13 +40,15 @@ class RAGASEvaluator(EvaluatorInterface):
             include_faithfulness: Whether to include faithfulness metric
             include_context_precision: Whether to include context precision metric (only evaluated 
                                      if RAG system provides actual document contexts)
+            include_answer_relevancy: Whether to include answer relevancy metric
         """
         self.model_name = model_name
         self.api_key = api_key
         self.include_faithfulness = include_faithfulness
         self.include_context_precision = include_context_precision
+        self.include_answer_relevancy = include_answer_relevancy
         
-        if not (include_faithfulness or include_context_precision):
+        if not (include_faithfulness or include_context_precision or include_answer_relevancy):
             raise ValueError("At least one metric must be enabled")
     
     @property
@@ -61,6 +64,8 @@ class RAGASEvaluator(EvaluatorInterface):
             metrics.append("Faithfulness")
         if self.include_context_precision:
             metrics.append("Context Precision")
+        if self.include_answer_relevancy:
+            metrics.append("Answer Relevancy")
         return f"RAGAS semantic evaluation: {', '.join(metrics)}"
     
     def evaluate(
@@ -138,7 +143,8 @@ class RAGASEvaluator(EvaluatorInterface):
                     'query': reference.get('query', ''),
                     'generated_response': output.get('generated_response', ''),
                     'reference': reference.get('generated_response') or reference.get('reference', ''),
-                    'citations': output.get('citations', [])
+                    'citations': output.get('citations', []),
+                    'contexts': output.get('contexts', [])
                 })
         
         return merged_data
@@ -150,7 +156,7 @@ class RAGASEvaluator(EvaluatorInterface):
         """Run RAGAS evaluation on merged data."""
         try:
             from ragas import evaluate
-            from ragas.metrics import faithfulness, context_precision
+            from ragas.metrics import faithfulness, context_precision, answer_relevancy
             from ragas.llms import LangchainLLMWrapper
             
             # Configure model
@@ -175,6 +181,9 @@ class RAGASEvaluator(EvaluatorInterface):
             if self.include_context_precision and has_real_contexts:
                 context_precision.llm = ragas_llm
                 metrics_to_use.append(context_precision)
+            if self.include_answer_relevancy:
+                answer_relevancy.llm = ragas_llm
+                metrics_to_use.append(answer_relevancy)
             
             # Run evaluation
             result = evaluate(dataset=dataset, metrics=metrics_to_use)
@@ -196,6 +205,13 @@ class RAGASEvaluator(EvaluatorInterface):
                 aggregated_metrics['min_context_precision'] = float(cp_scores.min())
                 aggregated_metrics['max_context_precision'] = float(cp_scores.max())
             
+            if self.include_answer_relevancy and 'answer_relevancy' in result_df.columns:
+                ar_scores = result_df['answer_relevancy'].dropna()
+                aggregated_metrics['mean_answer_relevancy'] = float(ar_scores.mean())
+                aggregated_metrics['std_answer_relevancy'] = float(ar_scores.std())
+                aggregated_metrics['min_answer_relevancy'] = float(ar_scores.min())
+                aggregated_metrics['max_answer_relevancy'] = float(ar_scores.max())
+            
             # Extract row results
             row_results = []
             for idx, row in result_df.iterrows():
@@ -209,6 +225,9 @@ class RAGASEvaluator(EvaluatorInterface):
                 
                 if self.include_context_precision and 'context_precision' in result_df.columns:
                     row_result['context_precision'] = float(row.get('context_precision', 0))
+                
+                if self.include_answer_relevancy and 'answer_relevancy' in result_df.columns:
+                    row_result['answer_relevancy'] = float(row.get('answer_relevancy', 0))
                 
                 row_results.append(row_result)
             
@@ -315,13 +334,37 @@ if __name__ == "__main__":
     # Test with AWS Bedrock gpt-oss-120b model
     evaluator = RAGASEvaluator(
         model_name="bedrock/openai.gpt-oss-120b-1:0",
-        api_key=None  # Not needed for Bedrock - uses AWS credentials
+        api_key=None,  # Not needed for Bedrock - uses AWS credentials
+        include_faithfulness=True,
+        include_context_precision=False,
+        include_answer_relevancy=False  
     )
     
     print(f"Evaluator: {evaluator.name}")
     print(f"Description: {evaluator.description}")
     print("Model configured for AWS Bedrock: openai.gpt-oss-120b-1:0")
     
-    # Note: Actual evaluation would require AWS credentials and RAGAS dependencies
-    # Context precision metric will only be evaluated if 'contexts' field contains actual document content
-    print("Test setup complete. Actual evaluation requires AWS credentials and RAGAS dependencies.")
+    try:
+        result = evaluator.evaluate(system_outputs, references)
+        print("\nEvaluation Results:")
+        print(f"Sample count: {result.sample_count}")
+        print(f"Execution time: {result.total_time_ms:.2f} ms")
+        print("\nMetrics:")
+        for metric_name, value in result.metrics.items():
+            print(f"  {metric_name}: {value:.4f}")
+        
+        print("\nRow Results:")
+        for row in result.rows:
+            print(f"  Query ID: {row['query_id']}")
+            print(f"  Query: {row['query']}")
+            if 'faithfulness' in row:
+                print(f"  Faithfulness: {row['faithfulness']:.4f}")
+            if 'context_precision' in row:
+                print(f"  Context Precision: {row['context_precision']:.4f}")
+            if 'answer_relevancy' in row:
+                print(f"  Answer Relevancy: {row['answer_relevancy']:.4f}")
+            print()
+            
+    except Exception as e:
+        print(f"Evaluation failed: {e}")
+        print("This may be due to missing RAGAS dependencies or API issues.")
