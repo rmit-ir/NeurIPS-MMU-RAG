@@ -4,6 +4,7 @@ Implements /v1/models and /v1/chat/completions endpoints.
 """
 
 import os
+import hashlib
 from typing import List, Dict, Optional, Union
 import uuid
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
@@ -76,6 +77,11 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Securit
         )
 
     return True
+
+
+def generate_chat_hash(question: str, model: str) -> str:
+    cache_input = f"{model}:{question}"
+    return hashlib.sha256(cache_input.encode('utf-8')).hexdigest()
 
 
 # Global RAG system instance
@@ -180,10 +186,14 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
         run_request = RunRequest(question=question)
 
         if request.stream:
+            # Generate chat hash for caching
+            chat_hash = generate_chat_hash(question, request.model)
+
             # Streaming response
             run = await model.run_streaming(run_request)
             return StreamingResponse(
-                to_openai_stream(run, model=request.model),
+                to_openai_stream(run, model=request.model,
+                                 chat_hash=chat_hash),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
