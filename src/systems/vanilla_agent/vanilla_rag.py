@@ -69,7 +69,7 @@ class VanillaRAG(RAGInterface):
     def _to_context(self, results: list[SearchResult]) -> str:
         context = "<search-results>"
         context += "\n".join([f"""
-Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
+Webpage ID=[{r.sid}] URL=[{r.url}] Date=[{r.date}]:
 
 {r.text}""" for r in results])
         context += "</search-results>"
