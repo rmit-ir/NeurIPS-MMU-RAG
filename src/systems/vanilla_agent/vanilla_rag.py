@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Callable, List, Optional
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
@@ -81,13 +82,17 @@ Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
 
     def _llm_messages(self, results: list[SearchResult | SearchError], query: str) -> List[ChatCompletionMessageParam]:
         # Create a simple RAG prompt
-        system_message = """You are a knowledgeable AI search assistant.
+        system_message = f"""You are a knowledgeable AI search assistant.
 
 Your search engine has returned a list of relevant webpages based on the user's query, listed below in <search-results> tags.
 
 The next user message is the full user query, and you need to explain and answer the search query based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
 
-Keep your response concise and to the point, and do not answer to greetings or chat with the user."""
+Keep your response concise and to the point, and do not answer to greetings or chat with the user.
+
+Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
+Search results knowledge cutoff: 01 Jan 2022
+"""
         system_message = \
             str(system_message) + self._to_context(results)
 
