@@ -24,6 +24,7 @@
     "litellm",
     "Neur",
     "nltk",
+    "nothink",
     "numactl",
     "numpy",
     "posthog",

@@ -92,6 +92,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
 
 Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
 Search results knowledge cutoff: 01 Jan 2022
+/nothink
 """
         system_message = \
             str(system_message) + self._to_context(results)
