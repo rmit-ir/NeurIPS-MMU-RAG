@@ -93,6 +93,7 @@ Format your response as a numbered list:
 ...
 
 Only output the numbered list, nothing else.
+/nothink
 """
 
             messages: List[ChatCompletionMessageParam] = [
@@ -178,6 +179,7 @@ Only output the numbered list, nothing else.
                 "You are a helpful AI assistant. Answer the question using only the provided context. "
                 "Be concise but comprehensive. If the context doesn't contain relevant information, "
                 "say so clearly. Cite sources using document numbers [1], [2], etc. when possible."
+                "/nothink"
             )
 
             user_message = f"Context:\n{context}\n\nQuestion: {sub_query}"
@@ -435,6 +437,7 @@ If there are any contradictions or gaps, note them clearly.
                         citations.append(CitationItem(
                             url=doc["url"],
                             icon_url=to_icon_url(doc["url"]),
+                            date=None,
                             title=None
                         ))
 
