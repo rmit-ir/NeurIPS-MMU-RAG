@@ -6,7 +6,7 @@ from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterfac
 from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
-from tools.web_search import SearchError, SearchResult, search_fineweb
+from tools.web_search import SearchResult, search_fineweb
 from tools.doc_truncation import truncate_docs
 
 
@@ -66,23 +66,16 @@ class VanillaRAG(RAGInterface):
                 temperature=self.temperature
             )
 
-    def _to_context(self, results: list[SearchResult | SearchError]) -> str:
-        # Filter out SearchError objects and get only SearchResult objects
-        search_results = [r for r in results if isinstance(r, SearchResult)]
-
-        # Truncate documents to prevent context from being too long
-        truncated_results = truncate_docs(
-            search_results, self.retrieval_words_threshold)
-
+    def _to_context(self, results: list[SearchResult]) -> str:
         context = "<search-results>"
         context += "\n".join([f"""
 Webpage [ID={r.sid}] [URL={r.url}] [Date={r.date}]:
 
-{r.text}""" for r in truncated_results])
+{r.text}""" for r in results])
         context += "</search-results>"
         return context
 
-    def _llm_messages(self, results: list[SearchResult | SearchError], query: str) -> List[ChatCompletionMessageParam]:
+    def _llm_messages(self, results: list[SearchResult], query: str) -> List[ChatCompletionMessageParam]:
         # Create a simple RAG prompt
         system_message = f"""You are a knowledgeable AI search assistant.
 
@@ -122,15 +115,17 @@ Search results knowledge cutoff: 01 Jan 2022
                 raise RuntimeError("LLM client is not initialized.")
 
             # Search for relevant documents
-            results = await search_fineweb(request.query, k=20)
-            messages = self._llm_messages(results, request.query)
+            docs = await search_fineweb(request.query, k=20)
+            docs = [r for r in docs if isinstance(r, SearchResult)]
+            docs = truncate_docs(docs, self.retrieval_words_threshold)
+            messages = self._llm_messages(docs, request.query)
 
             # Generate response using LLM
             generated_response, _ = await self.llm_client.complete_chat(messages)
 
             return EvaluateResponse(
                 query_id=request.iid,
-                citations=[],  # TODO: Add citation extraction logic
+                citations=[r.url for r in docs],
                 generated_response=generated_response or "Answer unavailable."
             )
 
@@ -177,17 +172,19 @@ Search results knowledge cutoff: 01 Jan 2022
                     is_intermediate=True,
                     complete=False
                 )
-                results = await search_fineweb(request.question, k=20)
+                docs = await search_fineweb(request.question, k=20)
+                docs = [r for r in docs if isinstance(r, SearchResult)]
+                docs = truncate_docs(docs, self.retrieval_words_threshold)
                 md_urls = '\n'.join(
-                    [f"- {r.url}" for r in results if isinstance(r, SearchResult)])
+                    [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
-                    intermediate_steps=f"""Found {len(results)} results
+                    intermediate_steps=f"""Found {len(docs)} results
 
 {md_urls}\n\n""",
                     is_intermediate=True,
                     complete=False
                 )
-                messages = self._llm_messages(results, request.question)
+                messages = self._llm_messages(docs, request.question)
 
                 yield RunStreamingResponse(
                     intermediate_steps="Starting to answer\n\n",
@@ -220,7 +217,7 @@ Search results knowledge cutoff: 01 Jan 2022
                         icon_url=to_icon_url(r.url),
                         title=None
                     )
-                    for r in results if isinstance(r, SearchResult)
+                    for r in docs if isinstance(r, SearchResult)
                 ]
                 # Final response
                 yield RunStreamingResponse(
