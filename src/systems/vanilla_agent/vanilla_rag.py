@@ -85,7 +85,7 @@ The next user message is the full user query, and you need to explain and answer
 
 Keep your response concise and to the point, and do not answer to greetings or chat with the user.
 
-Cite your sources using [ID] notation after the sentence where the source is used, where ID is the webpage ID, e.g. [1].
+You should refer to the search results in your response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
 
 Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
 Search results knowledge cutoff: 01 Jan 2022
