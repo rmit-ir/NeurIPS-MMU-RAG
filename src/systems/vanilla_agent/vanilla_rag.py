@@ -88,7 +88,7 @@ Keep your response concise and to the point, and do not answer to greetings or c
 You should refer to the search results in your response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
 
 Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
-Search results knowledge cutoff: 01 Jan 2022
+Search results knowledge cutoff: December 2024
 {'/nothink' if self.enable_think is not True else ''}
 """
         system_message = \
