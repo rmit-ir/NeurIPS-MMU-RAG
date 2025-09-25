@@ -35,6 +35,7 @@
     "Qwen",
     "Ragent",
     "retryable",
+    "setex",
     "setuptools",
     "sglang",
     "signum",
@@ -44,6 +45,8 @@
     "tlsv",
     "urllib",
     "urlopen",
-    "vllm"
+    "vllm",
+    "xadd",
+    "xread"
   ]
 }

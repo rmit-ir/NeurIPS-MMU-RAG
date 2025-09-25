@@ -5,12 +5,7 @@ OpenAI streaming response utility.
 from typing import AsyncGenerator, Callable, Optional, List
 from pydantic import BaseModel
 from systems.rag_interface import RunStreamingResponse, CitationItem
-from tools.cache_lru import LRUCache
-
-
-TTL = 3600 * 24  # 1 day
-MAX_CACHE_SIZE = 1000  # Max number of cached responses
-chat_resp_cache = LRUCache(max_size=MAX_CACHE_SIZE)
+from tools.responses.stream_queue import get_or_start_stream
 
 
 # OpenAI API Response Models
@@ -56,27 +51,42 @@ async def to_openai_stream(
     chat_hash: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """
-    Convert RAG system responses to OpenAI SSE format.
+    Convert RAG system responses to OpenAI SSE format with queue-based caching.
 
     Args:
         start_stream: Function that returns AsyncGenerator of RunStreamingResponse objects
         model: Model name to include in the response
-        chat_hash: Optional hash key for caching responses
+        chat_hash: Optional hash key for queue management and caching
 
     Yields:
         SSE formatted strings for OpenAI-compatible streaming endpoint
     """
-    # Check cache first if chat_hash is provided
-    if chat_hash:
-        cached_response = await chat_resp_cache.get(chat_hash)
-        if cached_response:
-            # Yield cached response chunks
-            for chunk_data in cached_response:
-                yield chunk_data
-            return
+    if not chat_hash:
+        print('No chat_hash, direct stream')
+        # No caching, stream directly
+        async for chunk_data in _convert_stream_to_openai(start_stream, model):
+            yield chunk_data
+        return
 
+    # Use queue system for caching and multiple subscribers
+    async def stream_factory():
+        print('Using stream_factory with chat_hash:', chat_hash)
+        async for chunk_data in _convert_stream_to_openai(start_stream, model):
+            yield chunk_data
+
+    print('Getting or starting stream with chat_hash:', chat_hash)
+    async for chunk_data in get_or_start_stream(chat_hash, stream_factory):
+        print('Yielding chunk_data:', chunk_data)
+        if chunk_data and not chunk_data.startswith("ERROR:"):
+            yield chunk_data
+
+
+async def _convert_stream_to_openai(
+    start_stream: Callable[[], AsyncGenerator[RunStreamingResponse, None]],
+    model: str = "placeholder"
+) -> AsyncGenerator[str, None]:
+    """Convert RAG stream to OpenAI format."""
     chunk_id = 0
-    accumulated_chunks = []  # Store chunks for caching
 
     try:
         async for response in start_stream():
@@ -118,10 +128,6 @@ async def to_openai_stream(
             chunk_data = f"data: {chunk.model_dump_json()}\n\n"
             yield chunk_data
 
-            # Accumulate for caching if chat_hash is provided
-            if chat_hash:
-                accumulated_chunks.append(chunk_data)
-
             # Handle errors
             if response.error:
                 error_response = OpenAIErrorResponse(
@@ -133,8 +139,6 @@ async def to_openai_stream(
                 )
                 error_data = f"data: {error_response.model_dump_json()}\n\n"
                 yield error_data
-                if chat_hash:
-                    accumulated_chunks.append(error_data)
                 break
 
             # Break out, if complete
@@ -142,12 +146,7 @@ async def to_openai_stream(
                 break
 
         # Add final DONE message
-        done_data = "data: [DONE]\n\n"
-        yield done_data
-        if chat_hash:
-            accumulated_chunks.append(done_data)
-            # Cache the complete response with 1 hour TTL
-            await chat_resp_cache.put(chat_hash, accumulated_chunks, ttl=TTL)
+        yield "data: [DONE]\n\n"
 
     except Exception as e:
         # Send error response and stop stream
