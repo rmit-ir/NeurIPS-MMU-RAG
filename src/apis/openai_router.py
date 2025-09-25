@@ -236,6 +236,7 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
             status_code=500, detail=f"Error processing chat completion: {str(e)}")
 
 
+@app.get("/")
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
