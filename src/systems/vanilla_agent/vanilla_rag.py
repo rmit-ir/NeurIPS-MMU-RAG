@@ -154,6 +154,7 @@ Search results knowledge cutoff: December 2024
         """
         async def stream():
             try:
+                self.logger.info(f"Processing question: {request.question}")
                 # TODO: this message is not sent to frontend, it's blocked by LLM startup
                 # Ensure server is running
                 yield RunStreamingResponse(

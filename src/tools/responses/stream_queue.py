@@ -33,6 +33,8 @@ import time
 from typing import Dict, AsyncGenerator, Any, Callable, Optional
 from collections import defaultdict, deque
 
+from tools.logging_utils import get_logger
+
 
 class StreamQueue:
     """Redis-like async queue for streaming responses."""
@@ -48,6 +50,7 @@ class StreamQueue:
         self._metadata_lock = asyncio.Lock()     # For active/expiry metadata
 
         self.default_ttl = default_ttl
+        self.logger = get_logger('stream_queue')
 
     async def publish(self, channel: str, message: Any) -> int:
         """Publish message to channel. Returns number of subscribers."""
@@ -83,6 +86,7 @@ class StreamQueue:
 
     async def subscribe(self, channel: str) -> AsyncGenerator[Any, None]:
         """Subscribe to channel and yield messages."""
+        self.logger.info("New subscriber", channel=channel, stats=self.stats())
         # Check expiry with metadata lock
         async with self._metadata_lock:
             # Check if channel has expired
@@ -96,6 +100,8 @@ class StreamQueue:
         async with self._streams_lock:
             # Send all existing messages to new subscriber
             if channel in self._streams:
+                self.logger.info("Sending existing messages to request queue",
+                                 channel=channel)
                 for message in self._streams[channel]:
                     try:
                         sub_queue.put_nowait(message)
@@ -105,10 +111,14 @@ class StreamQueue:
         async with self._metadata_lock:
             # Only add to subscribers if stream is still active
             if channel in self._active and self._active[channel]:
+                self.logger.info("Adding new subscriber to channel",
+                                 channel=channel, active=self._active[channel])
                 async with self._subscribers_lock:
                     self._subscribers[channel].add(sub_queue)
 
         try:
+            self.logger.info("Subscribing and yielding messages",
+                             channel=channel)
             while True:
                 message = await sub_queue.get()
                 if message is None:  # End signal
@@ -142,7 +152,11 @@ class StreamQueue:
             is_active = channel in self._active and self._active[channel]
 
             # Channel exists if it's active or has cached data
-            return is_active or has_stream_data
+            exists = is_active or has_stream_data
+            self.logger.info("Channel exists check", channel=channel,
+                             exists=exists, is_active=is_active,
+                             has_stream_data=has_stream_data)
+            return exists
 
     async def set_active(self, channel: str, active: bool = True, ttl: Optional[int] = None):
         """Mark channel as active/inactive with optional TTL."""
@@ -187,6 +201,17 @@ class StreamQueue:
                         pass
                 del self._subscribers[channel]
 
+    def stats(self) -> Dict[str, Any]:
+        """Return stats about the current state of the StreamQueue."""
+        return {
+            "streams": len(self._streams),
+            "channels": sorted(self._subscribers.keys()),
+            "active_channels": sorted([k for k, v in self._active.items() if v]),
+            "subscribers": {k: len(v) for k, v in self._subscribers.items()},
+            "active": {k: v for k, v in self._active.items() if v},
+            "expired": {k: v for k, v in self._expiry.items() if time.time() > v},
+        }
+
 
 # Global instance with 1 day TTL
 stream_queue = StreamQueue(default_ttl=3600 * 24)
@@ -200,7 +225,6 @@ async def get_or_start_stream(
     Get existing stream or start new one.
     Redis-like interface for stream management.
     """
-
     # Check if stream already exists
     stream_exists = await stream_queue.exists(channel)
 

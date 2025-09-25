@@ -49,7 +49,6 @@ async def simulate_client(client_id: str, chat_hash: str, delay: float = 0):
     async for chunk in to_openai_stream(mock_rag_stream, model="test-model", chat_hash=chat_hash):
         chunks.append(chunk)
         data = chunk[6:] if chunk.startswith("data: ") else chunk
-        print('data', data)
         if data.strip() == "[DONE]":
             print(f"Client {client_id} processing complete.")
             break
