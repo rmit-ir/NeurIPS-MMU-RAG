@@ -24,9 +24,11 @@ class GRAG(RAGInterface):
         search_results_k: int = 3,
         max_context_length: int = 3000,
         max_sub_queries: int = 5,
-        rerank_model: str = "sentence-transformers/all-MiniLM-L6-v2",  # Model for sentence transformer reranking
+        # Model for sentence transformer reranking
+        rerank_model: str = "sentence-transformers/all-MiniLM-L6-v2",
         rerank_top_k: int = 3,
-        reranker: str = "sentence_transformer",  # Options: "sentence_transformer", "logits"
+        # Options: "sentence_transformer", "logits"
+        reranker: str = "sentence_transformer",
     ):
         """
         Initialize GRAG with decomposition and HYDE.
@@ -80,7 +82,8 @@ class GRAG(RAGInterface):
 
     def _ensure_rerank_model(self):
         if not self.rerank_model_instance:
-            self.logger.info("Loading reranking model", model=self.rerank_model)
+            self.logger.info("Loading reranking model",
+                             model=self.rerank_model)
             self.rerank_model_instance = SentenceTransformer(self.rerank_model)
 
     async def _decompose_query(self, query: str) -> List[str]:
@@ -158,14 +161,16 @@ Only output the numbered list, nothing else.
             return response.strip() if response else sub_query
 
         except Exception as e:
-            self.logger.error("Error generating hypothetical answer", error=str(e))
+            self.logger.error(
+                "Error generating hypothetical answer", error=str(e))
             return sub_query  # Fallback to original sub-query
 
     async def _retrieve_documents(self, hypothetical_answer: str) -> List[Dict[str, str]]:
         """Retrieve relevant documents using FineWeb search with hypothetical answer and rerank them."""
         try:
             # Retrieve more documents initially for reranking
-            initial_k = max(self.search_results_k * 2, 10)  # Retrieve more for better reranking
+            # Retrieve more for better reranking
+            initial_k = max(self.search_results_k * 2, 10)
             self.logger.info("Searching FineWeb with hypothetical answer",
                              hypothetical_answer=hypothetical_answer,
                              initial_k=initial_k)
@@ -184,7 +189,8 @@ Only output the numbered list, nothing else.
                         "url": url
                     })
 
-            self.logger.info("Retrieved initial documents", count=len(documents))
+            self.logger.info("Retrieved initial documents",
+                             count=len(documents))
 
             # Rerank documents
             reranked_documents = await self._rerank_documents(hypothetical_answer, documents)
@@ -223,11 +229,14 @@ Only output the numbered list, nothing else.
             doc_texts = [doc["content"] for doc in documents]
 
             # Compute embeddings
-            query_embedding = self.rerank_model_instance.encode([query], convert_to_tensor=True)
-            doc_embeddings = self.rerank_model_instance.encode(doc_texts, convert_to_tensor=True)
+            query_embedding = self.rerank_model_instance.encode(
+                [query], convert_to_tensor=True)
+            doc_embeddings = self.rerank_model_instance.encode(
+                doc_texts, convert_to_tensor=True)
 
             # Compute cosine similarities
-            similarities = np.dot(doc_embeddings.cpu().numpy(), query_embedding.cpu().numpy().T).flatten()
+            similarities = np.dot(doc_embeddings.cpu().numpy(
+            ), query_embedding.cpu().numpy().T).flatten()
 
             # Get top-k indices
             top_k_indices = np.argsort(similarities)[::-1][:self.rerank_top_k]
@@ -235,11 +244,13 @@ Only output the numbered list, nothing else.
             # Return reranked documents
             reranked_docs = [documents[i] for i in top_k_indices]
 
-            self.logger.info("Reranked documents with sentence transformer", original_count=len(documents), reranked_count=len(reranked_docs))
+            self.logger.info("Reranked documents with sentence transformer", original_count=len(
+                documents), reranked_count=len(reranked_docs))
             return reranked_docs
 
         except Exception as e:
-            self.logger.error("Error in sentence transformer reranking", error=str(e))
+            self.logger.error(
+                "Error in sentence transformer reranking", error=str(e))
             return documents
 
     async def _rerank_documents_logits(self, query: str, documents: List[Dict[str, str]]) -> List[Dict[str, str]]:
@@ -250,7 +261,8 @@ Only output the numbered list, nothing else.
 
             await self._ensure_llm_client()
             if not self.llm_client:
-                raise RuntimeError("Ollama client is not initialized for logits reranking.")
+                raise RuntimeError(
+                    "Ollama client is not initialized for logits reranking.")
 
             # Prepare the prompt template for logits reranking
             prompt_template = """<|system|>
@@ -267,7 +279,8 @@ Does this document contain information that helps answer this question (only ans
             doc_scores = []
             for doc in documents:
                 doc_text = doc["content"].replace("\n", " ")
-                prompt = prompt_template.format(doc_text=doc_text, question=query)
+                prompt = prompt_template.format(
+                    doc_text=doc_text, question=query)
 
                 messages = [
                     {"role": "user", "content": prompt}
@@ -283,9 +296,11 @@ Does this document contain information that helps answer this question (only ans
 
             # Sort by score (descending) and take top-k
             doc_scores.sort(key=lambda x: x[1], reverse=True)
-            reranked_docs = [doc for doc, score in doc_scores[:self.rerank_top_k]]
+            reranked_docs = [doc for doc,
+                             score in doc_scores[:self.rerank_top_k]]
 
-            self.logger.info("Reranked documents with logits", original_count=len(documents), reranked_count=len(reranked_docs))
+            self.logger.info("Reranked documents with logits", original_count=len(
+                documents), reranked_count=len(reranked_docs))
             return reranked_docs
 
         except Exception as e:
@@ -578,6 +593,7 @@ If there are any contradictions or gaps, note them clearly.
                         citations.append(CitationItem(
                             url=doc["url"],
                             icon_url=to_icon_url(doc["url"]),
+                            date=None,
                             title=None
                         ))
 
@@ -618,7 +634,8 @@ if __name__ == "__main__":
             max_tokens=4096,
             search_results_k=2,  # Fewer results per sub-query
             max_sub_queries=3,
-            rerank_model="sentence-transformers/all-MiniLM-L6-v2",  # Using sentence-transformers model for reranking
+            # Using sentence-transformers model for reranking
+            rerank_model="sentence-transformers/all-MiniLM-L6-v2",
             rerank_top_k=2
         )
 

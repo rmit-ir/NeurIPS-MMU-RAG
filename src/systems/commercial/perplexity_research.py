@@ -100,6 +100,7 @@ class PerplexityResearchRAG(RAGInterface):
                 citation_items.append(CitationItem(
                     url=url,
                     icon_url=to_icon_url(url),
+                    date=None,
                     title=None
                 ))
         return citation_items
