@@ -50,7 +50,7 @@ def _decode_results(json_payload: Dict[str, Any], id_prefix: Optional[str] = Non
     """
     raw_results = json_payload.get("results", []) or []
     results: List[SearchResult | SearchError] = []
-    idx = 0
+    idx = 1
     for item in raw_results:
         if not isinstance(item, str):
             continue
