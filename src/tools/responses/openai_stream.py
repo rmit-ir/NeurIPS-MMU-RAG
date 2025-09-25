@@ -62,7 +62,6 @@ async def to_openai_stream(
         SSE formatted strings for OpenAI-compatible streaming endpoint
     """
     if not chat_hash:
-        print('No chat_hash, direct stream')
         # No caching, stream directly
         async for chunk_data in _convert_stream_to_openai(start_stream, model):
             yield chunk_data
@@ -70,13 +69,10 @@ async def to_openai_stream(
 
     # Use queue system for caching and multiple subscribers
     async def stream_factory():
-        print('Using stream_factory with chat_hash:', chat_hash)
         async for chunk_data in _convert_stream_to_openai(start_stream, model):
             yield chunk_data
 
-    print('Getting or starting stream with chat_hash:', chat_hash)
     async for chunk_data in get_or_start_stream(chat_hash, stream_factory):
-        print('Yielding chunk_data:', chunk_data)
         if chunk_data and not chunk_data.startswith("ERROR:"):
             yield chunk_data
 

@@ -101,12 +101,10 @@ class StreamQueue:
                         sub_queue.put_nowait(message)
                     except asyncio.QueueFull:
                         pass  # Skip if queue is full
-                print('Sent existing messages to new subscriber.')
 
         async with self._metadata_lock:
             # Only add to subscribers if stream is still active
             if channel in self._active and self._active[channel]:
-                print('Adding to active subscribers.')
                 async with self._subscribers_lock:
                     self._subscribers[channel].add(sub_queue)
 
@@ -130,22 +128,17 @@ class StreamQueue:
 
     async def exists(self, channel: str) -> bool:
         """Check if channel exists and is active or cached."""
-        print('Checking existence for channel:', channel)
-
         # Check streams first
         async with self._streams_lock:
-            print('Current channels:', list(self._streams.keys()))
             has_stream_data = channel in self._streams
 
         # Check metadata (active status and expiry)
         async with self._metadata_lock:
             # Check if expired
             if channel in self._expiry and time.time() > self._expiry[channel]:
-                print('Channel expired, cleaning up:', channel)
                 await self._cleanup_expired_channel(channel)
                 return False
 
-            print('Channel active status:', self._active.get(channel, False))
             is_active = channel in self._active and self._active[channel]
 
             # Channel exists if it's active or has cached data
@@ -178,11 +171,11 @@ class StreamQueue:
         async with self._metadata_lock:
             self._active.pop(channel, None)
             self._expiry.pop(channel, None)
-        
+
         # Clean up stream data
         async with self._streams_lock:
             self._streams.pop(channel, None)
-        
+
         # Clean up subscribers and send end signals
         async with self._subscribers_lock:
             if channel in self._subscribers:
@@ -207,19 +200,15 @@ async def get_or_start_stream(
     Get existing stream or start new one.
     Redis-like interface for stream management.
     """
-    print('get_or_start_stream called with channel:', channel)
 
     # Check if stream already exists
     stream_exists = await stream_queue.exists(channel)
 
     if stream_exists:
-        print('Subscribing to existing stream for channel:', channel)
         # Subscribe to existing stream
         async for message in stream_queue.subscribe(channel):
             yield message
     else:
-        print('Starting new stream for channel:', channel)
-
         # Set up the stream first
         await stream_queue.set_active(channel, True)
 

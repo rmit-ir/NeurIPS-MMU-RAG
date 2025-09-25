@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "adms",
     "ainvoke",
     "aiohttp",
     "astream",
@@ -17,12 +18,14 @@
     "fastapi",
     "FINEWEB",
     "flashinfer",
+    "healthcheck",
     "ipykernel",
     "jsonlines",
     "langchain",
     "libnuma",
     "litellm",
     "Neur",
+    "neurips",
     "nltk",
     "nothink",
     "numactl",
