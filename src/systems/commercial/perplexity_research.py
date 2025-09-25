@@ -170,7 +170,7 @@ class PerplexityResearchRAG(RAGInterface):
                     request.question,
                     reasoning_effort="low"
                 )
-                print('response_data', response_data)
+                self.logger.info("API response", response_data=response_data)
 
                 # Extract final response and citations
                 final_report = self._extract_content(response_data)

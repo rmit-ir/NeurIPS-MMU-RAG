@@ -73,6 +73,7 @@ class AzureO3ResearchRAG(RAGInterface):
                         f"API request failed with status {response.status}: {error_text}")
 
                 result = await response.json()
+                self.logger.info("API response", result=result)
                 return result["choices"][0]["message"]["content"]
 
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
