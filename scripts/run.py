@@ -144,7 +144,8 @@ def save_results(results: List[EvaluateResponse], output_dir: str, input_file: s
                 writer.write({
                     'query_id': result.query_id,
                     'generated_response': result.generated_response,
-                    'citations': result.citations
+                    'citations': result.citations,
+                    'contexts': result.contexts
                 })
 
         logger.info("Results saved successfully",
