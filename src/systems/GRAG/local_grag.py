@@ -59,7 +59,7 @@ class LocalGRAG(RAGInterface):
         self.rerank_top_k = rerank_top_k
         self.reranker = reranker
 
-        self.logger = get_logger("lmstudio_grag")
+        self.logger = get_logger("local_grag")
         self.llm_client = None
         self.rerank_model_instance = None
 
