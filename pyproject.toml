@@ -21,8 +21,6 @@ dependencies = [
     "pandas>=2.3.2",
     "posthog>=6.7.5",
     "pydantic>=2.11.7",
-    "ragas>=0.3.5",
-    "rouge-score>=0.1.2",
     "sentence-transformers>=3.0.0",
     "structlog>=25.4.0",
     "tiktoken>=0.8.0",
@@ -34,6 +32,7 @@ dependencies = [
 # or | uv sync --all-extras
 # flashinfer-python 0.3.1 has issues with our installation, pin to 0.2.2
 vllm = ["vllm==0.10.2", "flashinfer-python==0.2.2", "numpy==1.26.4"]
+eval =["ragas>=0.3.5", "rouge-score>=0.1.2"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
