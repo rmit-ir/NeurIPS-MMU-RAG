@@ -1,29 +1,35 @@
+import os
 from datasets import Dataset
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 from ragas.metrics import answer_correctness
 from ragas import evaluate
-from langchain_aws import ChatBedrock
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LiteLLMEmbeddings
 from ragas.cache import DiskCacheBackend
-from ragas.dataset_schema import EvaluationResult
+from ragas.executor import Executor as RagasExecutor
+from langchain.globals import set_debug
 
+set_debug(True)
 
 cacher = DiskCacheBackend(cache_dir="/tmp/ragas_cache")
 
-# Set up Bedrock LLM
-llm_bedrock = ChatBedrock(
-    # model="arn:aws:bedrock:us-west-2:403959104676:inference-profile/us.anthropic.claude-3-5-sonnet-20240620-v1:0",
+
+# # Set up Bedrock LLM
+llm_mmu = ChatOpenAI(
+    base_url="https://mmu-gpu-server-llm-proxy.rankun.org/v1",
+    api_key=SecretStr(os.environ.get("MMU_OPENAI_API_KEY", "")),
     model="anthropic.claude-3-5-sonnet-20240620-v1:0",
-    region="us-west-2",
-    # model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
-    # region_name="us-west-2"
+    temperature=0.0,
 )
-llm = LangchainLLMWrapper(llm_bedrock, cache=cacher)
+
+llm_mmu = LangchainLLMWrapper(llm_mmu, cache=cacher)
 
 embeddings = LiteLLMEmbeddings(
     model="bedrock/cohere.embed-english-v3",
     cacher=cacher
 )
+
 
 data_samples = {
     'question': ['how to remove unwanted people from a photo in photoshop'],
@@ -42,23 +48,43 @@ data_samples = {
 6. **Save the Image**: Go to `File > Save As` and choose your desired format (e.g., JPEG, PNG) [2].  
 
 For complex cases, consider using the **Content-Aware Fill** feature (`Edit > Content-Aware Fill`) for automated adjustments [2]. Always test edits on a copy of the image to avoid irreversible changes [4]."""],
-    'ground_truth': ["""To remove unwanted people from a photo in Photoshop, use the Remove Tool, Content-Aware Fill, or the Clone Stamp Tool. For the Remove Tool, brush over the unwanted person and Photoshop will attempt to remove them using AI. Content-Aware Fill, accessed via Edit, allows you to select the person and fill the area with surrounding pixels. The Clone Stamp Tool lets you manually sample and replace the area with other parts of the image."""]
+    'ground_truth': ["""To remove unwanted people from a photo in Photoshop, use tools like **Generative Fill**, **Remove Tool**, or **Clone Stamp**—these are designed to erase people and blend the background seamlessly[3]. The process has become much easier in recent Photoshop versions, especially with the introduction of AI-powered features.
+
+**Common methods to remove people:**
+
+- **Generative Fill (Photoshop 2024 and later):**
+  1. Select the **Lasso Tool** from the toolbar.
+  2. Draw a selection around the person you want to remove, including some background for better blending.
+  3. Right-click inside the selection and choose **Generative Fill**.
+  4. You can leave the text prompt empty or type something specific if you want.
+  5. Click **Generate** and Photoshop's AI will fill in the selected area with new, matching background[3].
+
+- **Clone Stamp or Healing Brush Tools:**
+  - Manually paint over people with sampled pixels from nearby areas to blend them out. This is more advanced and requires patience for realistic results.
+
+**Tips for best results:**
+- Always work on a duplicate layer or a new transparent layer for non-destructive editing.
+- For complex backgrounds, use a combination of Generative Fill and Clone Stamp for touch-ups.
+- After removal, zoom in and check edges for any obvious artifacts.
+
+Modern Photoshop (2023/2024+) automates much of the process, especially with Generative Fill—older methods like manual cloning may still be needed for fine details or tricky areas[3]."""]
 }
 dataset = Dataset.from_dict(data_samples)
 
 # Configure the metric to use your custom LLM and embeddings
-answer_correctness.llm = llm
+answer_correctness.llm = llm_mmu
 answer_correctness.embeddings = embeddings
 
 
 async def main():
     # Run evaluation with explicit embeddings parameter
-    score = evaluate(dataset, metrics=[answer_correctness],
-                     llm=llm, embeddings=embeddings, return_executor=False)
+    executor = evaluate(dataset, metrics=[answer_correctness],
+                        return_executor=True)
 
-    if isinstance(score, EvaluationResult):
-        df_scores = score.to_pandas()
-        print(df_scores)
+    if isinstance(executor, RagasExecutor):
+        score = await executor.aresults()
+        # df_scores = score.to_pandas()
+        print(score)
 
 if __name__ == "__main__":
     import asyncio
