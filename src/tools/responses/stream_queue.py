@@ -204,11 +204,11 @@ class StreamQueue:
         """Return stats about the current state of the StreamQueue."""
         return {
             "streams": len(self._streams),
-            "channels": sorted(self._subscribers.keys()),
-            "active_channels": sorted([k for k, v in self._active.items() if v]),
-            "subscribers": {k: len(v) for k, v in self._subscribers.items()},
-            "active": {k: v for k, v in self._active.items() if v},
-            "expired": {k: v for k, v in self._expiry.items() if time.time() > v},
+            "channels": len(self._subscribers.keys()),
+            "active_channels": [k for k, v in self._active.items() if v],
+            # "subscribers": {k: len(v) for k, v in self._subscribers.items()},
+            # "active": {k: v for k, v in self._active.items() if v},
+            # "expired": {k: v for k, v in self._expiry.items() if time.time() > v},
         }
 
 
