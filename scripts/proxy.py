@@ -6,7 +6,30 @@ This script manages an AWS EC2 instance lifecycle and runs a Caddy reverse proxy
 traffic from a local port to the remote instance.
 
 Usage:
-    python proxy.py --remote-instance-id i-04fab8448e7b48317 --remote-instance-region us-west-2 --port 8080 --remote-ip 100.67.56.71 --remote-port 9091
+    uv run scripts/proxy.py --remote-instance-id i-04fab8448e7b48317 --remote-instance-region us-west-2 --port 8080 --remote-ip 100.67.56.71 --remote-port 9091
+    
+Launch with llm-proxy-ondemand:
+    
+    uv run --with llm-proxy-ondemand llm-proxy-ondemand \
+        --port 8901 \
+        --ping-path /health \
+        --idle-timeout 7200 -- python scripts/proxy.py \
+            --remote-instance-id i-04fab8448e7b48317 \
+            --remote-instance-region us-west-2 \
+            --remote-ip 100.67.56.71 \
+            --remote-port 9091
+
+    Explanation:
+        llm-proxy-ondemand: a proxy server that starts/stops this proxy.py, on-demand
+        --port: the local port for llm-proxy-ondemand, visited by public
+        --ping-path: health check path on scripts/proxy.py (in this case, the remote server's corresponding path)
+        --idle-timeout: time in seconds to wait before stopping the instance after last request
+        --: separates llm-proxy-ondemand args and proxy.py args
+        proxy.py: this script starts the EC2 instance and runs Caddy to forward traffic, then stops the instance on shutdown
+        --remote-instance-id: the remote EC2 instance ID to manage
+        --remote-instance-region: the AWS region of the instance
+        --remote-ip: the remote IP address of the instance (use private IP if in same VPC)
+        --remote-port: the port on the remote instance to forward traffic to
 """
 
 import argparse
