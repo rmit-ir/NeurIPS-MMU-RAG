@@ -25,6 +25,7 @@
     "langchain",
     "libnuma",
     "litellm",
+    "llms",
     "Neur",
     "neurips",
     "nltk",
