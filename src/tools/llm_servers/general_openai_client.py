@@ -324,20 +324,17 @@ async def main():
     # Load environment variables from .env file
     load_dotenv()
 
-    # Get API key from environment
-    api_key = os.environ.get("AI71_API_KEY", "")
-
     # Create a GeneralOpenAIClient instance
     client = GeneralOpenAIClient(
-        api_key=api_key,
-        api_base="https://api.ai71.ai/v1/",
-        model_id="tiiuae/falcon3-10b-instruct"
+        api_key=os.environ.get("MMU_OPENAI_API_KEY", ""),
+        api_base="https://mmu-proxy-server-llm-proxy.rankun.org/v1",
+        model_id="openai.gpt-oss-20b-1:0"
     )
 
     # Send the query and get the response with a custom system message
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Explain the concept of retrieval-augmented generation in simple terms."}
+        {"role": "user", "content": "Compare use cases for RAG and long context LLMs"}
     ]
     content, raw_response = await client.complete_chat(messages=messages)
 
@@ -346,6 +343,10 @@ async def main():
     print("-" * 50)
     print(content)
     print("-" * 50)
+    print("-" * 50)
+    print("-" * 50)
+    print("\nFull API Response:")
+    print(raw_response)
 
 if __name__ == "__main__":
     asyncio.run(main())
