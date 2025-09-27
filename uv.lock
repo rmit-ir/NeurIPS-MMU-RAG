@@ -1930,6 +1930,21 @@ wheels = [
 ]
 
 [[package]]
+name = "llm-proxy-ondemand"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2c/79/57f73587b2df45098e4e2bae54598e28370ea83615897ac9ea1827417d10/llm_proxy_ondemand-0.1.2.tar.gz", hash = "sha256:0b56be552aae5dd6d1734a1248c6ffd466b7dc3935ea6b67114e47db2a23c025", size = 49237, upload-time = "2025-09-18T09:05:40.414Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/7b/94d394677584ab6dcc2928cb0830d1f4962cf329646d7581288daa74951e/llm_proxy_ondemand-0.1.2-py3-none-any.whl", hash = "sha256:10c7a53de4aed03eb491c125ffc49a460e6d50d5e4c73c0f9272f5104c2dbf40", size = 11908, upload-time = "2025-09-18T09:05:39.39Z" },
+]
+
+[[package]]
 name = "llvmlite"
 version = "0.44.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2186,6 +2201,9 @@ eval = [
     { name = "ragas" },
     { name = "rouge-score" },
 ]
+proxy = [
+    { name = "llm-proxy-ondemand" },
+]
 vllm = [
     { name = "flashinfer-python" },
     { name = "numpy" },
@@ -2213,6 +2231,7 @@ requires-dist = [
     { name = "langchain-core", specifier = ">=0.3.76" },
     { name = "langchain-openai", specifier = ">=0.3.29" },
     { name = "litellm", specifier = ">=1.75.3" },
+    { name = "llm-proxy-ondemand", marker = "extra == 'proxy'", specifier = ">=0.1.2" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "numpy", marker = "extra == 'vllm'", specifier = "==1.26.4" },
@@ -2227,7 +2246,7 @@ requires-dist = [
     { name = "tiktoken", specifier = ">=0.8.0" },
     { name = "vllm", marker = "extra == 'vllm'", specifier = "==0.10.2" },
 ]
-provides-extras = ["vllm", "eval"]
+provides-extras = ["vllm", "eval", "proxy"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "autopep8", specifier = ">=2.3.2" }]
