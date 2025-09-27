@@ -3,6 +3,7 @@
     "adms",
     "ainvoke",
     "aiohttp",
+    "apscheduler",
     "astream",
     "autopep",
     "botocore",
