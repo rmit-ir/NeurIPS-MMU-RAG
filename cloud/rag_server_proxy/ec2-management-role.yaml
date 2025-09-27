@@ -7,7 +7,7 @@
 #   --region ap-southeast-2
 
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'IAM Role for EC2 instances with EC2 start/stop management permissions'
+Description: 'IAM Role for EC2 instances with EC2 start/stop management and Bedrock access permissions'
 
 Resources:
   # IAM Role for EC2 instances
@@ -42,6 +42,31 @@ Resources:
                 Action:
                   - ec2:DescribeRegions
                   - ec2:DescribeAvailabilityZones
+                Resource: '*'
+        - PolicyName: BedrockInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                  - bedrock:GetModelInvocationLoggingConfiguration
+                  - bedrock:ListCustomModels
+                Resource: '*'
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                  - logs:DescribeLogGroups
                 Resource: '*'
 
   # Instance Profile for EC2
