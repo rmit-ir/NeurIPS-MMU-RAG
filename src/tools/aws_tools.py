@@ -9,6 +9,10 @@ import subprocess
 import time
 from typing import Dict, List, NamedTuple, Optional, TypedDict
 
+from tools.logging_utils import get_logger
+
+logger = get_logger('aws_tools')
+
 
 class InstanceIPs(NamedTuple):
     """Container for instance IP addresses"""
@@ -86,6 +90,7 @@ def run_aws_command(command: List[str]) -> Dict:
     """
     command = no_pager(command)
     try:
+        logger.info("Running AWS command", command=" ".join(command))
         result = subprocess.run(
             command,
             capture_output=True,

@@ -202,6 +202,17 @@ class ProxyServer:
         """Shutdown the proxy and stop the remote instance"""
         self.logger.info("Shutting down proxy server")
 
+        # Stop the remote instance
+        self.logger.info("Stopping remote instance",
+                         instance_id=self.instance_id)
+        try:
+            stop_instance(self.instance_id, self.region)
+            self.logger.info("Remote instance stop command sent successfully")
+        except Exception as e:
+            self.logger.error("Error stopping remote instance",
+                              instance_id=self.instance_id,
+                              error=str(e))
+
         # Stop Caddy process
         if self.caddy_process and self.caddy_process.poll() is None:
             self.logger.info("Stopping Caddy process",
@@ -214,17 +225,6 @@ class ProxyServer:
                 self.logger.warning(
                     "Caddy process did not stop gracefully, killing it")
                 self.caddy_process.kill()
-
-        # Stop the remote instance
-        self.logger.info("Stopping remote instance",
-                         instance_id=self.instance_id)
-        try:
-            stop_instance(self.instance_id, self.region)
-            self.logger.info("Remote instance stop command sent successfully")
-        except Exception as e:
-            self.logger.error("Error stopping remote instance",
-                              instance_id=self.instance_id,
-                              error=str(e))
 
     def run(self):
         """Main run loop"""
