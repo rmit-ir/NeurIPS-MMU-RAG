@@ -30,7 +30,7 @@ To migrate this to use actual Redis, replace the StreamQueue class with redis.as
 
 import asyncio
 import time
-from typing import Dict, AsyncGenerator, Any, Callable, Optional
+from typing import Dict, AsyncGenerator, Any, Callable
 from collections import defaultdict, deque
 
 from tools.logging_utils import get_logger
@@ -158,7 +158,7 @@ class StreamQueue:
                              has_stream_data=has_stream_data)
             return exists
 
-    async def set_active(self, channel: str, active: bool = True, ttl: Optional[int] = None):
+    async def set_active(self, channel: str, active: bool = True):
         """Mark channel as active/inactive with optional TTL."""
         if active:
             # Set active status and initialize stream if needed
@@ -173,8 +173,7 @@ class StreamQueue:
             async with self._metadata_lock:
                 self._active[channel] = False
                 # Set expiry time when stream completes
-                expire_time = ttl or self.default_ttl
-                self._expiry[channel] = time.time() + expire_time
+                self._expiry[channel] = time.time() + self.default_ttl
 
             # Send end signal to all subscribers
             await self.publish(channel, None)
@@ -246,8 +245,7 @@ async def get_or_start_stream(
             finally:
                 # Mark stream as inactive and send completion signal
                 await stream_queue.set_active(channel, False)
-                # Clean up after delay
-                asyncio.create_task(cleanup_channel(channel, delay=300))
+                asyncio.create_task(cleanup_channel(channel))
 
         # Start the producer task
         producer_task = asyncio.create_task(producer())
@@ -262,7 +260,7 @@ async def get_or_start_stream(
             raise
 
 
-async def cleanup_channel(channel: str, delay: int = 300):
-    """Clean up channel after delay."""
-    await asyncio.sleep(delay)
+async def cleanup_channel(channel: str):
+    """Clean up channel after appropriate delay based on TTL."""
+    await asyncio.sleep(stream_queue.default_ttl)
     await stream_queue.delete(channel)

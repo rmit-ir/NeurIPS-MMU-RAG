@@ -34,6 +34,7 @@
     "numactl",
     "numpy",
     "ondemand",
+    "popleft",
     "posthog",
     "preexec",
     "pydantic",
