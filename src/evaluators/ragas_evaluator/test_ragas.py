@@ -17,7 +17,7 @@ cacher = DiskCacheBackend(cache_dir="/tmp/ragas_cache")
 
 # # Set up Bedrock LLM
 llm_mmu = ChatOpenAI(
-    base_url="https://mmu-gpu-server-llm-proxy.rankun.org/v1",
+    base_url="https://mmu-proxy-server-llm-proxy.rankun.org/v1",
     api_key=SecretStr(os.environ.get("MMU_OPENAI_API_KEY", "")),
     model="anthropic.claude-3-5-sonnet-20240620-v1:0",
     temperature=0.0,

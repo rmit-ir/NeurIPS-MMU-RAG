@@ -4,12 +4,10 @@ import openai
 os.environ["OPENAI_API_KEY"] = os.environ.get("MMU_OPENAI_API_KEY", "")
 
 client = openai.OpenAI(
-    # api_key="sk-aUkkzAt1oUoVwTiqq-8UCA",
-    base_url="https://mmu-gpu-server-llm-proxy.rankun.org"  # Your LiteLLM Proxy URL
-)
+    base_url="https://mmu-proxy-server-llm-proxy.rankun.org")
 
 response = client.chat.completions.create(
-    model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+    model="qwen.qwen3-32b-v1:0",
     messages=[
         {
             "role": "user",
