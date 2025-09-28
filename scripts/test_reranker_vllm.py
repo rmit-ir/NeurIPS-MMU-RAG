@@ -86,7 +86,10 @@ def rerank(query: str, docs: List[str], max_words=4_000):
     Returns the same length list of scores for the documents based on the query.
     """
     instruction = (
-        "Given the web search query, is the retrieved document (1) from a high quality, (2) from a relevant website, (3) published recently, and (4) contains key information that helps answering the query?")
+        "Given the web search query, is the retrieved document "
+        "(1) from a high quality and relevant website based on the URL, "
+        "(2) published recently, and "
+        "(3) contains key information that helps answering the query?")
 
     # length=1
     query_fmt = query_template.format(
