@@ -1,4 +1,5 @@
-# Copied from vLLM official Github repo
+# Modified from vLLM official Github repo
+# uv run scripts/test_reranker_vllm.py -i data/past_topics/runs/topics.rag24.test.retrieval.jsonl
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 # ruff: noqa: E501
@@ -36,7 +37,7 @@ def get_llm() -> LLM:
         model=model_name,
         runner="pooling",
         gpu_memory_utilization=0.15,
-        max_model_len=10000,
+        max_model_len=16000,  # (the max input that can fit in 24Gx0.15
         hf_overrides={
             "architectures": ["Qwen3ForSequenceClassification"],
             "classifier_from_token": ["no", "yes"],
@@ -64,21 +65,34 @@ suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
 query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
 document_template = "<Document>: {doc}{suffix}"
 
+llm = get_llm()
 
-def rerank(query: str, docs: List[str]):
+
+def cut_to_words(text: str, max_words: int) -> str:
+    """Cut the text to the first max_words words."""
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return ' '.join(words[:max_words])
+
+
+def rerank(query: str, docs: List[str], max_words=4_000):
     """
+    Limit doc length to max_length words.
     Returns the same length list of scores for the documents based on the query.
     """
     instruction = (
         "Given a web search query, retrieve relevant passages that answer the query")
 
-    queries = [query_template.format(
-        prefix=prefix, instruction=instruction, query=query)]
-    documents = [document_template.format(
-        doc=doc, suffix=suffix) for doc in docs]
+    # length=1
+    query_fmt = query_template.format(
+        prefix=prefix, instruction=instruction, query=query)
+    # length=len(docs)
+    docs_fmt = [document_template.format(
+        doc=cut_to_words(doc, max_words), suffix=suffix) for doc in docs]
 
-    llm = get_llm()
-    outputs = llm.score(queries, documents)
+    # Does llm.score support [[1], [n]] inputs?
+    outputs = llm.score(query_fmt, docs_fmt)
     scores = [output.outputs.score for output in outputs]
     return scores
 
@@ -127,6 +141,7 @@ def main() -> None:
     # For each topic, rerank the documents, finally save to same filename .rerank.jsonl
     for topic in topics:
         docs = topic['docs']
+        docs = [doc for doc in docs if 'text' in doc and doc['text']]
         if args.num_docs is not None:
             docs = docs[:args.num_docs]
         doc_texts = [doc['text'] for doc in docs]
