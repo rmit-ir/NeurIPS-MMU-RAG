@@ -76,13 +76,17 @@ def cut_to_words(text: str, max_words: int) -> str:
     return ' '.join(words[:max_words])
 
 
+def search_result_to_text(r: Dict[str, Any]):
+    return f"Web URL: {r.get('url', 'Unknown').strip()}\n\nContent: {r.get('text', '').strip()}\n\n"
+
+
 def rerank(query: str, docs: List[str], max_words=4_000):
     """
     Limit doc length to max_length words.
     Returns the same length list of scores for the documents based on the query.
     """
     instruction = (
-        "Given a web search query, retrieve relevant passages that answer the query")
+        "Given the web search query, is the retrieved document (1) from a high quality, (2) from a relevant website, (3) published recently, and (4) contains key information that helps answering the query?")
 
     # length=1
     query_fmt = query_template.format(
@@ -141,10 +145,13 @@ def main() -> None:
     # For each topic, rerank the documents, finally save to same filename .rerank.jsonl
     for topic in topics:
         docs = topic['docs']
-        docs = [doc for doc in docs if 'text' in doc and doc['text']]
+        doc_texts = [search_result_to_text(doc) for doc in docs if 'text' in doc and doc['text']]
+        if len(doc_texts) == 0:
+            logger.warning("No valid documents to rerank",
+                           topic_id=topic['iid'])
+            continue
         if args.num_docs is not None:
-            docs = docs[:args.num_docs]
-        doc_texts = [doc['text'] for doc in docs]
+            doc_texts = doc_texts[:args.num_docs]
         scores = rerank(topic['query'], doc_texts)
         for doc, score in zip(docs, scores):
             doc['score'] = score
