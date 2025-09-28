@@ -3,7 +3,7 @@
 import asyncio
 import signal
 import sys
-from typing import List, Optional, TypedDict
+from typing import List, Optional
 from vllm import LLM
 
 from tools.web_search import SearchResult
