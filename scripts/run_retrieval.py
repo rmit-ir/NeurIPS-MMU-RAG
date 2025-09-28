@@ -59,7 +59,7 @@ def run_search_for_topic(topic: EvaluateRequest, num_docs: int) -> OutputRecord:
         return {
             'iid': topic.iid,
             'query': topic.query,
-            'docs': [{'error': f"Search failed: {str(e)}", 'value': None}]
+            'docs': []
         }
 
 
@@ -87,14 +87,7 @@ def save_results(results: List[OutputRecord], output_file: str):
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(
-        description="Run web search retrieval on JSONL topic files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python scripts/run_retrieval.py --topics-file data/past_topics/processed/topics.rag24.test.n50.jsonl
-  
-  python scripts/run_retrieval.py --topics-file data/past_topics/processed/topics.rag24.test.n50.jsonl --num-docs 100
-        """
     )
 
     parser.add_argument(

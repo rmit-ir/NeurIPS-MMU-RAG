@@ -1,10 +1,17 @@
+# Copied from vLLM official Github repo
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 # ruff: noqa: E501
 
+import argparse
+from typing import Any, Dict, List, TypedDict
+import jsonlines
 from vllm import LLM
 
+from tools.logging_utils import get_logger
+
 model_name = "Qwen/Qwen3-Reranker-0.6B"
+logger = get_logger('run_retrieval')
 
 # What is the difference between the official original version and one
 # that has been converted into a sequence classification model?
@@ -58,33 +65,81 @@ query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
 document_template = "<Document>: {doc}{suffix}"
 
 
+def rerank(query: str, docs: List[str]):
+    """
+    Returns the same length list of scores for the documents based on the query.
+    """
+    instruction = (
+        "Given a web search query, retrieve relevant passages that answer the query")
+
+    queries = [query_template.format(
+        prefix=prefix, instruction=instruction, query=query)]
+    documents = [document_template.format(
+        doc=doc, suffix=suffix) for doc in docs]
+
+    llm = get_llm()
+    outputs = llm.score(queries, documents)
+    scores = [output.outputs.score for output in outputs]
+    return scores
+
+
+class OutputRecord(TypedDict):
+    iid: str
+    query: str
+    docs: List[Dict[str, Any]]
+
+
 def main() -> None:
     instruction = (
         "Given a web search query, retrieve relevant passages that answer the query"
     )
 
-    queries = [
-        "What is the capital of China?",
-        "Explain gravity",
-    ]
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
-    documents = [
-        "The capital of China is Beijing.",
-        "Gravity is a force that attracts two bodies towards each other. It gives weight to physical objects and is responsible for the movement of planets around the sun.",
-    ]
+    parser.add_argument(
+        '--run-file',
+        '-i',
+        required=True,
+        help='Input JSONL run file under data/past_topics/runs with docs (must have "iid", "query" and "docs" fields)'
+    )
 
-    queries = [
-        query_template.format(prefix=prefix, instruction=instruction, query=query)
-        for query in queries
-    ]
-    documents = [document_template.format(doc=doc, suffix=suffix) for doc in documents]
+    parser.add_argument(
+        '--num-docs',
+        '-n',
+        type=int,
+        default=None,
+        help='Number of documents to rerank per query (default: all)'
+    )
 
-    llm = get_llm()
-    outputs = llm.score(queries, documents)
+    args = parser.parse_args()
 
-    print("-" * 30)
-    print([output.outputs.score for output in outputs])
-    print("-" * 30)
+    # Load run
+    topics: List[OutputRecord] = []
+    with jsonlines.open(args.run_file, 'r') as reader:
+        for line_num, topic in enumerate(reader, 1):
+            topics.append(OutputRecord(**topic))
+
+    logger.info("Topics loaded successfully", topics_count=len(
+        topics), run_file=args.run_file)
+
+    # For each topic, rerank the documents, finally save to same filename .rerank.jsonl
+    for topic in topics:
+        docs = topic['docs']
+        if args.num_docs is not None:
+            docs = docs[:args.num_docs]
+        doc_texts = [doc['text'] for doc in docs]
+        scores = rerank(topic['query'], doc_texts)
+        for doc, score in zip(docs, scores):
+            doc['score'] = score
+        # Sort by score descending
+        docs.sort(key=lambda x: x['score'], reverse=True)
+        topic['docs'] = docs
+    # Save to same filename .rerank.jsonl
+    output_file = args.run_file.replace('retrieval.jsonl', 'rerank.jsonl')
+    with jsonlines.open(output_file, 'w') as writer:
+        writer.write_all(topics)
 
 
 if __name__ == "__main__":
