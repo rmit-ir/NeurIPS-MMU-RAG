@@ -24,6 +24,7 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "structlog>=25.4.0",
     "tiktoken>=0.8.0",
+    "transformers>=4.51",           # minimum version for Qwen reranker
 ]
 
 [project.optional-dependencies]
