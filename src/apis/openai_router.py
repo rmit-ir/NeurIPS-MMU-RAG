@@ -20,11 +20,14 @@ from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.llm_servers.vllm_server import get_llm_mgr
+from tools.reranker_vllm import get_reranker
 from tools.responses.openai_stream import to_openai_stream
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # Launch reranker
+    get_reranker()
     # Launch llm
     default_llm_mgr = get_llm_mgr(
         model_id="Qwen/Qwen3-4B",

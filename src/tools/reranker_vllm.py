@@ -1,5 +1,8 @@
 """VLLM-based reranker implementation using Qwen3-Reranker."""
 
+import asyncio
+import signal
+import sys
 from typing import List, Optional, TypedDict
 from vllm import LLM
 
@@ -40,6 +43,7 @@ class VLLMReranker:
         self.max_model_len = 16000  # the max input that can fit in 24Gx0.15
         # e.g., 0.5 to drop irrelevant results
         self.drop_irrelevant_threshold = drop_irrelevant_threshold
+        self._shutdown_requested = False
 
         # Templates that works for Qwen3-Reranker only
         self.prefix = '<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
@@ -64,6 +68,24 @@ class VLLMReranker:
             },
         )
 
+    def shutdown(self):
+        """Gracefully shutdown the reranker and cleanup resources."""
+        logger.info("Shutting down VLLMReranker")
+        self._shutdown_requested = True
+        try:
+            # Clean up VLLM resources if possible
+            if hasattr(self.llm, 'llm_engine') and self.llm.llm_engine is not None:
+                # VLLM cleanup - this may vary based on VLLM version
+                del self.llm.llm_engine
+            del self.llm
+            logger.info("VLLMReranker shutdown completed")
+        except Exception as e:
+            logger.warning("Error during VLLMReranker shutdown", error=str(e))
+
+    def is_shutdown_requested(self) -> bool:
+        """Check if shutdown has been requested."""
+        return self._shutdown_requested
+
     def _cut_to_words(self, text: str, max_words: int) -> str:
         """Cut the text to the first max_words words."""
         words = text.split()
@@ -75,9 +97,29 @@ class VLLMReranker:
         """Convert SearchResult to formatted text."""
         return f"Web URL: {result.url.strip()}\n\nContent: {result.text.strip()}\n\n"
 
-    def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000) -> List[SearchResultRanked]:
+    def _score_sync(self, query_fmt: str, docs_fmt: List[str]) -> List[float]:
         """
-        Rerank search results based on query relevance.
+        Synchronous scoring method to be run in thread pool.
+
+        Args:
+            query_fmt: Formatted query string
+            docs_fmt: List of formatted document strings
+
+        Returns:
+            List of scores for each document
+        """
+        try:
+            outputs = self.llm.score(query_fmt, docs_fmt)
+            scores = [output.outputs.score for output in outputs]
+            return scores
+        except Exception as e:
+            logger.error("Error during vLLM scoring", error=str(e))
+            # Fallback: return zero scores
+            return [0.0] * len(docs_fmt)
+
+    async def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000) -> List[SearchResultRanked]:
+        """
+        Asynchronously rerank search results based on query relevance.
 
         Args:
             query: The search query
@@ -87,6 +129,10 @@ class VLLMReranker:
         Returns:
             List of SearchResultRanked objects sorted by score (descending)
         """
+        if self._shutdown_requested:
+            logger.info("Shutdown requested, skipping rerank operation")
+            return []
+
         if not search_results:
             logger.warning("No search results to rerank")
             return []
@@ -113,19 +159,15 @@ class VLLMReranker:
             for result in search_results
         ]
 
-        # Get scores from vLLM
-        try:
-            outputs = self.llm.score(query_fmt, docs_fmt)
-            scores = [output.outputs.score for output in outputs]
+        # Get scores from vLLM asynchronously using thread pool
+        loop = asyncio.get_event_loop()
+        scores = await loop.run_in_executor(
+            None, self._score_sync, query_fmt, docs_fmt
+        )
 
-            logger.info("Reranking completed",
-                        num_results=len(search_results),
-                        query_length=len(query))
-
-        except Exception as e:
-            logger.error("Error during reranking", error=str(e))
-            # Fallback: return original results with score 0.0
-            scores = [0.0] * len(search_results)
+        logger.info("Reranking completed",
+                    num_results=len(search_results),
+                    query_length=len(query))
 
         # Create ranked results
         ranked_results = [
@@ -160,7 +202,27 @@ def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
         _reranker_instance = VLLMReranker(
             model_name=model_name,
             drop_irrelevant_threshold=drop_irrelevant_threshold)
+        setup_signal_handlers()
     else:
         logger.debug("Returning existing VLLMReranker instance")
 
     return _reranker_instance
+
+
+def shutdown_reranker():
+    """Shutdown the global reranker instance."""
+    global _reranker_instance
+    if _reranker_instance is not None:
+        _reranker_instance.shutdown()
+        _reranker_instance = None
+
+
+def setup_signal_handlers():
+    """Setup signal handlers for graceful shutdown."""
+    def signal_handler(signum, frame):
+        logger.info(f"Received signal {signum}, shutting down")
+        shutdown_reranker()
+
+    # Handle SIGINT (Ctrl+C) and SIGTERM
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)

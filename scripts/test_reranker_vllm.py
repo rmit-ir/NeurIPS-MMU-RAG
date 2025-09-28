@@ -37,7 +37,7 @@ class OutputRecord(TypedDict):
     docs: Sequence[Dict[str, Any]]
 
 
-def main() -> None:
+async def main() -> None:
     instruction = (
         "Given a web search query, retrieve relevant passages that answer the query"
     )
@@ -93,7 +93,7 @@ def main() -> None:
 
         query = topic.get('query', '')
         search_results = [dict_to_search_result(doc) for doc in valid_docs]
-        ranked_results = reranker.rerank(query, search_results)
+        ranked_results = await reranker.rerank(query, search_results)
 
         # Convert SearchResultRanked back to dict format for output
         topic['docs'] = [dict(result) for result in ranked_results]
@@ -104,4 +104,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
