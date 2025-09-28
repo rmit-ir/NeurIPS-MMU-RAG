@@ -96,7 +96,7 @@ async def _make_search_request(
     params: Dict[str, str],
     headers: Optional[Dict[str, str]] = None,
     session: Optional[aiohttp.ClientSession] = None,
-    timeout: float = 20.0,
+    timeout: float = 60.0,
     service_name: str = "Search"
 ) -> Dict[str, Any]:
     """Make a search request to the specified URL with common error handling."""
@@ -125,7 +125,7 @@ async def search_fineweb(
     k: int = 5,
     id_prefix: Optional[str] = None,
     session: Optional[aiohttp.ClientSession] = None,
-    timeout: float = 20.0,
+    timeout: float = 60.0,
 ) -> List[SearchResult | SearchError]:
     """Search the FineWeb dataset (no API key required).
 
@@ -159,7 +159,7 @@ async def search_clueweb(
     cw22_a: bool = False,
     id_prefix: Optional[str] = None,
     session: Optional[aiohttp.ClientSession] = None,
-    timeout: float = 30.0,
+    timeout: float = 60.0,
 ) -> List[SearchResult | SearchError]:
     """Search the ClueWeb-22 collection (API key required).
 
@@ -215,7 +215,7 @@ def _sync_wrapper(async_func, *args, **kwargs) -> List[SearchResult | SearchErro
         )
 
 
-def search_fineweb_sync(query: str, k: int = 5, timeout: float = 20.0) -> List[SearchResult | SearchError]:
+def search_fineweb_sync(query: str, k: int = 5, timeout: float = 60.0) -> List[SearchResult | SearchError]:
     """Synchronous wrapper for fineweb_search (creates its own loop if needed)."""
     return _sync_wrapper(search_fineweb, query=query, k=k, timeout=timeout)
 
@@ -225,7 +225,7 @@ def search_clueweb_sync(
     k: int = 5,
     api_key: Optional[str] = None,
     cw22_a: bool = False,
-    timeout: float = 30.0,
+    timeout: float = 60.0,
 ) -> List[SearchResult | SearchError]:
     """Synchronous wrapper for clueweb_search (creates its own loop if needed)."""
     return _sync_wrapper(
