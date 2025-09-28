@@ -34,7 +34,7 @@ async def mock_rag_stream():
         is_intermediate=False,
         final_report="This is the final answer to your question.",
         citations=[CitationItem(url="https://example.com",
-                                icon_url="", date=None, title="Example Source")],
+                                icon_url="", date=None, title="Example Source", sid="1")],
         complete=True
     )
     print('mock_rag_stream completed.')

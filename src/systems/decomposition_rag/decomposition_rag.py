@@ -223,8 +223,9 @@ If there are any contradictions or gaps, note them clearly.
         try:
             if not self.llm_client:
                 raise RuntimeError("LLM client is not initialized.")
-            
-            messages = self._prepare_synthesis_messages(original_query, sub_queries, sub_answers)
+
+            messages = self._prepare_synthesis_messages(
+                original_query, sub_queries, sub_answers)
             final_answer, _ = await self.llm_client.complete_chat(messages)
             return final_answer.strip() if final_answer else "Answer unavailable"
 
@@ -423,8 +424,9 @@ If there are any contradictions or gaps, note them clearly.
                 )
 
                 # Step 3: Stream the synthesis process
-                messages = self._prepare_synthesis_messages(request.question, sub_queries, sub_answers)
-                
+                messages = self._prepare_synthesis_messages(
+                    request.question, sub_queries, sub_answers)
+
                 yield RunStreamingResponse(
                     intermediate_steps="Starting to synthesize final answer...\n\n",
                     is_intermediate=True,
@@ -461,7 +463,8 @@ If there are any contradictions or gaps, note them clearly.
                             url=doc["url"],
                             icon_url=to_icon_url(doc["url"]),
                             date=None,
-                            title=None
+                            title=None,
+                            sid=None,
                         ))
 
                 # Final response

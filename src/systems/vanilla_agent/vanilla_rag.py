@@ -185,13 +185,15 @@ Search results knowledge cutoff: December 2024
                     complete=False
                 )
                 docs = await search_fineweb(request.question, k=100)
+                total_docs = len(docs)
                 docs = [r for r in docs if isinstance(r, SearchResult)]
                 docs = await self.reranker.rerank(request.question, docs)
+                reranked_docs = len(docs)
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
-                    intermediate_steps=f"""Found {len(docs)} results
+                    intermediate_steps=f"""Search returned {total_docs}, identified {reranked_docs}, truncated to {len(docs)} web pages.
 
 {md_urls}\n\n""",
                     is_intermediate=True,
@@ -229,6 +231,7 @@ Search results knowledge cutoff: December 2024
                         url=r.url,
                         icon_url=to_icon_url(r.url),
                         date=str(r.date) if r.date else None,
+                        sid=r.sid,
                         title=None
                     )
                     for r in docs if isinstance(r, SearchResult)

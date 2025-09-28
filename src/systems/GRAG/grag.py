@@ -596,7 +596,8 @@ If there are any contradictions or gaps, note them clearly.
                             url=doc["url"],
                             icon_url=to_icon_url(doc["url"]),
                             date=None,
-                            title=None
+                            title=None,
+                            sid=None,
                         ))
 
                 # Final response

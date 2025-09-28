@@ -94,15 +94,13 @@ class PerplexityResearchRAG(RAGInterface):
         if not isinstance(citations, list):
             return []
 
-        citation_items = []
-        for url in citations:
-            if isinstance(url, str):
-                citation_items.append(CitationItem(
-                    url=url,
-                    icon_url=to_icon_url(url),
-                    date=None,
-                    title=None
-                ))
+        citation_items = [CitationItem(
+            sid=str(idx + 1),
+            url=url,
+            icon_url=to_icon_url(url),
+            date=None,
+            title=None
+        ) for idx, url in enumerate(citations) if isinstance(url, str)]
         return citation_items
 
     def _extract_content(self, response_data: dict) -> str:
