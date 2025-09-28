@@ -26,6 +26,7 @@ class SearchResult(NamedTuple):
     language: str
     language_score: float
     token_count: int
+    score: float | None
 
 
 class SearchError(NamedTuple):
@@ -74,7 +75,8 @@ def _decode_results(json_payload: Dict[str, Any], id_prefix: Optional[str] = Non
                         file_path=obj.get("file_path", ""),
                         language=obj.get("language", ""),
                         language_score=float(obj.get("language_score", 0.0)),
-                        token_count=int(obj.get("token_count", 0))
+                        token_count=int(obj.get("token_count", 0)),
+                        score=obj.get("score", None)
                     )
                     results.append(result)
                 except (ValueError, TypeError) as e:

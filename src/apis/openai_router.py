@@ -20,21 +20,29 @@ from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.llm_servers.vllm_server import get_llm_mgr
+from tools.logging_utils import get_logger
 from tools.reranker_vllm import get_reranker
 from tools.responses.openai_stream import to_openai_stream
+
+logger = get_logger('openai_router')
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Launch reranker
-    get_reranker()
-    # Launch llm
+    logger.info("Starting reranker_vllm reranker...")
+    await get_reranker()
+    logger.info("Reranker ready.")
+
+    # Launch llm manager
+    logger.info("Starting LLM manager...")
     default_llm_mgr = get_llm_mgr(
         model_id="Qwen/Qwen3-4B",
         reasoning_parser="qwen3",
         gpu_memory_utilization=0.7,
         max_model_len=20000)
     await default_llm_mgr.get_server()
+    logger.info("LLM manager ready.")
     yield
 
 # Create app for standalone usage

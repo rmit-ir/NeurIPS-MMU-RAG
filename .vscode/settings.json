@@ -42,6 +42,7 @@
     "PYTHONPATH",
     "Qwen",
     "Ragent",
+    "rerank",
     "reranker",
     "retryable",
     "setex",
