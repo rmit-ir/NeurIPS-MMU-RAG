@@ -3,7 +3,7 @@
 import asyncio
 import signal
 import sys
-from typing import List, Optional, TypedDict
+from typing import List, Optional
 from vllm import LLM
 
 from tools.web_search import SearchResult
@@ -12,31 +12,15 @@ from tools.logging_utils import get_logger
 logger = get_logger('reranker_vllm')
 
 # Global singleton instance
-_reranker_instance: Optional['VLLMReranker'] = None
+_reranker_instance: Optional['GeneralReranker'] = None
 
 
-# TODO: update web_search.py to use TypedDict instead
-class SearchResultRanked(TypedDict):
-    """SearchResult with added score field for ranking."""
-    text: str
-    id: str
-    sid: str
-    dump: str
-    url: str
-    date: str
-    file_path: str
-    language: str
-    language_score: float
-    token_count: int
-    score: float
-
-
-class VLLMReranker:
+class GeneralReranker:
     """VLLM-based reranker using Qwen3-Reranker model."""
 
     def __init__(self,
                  model_name="Qwen/Qwen3-Reranker-0.6B",
-                 drop_irrelevant_threshold: Optional[float] = None):
+                 drop_irrelevant_threshold: Optional[float] = 0.5):
         """Initialize the VLLM reranker."""
         self.model_name = model_name
         self.gpu_memory_utilization = 0.15
@@ -115,7 +99,7 @@ class VLLMReranker:
             # Fallback: return zero scores
             return [0.0] * len(docs_fmt)
 
-    async def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000) -> List[SearchResultRanked]:
+    async def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000) -> List[SearchResult]:
         """
         Asynchronously rerank search results based on query relevance.
 
@@ -125,7 +109,7 @@ class VLLMReranker:
             max_words: Maximum words per document (default: 4000)
 
         Returns:
-            List of SearchResultRanked objects sorted by score (descending)
+            List of SearchResult objects sorted by score (descending)
         """
         if self._shutdown_requested:
             logger.info("Shutdown requested, skipping rerank operation")
@@ -167,22 +151,22 @@ class VLLMReranker:
             None, self._score_sync, query_fmt, docs_fmt
         )
 
-        logger.info("Reranking completed",
+        logger.info("Re-ranking completed",
                     num_results=len(search_results),
                     query_length=len(query))
 
         # Create ranked results
         ranked_results = [
-            SearchResultRanked(**(result._asdict()), score=score)
+            result._replace(score=score)
             for result, score in zip(search_results, scores)
         ]
 
         # Sort by score descending
-        ranked_results.sort(key=lambda x: x.get('score', 0.0), reverse=True)
+        ranked_results.sort(key=lambda x: x.score or 0.0, reverse=True)
         if self.drop_irrelevant_threshold is not None:
             # Filter out results with non-positive scores
             ranked_results = [
-                res for res in ranked_results if res['score'] > self.drop_irrelevant_threshold]
+                res for res in ranked_results if (res.score or 0.0) > self.drop_irrelevant_threshold]
             logger.info("Filtered irrelevant results",
                         num_remaining=len(ranked_results))
 
@@ -190,7 +174,7 @@ class VLLMReranker:
 
 
 async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
-                       drop_irrelevant_threshold: Optional[float] = None) -> VLLMReranker:
+                       drop_irrelevant_threshold: Optional[float] = None) -> GeneralReranker:
     """
     Get the global singleton VLLMReranker instance.
 
@@ -201,7 +185,7 @@ async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
 
     if _reranker_instance is None:
         logger.info("Creating new VLLMReranker instance")
-        _reranker_instance = VLLMReranker(
+        _reranker_instance = GeneralReranker(
             model_name=model_name,
             drop_irrelevant_threshold=drop_irrelevant_threshold)
 

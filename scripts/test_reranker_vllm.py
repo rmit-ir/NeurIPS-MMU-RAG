@@ -5,7 +5,7 @@
 # ruff: noqa: E501
 
 import argparse
-from typing import Any, Dict, List, Sequence, TypedDict, Union
+from typing import Any, Dict, List, Sequence, TypedDict
 import jsonlines
 
 from tools.logging_utils import get_logger
@@ -27,7 +27,8 @@ def dict_to_search_result(doc: Dict[str, Any]) -> SearchResult:
         file_path=doc.get('file_path', ''),
         language=doc.get('language', ''),
         language_score=doc.get('language_score', 0.0),
-        token_count=doc.get('token_count', 0)
+        token_count=doc.get('token_count', 0),
+        score=doc.get('score', None),
     )
 
 
@@ -38,10 +39,6 @@ class OutputRecord(TypedDict):
 
 
 async def main() -> None:
-    instruction = (
-        "Given a web search query, retrieve relevant passages that answer the query"
-    )
-
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -95,8 +92,8 @@ async def main() -> None:
         search_results = [dict_to_search_result(doc) for doc in valid_docs]
         ranked_results = await reranker.rerank(query, search_results)
 
-        # Convert SearchResultRanked back to dict format for output
-        topic['docs'] = [dict(result) for result in ranked_results]
+        # Convert SearchResult back to dict format for output
+        topic['docs'] = [result._asdict() for result in ranked_results]
     # Save to same filename .rerank.jsonl
     output_file = args.run_file.replace('retrieval.jsonl', 'rerank.jsonl')
     with jsonlines.open(output_file, 'w') as writer:

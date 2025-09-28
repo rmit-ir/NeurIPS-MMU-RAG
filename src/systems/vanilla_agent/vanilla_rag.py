@@ -3,9 +3,11 @@ from datetime import datetime, timezone
 from typing import AsyncGenerator, Callable, List, Optional
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
+from tools.reranker_vllm import GeneralReranker, get_reranker
 from tools.web_search import SearchResult, search_fineweb
 from tools.doc_truncation import truncate_docs
 
@@ -46,13 +48,14 @@ class VanillaRAG(RAGInterface):
         self.enable_think = enable_think
 
         self.logger = get_logger("vanilla_rag")
-        self.llm_client = None
+        self.llm_client: Optional[GeneralOpenAIClient] = None
+        self.reranker: Optional[GeneralReranker] = None
 
     @property
     def name(self) -> str:
         return "vanilla-rag"
 
-    async def _ensure_llm_client(self):
+    async def _ensure_llms(self):
         if not self.llm_client:
             llm_mgr = get_llm_mgr(
                 model_id=self.model_id,
@@ -65,6 +68,8 @@ class VanillaRAG(RAGInterface):
                 max_tokens=self.max_tokens,
                 temperature=self.temperature
             )
+        if not self.reranker:
+            self.reranker = await get_reranker()
 
     def _to_context(self, results: list[SearchResult]) -> str:
         context = "<search-results>"
@@ -110,13 +115,14 @@ Search results knowledge cutoff: December 2024
             EvaluateResponse with generated answer
         """
         try:
-            await self._ensure_llm_client()
-            if not self.llm_client:
-                raise RuntimeError("LLM client is not initialized.")
+            await self._ensure_llms()
+            if not self.llm_client or not self.reranker:
+                raise RuntimeError("LLM or Reranker are not initialized.")
 
             # Search for relevant documents
-            docs = await search_fineweb(request.query, k=20)
+            docs = await search_fineweb(request.query, k=100)
             docs = [r for r in docs if isinstance(r, SearchResult)]
+            docs = await self.reranker.rerank(request.query, docs)
             docs = truncate_docs(docs, self.retrieval_words_threshold)
             messages = self._llm_messages(docs, request.query)
 
@@ -163,9 +169,9 @@ Search results knowledge cutoff: December 2024
                     complete=False
                 )
 
-                await self._ensure_llm_client()
-                if not self.llm_client:
-                    raise RuntimeError("LLM server failed to launch\n\n")
+                await self._ensure_llms()
+                if not self.llm_client or not self.reranker:
+                    raise RuntimeError("LLM or Reranker failed to launch\n\n")
 
                 yield RunStreamingResponse(
                     intermediate_steps="Processing question with language model...\n\n",
@@ -178,13 +184,16 @@ Search results knowledge cutoff: December 2024
                     is_intermediate=True,
                     complete=False
                 )
-                docs = await search_fineweb(request.question, k=20)
+                docs = await search_fineweb(request.question, k=100)
+                total_docs = len(docs)
                 docs = [r for r in docs if isinstance(r, SearchResult)]
+                docs = await self.reranker.rerank(request.question, docs)
+                reranked_docs = len(docs)
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
-                    intermediate_steps=f"""Found {len(docs)} results
+                    intermediate_steps=f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
 
 {md_urls}\n\n""",
                     is_intermediate=True,
@@ -222,6 +231,7 @@ Search results knowledge cutoff: December 2024
                         url=r.url,
                         icon_url=to_icon_url(r.url),
                         date=str(r.date) if r.date else None,
+                        sid=r.sid,
                         title=None
                     )
                     for r in docs if isinstance(r, SearchResult)
