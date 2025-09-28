@@ -20,7 +20,7 @@ class GeneralReranker:
 
     def __init__(self,
                  model_name="Qwen/Qwen3-Reranker-0.6B",
-                 drop_irrelevant_threshold: Optional[float] = None):
+                 drop_irrelevant_threshold: Optional[float] = 0.5):
         """Initialize the VLLM reranker."""
         self.model_name = model_name
         self.gpu_memory_utilization = 0.15
@@ -157,7 +157,7 @@ class GeneralReranker:
 
         # Create ranked results
         ranked_results = [
-            SearchResult(**(result._asdict()), score=score)
+            result._replace(score=score)
             for result, score in zip(search_results, scores)
         ]
 

@@ -193,7 +193,7 @@ Search results knowledge cutoff: December 2024
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
-                    intermediate_steps=f"""Search returned {total_docs}, identified {reranked_docs}, truncated to {len(docs)} web pages.
+                    intermediate_steps=f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
 
 {md_urls}\n\n""",
                     is_intermediate=True,
