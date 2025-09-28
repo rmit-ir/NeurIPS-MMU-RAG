@@ -184,11 +184,14 @@ Search results knowledge cutoff: December 2024
                     is_intermediate=True,
                     complete=False
                 )
+                self.logger.info("Searching", question=request.question, k=100)
                 docs = await search_fineweb(request.question, k=100)
                 total_docs = len(docs)
+                self.logger.info("Found documents", num_docs=total_docs)
                 docs = [r for r in docs if isinstance(r, SearchResult)]
                 docs = await self.reranker.rerank(request.question, docs)
                 reranked_docs = len(docs)
+                self.logger.info("Reranked documents", num_docs=reranked_docs)
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
@@ -244,7 +247,7 @@ Search results knowledge cutoff: December 2024
                 )
 
             except Exception as e:
-                self.logger.error("Error in run_streaming", error=str(e))
+                self.logger.exception("Error in run_streaming")
                 yield RunStreamingResponse(
                     final_report=f"Error processing question: {str(e)}",
                     citations=[],
