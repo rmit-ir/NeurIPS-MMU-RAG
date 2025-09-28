@@ -44,6 +44,8 @@ class VLLMReranker:
         # e.g., 0.5 to drop irrelevant results
         self.drop_irrelevant_threshold = drop_irrelevant_threshold
         self._shutdown_requested = False
+        self.llm = None  # Will be initialized asynchronously
+        self._initialization_lock = asyncio.Lock()
 
         # Templates that works for Qwen3-Reranker only
         self.prefix = '<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
@@ -51,8 +53,20 @@ class VLLMReranker:
         self.query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
         self.document_template = "<Document>: {doc}{suffix}"
 
-        self.llm = self._get_llm()
-        logger.info("VLLMReranker initialized", model_name=self.model_name)
+    async def initialize(self):
+        """
+        Asynchronously initialize the LLM model.
+        Requests can be pending on this initialization.
+        """
+        if self.llm is not None:
+            return  # Already initialized
+        async with self._initialization_lock:
+            logger.info("Initializing VLLMReranker",
+                        model_name=self.model_name)
+            loop = asyncio.get_event_loop()
+            self.llm = await loop.run_in_executor(None, self._get_llm)
+            logger.info("VLLMReranker initialized",
+                        model_name=self.model_name)
 
     def _get_llm(self) -> LLM:
         """Initialize and return the LLM model for Qwen3-Reranker."""
@@ -67,24 +81,6 @@ class VLLMReranker:
                 "is_original_qwen3_reranker": True,
             },
         )
-
-    def shutdown(self):
-        """Gracefully shutdown the reranker and cleanup resources."""
-        logger.info("Shutting down VLLMReranker")
-        self._shutdown_requested = True
-        try:
-            # Clean up VLLM resources if possible
-            if hasattr(self.llm, 'llm_engine') and self.llm.llm_engine is not None:
-                # VLLM cleanup - this may vary based on VLLM version
-                del self.llm.llm_engine
-            del self.llm
-            logger.info("VLLMReranker shutdown completed")
-        except Exception as e:
-            logger.warning("Error during VLLMReranker shutdown", error=str(e))
-
-    def is_shutdown_requested(self) -> bool:
-        """Check if shutdown has been requested."""
-        return self._shutdown_requested
 
     def _cut_to_words(self, text: str, max_words: int) -> str:
         """Cut the text to the first max_words words."""
@@ -109,6 +105,8 @@ class VLLMReranker:
             List of scores for each document
         """
         try:
+            if not self.llm:
+                raise RuntimeError("LLM not initialized")
             outputs = self.llm.score(query_fmt, docs_fmt)
             scores = [output.outputs.score for output in outputs]
             return scores
@@ -132,6 +130,10 @@ class VLLMReranker:
         if self._shutdown_requested:
             logger.info("Shutdown requested, skipping rerank operation")
             return []
+
+        # Ensure LLM is initialized
+        if self.llm is None:
+            await self.initialize()
 
         if not search_results:
             logger.warning("No search results to rerank")
@@ -187,8 +189,8 @@ class VLLMReranker:
         return ranked_results
 
 
-def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
-                 drop_irrelevant_threshold: Optional[float] = None) -> VLLMReranker:
+async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
+                       drop_irrelevant_threshold: Optional[float] = None) -> VLLMReranker:
     """
     Get the global singleton VLLMReranker instance.
 
@@ -202,26 +204,24 @@ def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
         _reranker_instance = VLLMReranker(
             model_name=model_name,
             drop_irrelevant_threshold=drop_irrelevant_threshold)
+
+        # Initialize the LLM
+        await _reranker_instance.initialize()
         setup_signal_handlers()
     else:
         logger.debug("Returning existing VLLMReranker instance")
+        # Ensure it's initialized if not already
+        if _reranker_instance.llm is None:
+            await _reranker_instance.initialize()
 
     return _reranker_instance
-
-
-def shutdown_reranker():
-    """Shutdown the global reranker instance."""
-    global _reranker_instance
-    if _reranker_instance is not None:
-        _reranker_instance.shutdown()
-        _reranker_instance = None
 
 
 def setup_signal_handlers():
     """Setup signal handlers for graceful shutdown."""
     def signal_handler(signum, frame):
         logger.info(f"Received signal {signum}, shutting down")
-        shutdown_reranker()
+        sys.exit(0)
 
     # Handle SIGINT (Ctrl+C) and SIGTERM
     signal.signal(signal.SIGINT, signal_handler)

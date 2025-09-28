@@ -72,7 +72,7 @@ async def main() -> None:
     logger.info("Topics loaded successfully", topics_count=len(
         topics), run_file=args.run_file)
 
-    reranker = get_reranker(drop_irrelevant_threshold=0.5)
+    reranker = await get_reranker(drop_irrelevant_threshold=0.5)
 
     # For each topic, rerank the documents, finally save to same filename .rerank.jsonl
     for topic in topics:
