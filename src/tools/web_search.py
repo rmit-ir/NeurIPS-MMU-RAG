@@ -27,6 +27,7 @@ class SearchResult(NamedTuple):
     language_score: float
     token_count: int
     score: float | None
+    """API doesn't return this, this is appended by reranker"""
 
 
 class SearchError(NamedTuple):
@@ -239,9 +240,12 @@ clueweb_search = search_clueweb
 
 
 async def main():
-    results = await search_fineweb("machine learning", k=10)
+    results = await search_fineweb("Inside No. 9 wikipedia", k=100)
     for i, doc in enumerate(results):
-        print(f"Result {i+1}", doc)
+        print(f"Result {i+1}",
+              doc.url if isinstance(doc, SearchResult) else doc)
+        print(doc.text[:200] if isinstance(doc, SearchResult) else "")
+        print('-' * 40)
 
 
 if __name__ == "__main__":
