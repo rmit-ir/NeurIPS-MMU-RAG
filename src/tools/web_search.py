@@ -240,7 +240,10 @@ clueweb_search = search_clueweb
 
 
 async def main():
-    results = await search_fineweb("Inside No. 9 wikipedia", k=100)
+    start_time = asyncio.get_event_loop().time()
+    results = await search_fineweb("BBC Home breaking news", k=50)
+    took_time = asyncio.get_event_loop().time() - start_time
+    print(f"Search completed in {took_time:.4f} seconds")
     for i, doc in enumerate(results):
         print(doc.url if isinstance(doc, SearchResult) else doc)
 
