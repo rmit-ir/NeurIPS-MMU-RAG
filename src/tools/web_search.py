@@ -242,10 +242,7 @@ clueweb_search = search_clueweb
 async def main():
     results = await search_fineweb("Inside No. 9 wikipedia", k=100)
     for i, doc in enumerate(results):
-        print(f"Result {i+1}",
-              doc.url if isinstance(doc, SearchResult) else doc)
-        print(doc.text[:200] if isinstance(doc, SearchResult) else "")
-        print('-' * 40)
+        print(doc.url if isinstance(doc, SearchResult) else doc)
 
 
 if __name__ == "__main__":
