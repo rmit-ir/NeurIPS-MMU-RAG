@@ -252,6 +252,14 @@ async def main():
     for i, doc in enumerate(results):
         print(doc.url if isinstance(doc, SearchResult) else doc)
 
+    # test clueweb
+    start_time = asyncio.get_event_loop().time()
+    results = await search_clueweb("BBC Home breaking news", k=50, cw22_a=True)
+    took_time = asyncio.get_event_loop().time() - start_time
+    print(f"ClueWeb Search completed in {took_time:.4f} seconds")
+    for i, doc in enumerate(results):
+        print(doc.url if isinstance(doc, SearchResult) else doc)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
