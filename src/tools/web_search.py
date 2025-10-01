@@ -126,6 +126,7 @@ async def search_fineweb(
     k: int = 5,
     id_prefix: Optional[str] = None,
     session: Optional[aiohttp.ClientSession] = None,
+    api_key: Optional[str] = None,
     timeout: float = 60.0,
 ) -> List[SearchResult | SearchError]:
     """Search the FineWeb dataset (no API key required).
@@ -144,10 +145,14 @@ async def search_fineweb(
         raise ValueError("query must be non-empty")
     if k <= 0:
         raise ValueError("k must be > 0")
+    key = api_key or os.getenv("FINEWEB_API_KEY")
+    if not key:
+        raise WebSearchError("FINEWEB_API_KEY required")
 
     params = {"query": query, "k": str(k)}
+    headers = {"x-api-key": key}
     json_resp = await _make_search_request(
-        FINEWEB_BASE_URL, params, None, session, timeout, "FineWeb"
+        FINEWEB_BASE_URL, params, headers, session, timeout, "FineWeb"
     )
     results = _decode_results(json_resp, id_prefix)
     return results
