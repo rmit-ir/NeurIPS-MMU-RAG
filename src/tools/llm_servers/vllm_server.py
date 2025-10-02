@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import signal
 import subprocess
 import sys
@@ -270,7 +271,7 @@ ALL_VLLM_SERVERS: Dict[str, VLLMServerManager] = {}
 # more verbose due to async locks
 
 
-def cleanup_all_servers(signum, frame):
+def cleanup_all_servers(signum: Optional[int], frame: Optional[Any]):
     """Cleanup function to terminate all running vLLM servers."""
     logger.info(f"Clean up servers on signal {signum}, frame {frame}")
     if not ALL_VLLM_SERVERS:
@@ -292,7 +293,8 @@ def cleanup_all_servers(signum, frame):
     sys.exit(0)
 
 
-# Register cleanup functions
+# Register cleanup function for normal exit and termination signals
+atexit.register(lambda: cleanup_all_servers(None, None))
 signal.signal(signal.SIGTERM, cleanup_all_servers)
 signal.signal(signal.SIGINT, cleanup_all_servers)
 
