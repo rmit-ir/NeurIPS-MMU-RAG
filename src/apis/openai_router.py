@@ -39,10 +39,10 @@ async def lifespan(_app: FastAPI):
         gpu_memory_utilization=0.7,
         max_model_len=20000)
 
-    # Run both initialization tasks concurrently in separate threads
+    # Run both initialization tasks concurrently
     await asyncio.gather(
-        asyncio.to_thread(lambda: asyncio.run(get_reranker())),
-        asyncio.to_thread(lambda: asyncio.run(default_llm_mgr.get_server()))
+        get_reranker(),
+        default_llm_mgr.get_server()
     )
 
     logger.info("Reranker and LLM manager ready.")
