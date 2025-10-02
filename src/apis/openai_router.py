@@ -7,6 +7,7 @@ import os
 import hashlib
 from typing import List, Dict, Optional, Union
 import uuid
+import asyncio
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import StreamingResponse
@@ -29,20 +30,22 @@ logger = get_logger('openai_router')
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Launch reranker
-    logger.info("Starting reranker_vllm reranker...")
-    await get_reranker()
-    logger.info("Reranker ready.")
+    # Launch both services in parallel using separate threads
+    logger.info("Starting reranker_vllm reranker and LLM manager in parallel...")
 
-    # Launch llm manager
-    logger.info("Starting LLM manager...")
     default_llm_mgr = get_llm_mgr(
         model_id="Qwen/Qwen3-4B",
         reasoning_parser="qwen3",
         gpu_memory_utilization=0.7,
         max_model_len=20000)
-    await default_llm_mgr.get_server()
-    logger.info("LLM manager ready.")
+
+    # Run both initialization tasks concurrently in separate threads
+    await asyncio.gather(
+        asyncio.to_thread(lambda: asyncio.run(get_reranker())),
+        asyncio.to_thread(lambda: asyncio.run(default_llm_mgr.get_server()))
+    )
+
+    logger.info("Reranker and LLM manager ready.")
     yield
 
 # Create app for standalone usage
