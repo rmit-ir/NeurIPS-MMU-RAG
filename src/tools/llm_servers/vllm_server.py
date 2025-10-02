@@ -1,5 +1,8 @@
 import asyncio
+import signal
 import subprocess
+import sys
+import threading
 from typing import Callable, Optional, Dict, Tuple, Any
 
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
@@ -191,28 +194,27 @@ class VLLMServerManager:
                               port=self._port, model_id=self.model_id)
             return self._api_base, self._port, self._server_host
 
-    async def _terminate_server(self):
+    def _terminate_server(self):
         """
         Terminate the running vLLM server instance for this manager.
         """
-        async with self._server_lock:
-            if self._server_process is not None:
-                self._logger.info("Terminating vLLM server",
-                                  port=self._port, model_id=self.model_id)
-                if self._server_terminate_fn:
-                    self._server_terminate_fn()
+        if self._server_process is not None:
+            self._logger.info("Terminating vLLM server",
+                              port=self._port, model_id=self.model_id)
+            if self._server_terminate_fn:
+                self._server_terminate_fn()
 
-                # Reset instance variables
-                self._server_process = None
-                self._server_host = None
-                self._api_base = None
-                self._port = None
+            # Reset instance variables
+            self._server_process = None
+            self._server_host = None
+            self._api_base = None
+            self._port = None
 
-                self._logger.info("vLLM server terminated",
-                                  model_id=self.model_id)
-            else:
-                self._logger.info("No vLLM server running to terminate",
-                                  model_id=self.model_id)
+            self._logger.info("vLLM server terminated",
+                              model_id=self.model_id)
+        else:
+            self._logger.info("No vLLM server running to terminate",
+                              model_id=self.model_id)
 
     async def get_openai_client(self,
                                 max_tokens: int = 4096,
@@ -263,6 +265,43 @@ class VLLMServerManager:
 
 ALL_VLLM_SERVERS: Dict[str, VLLMServerManager] = {}
 
+# ----------------------------------------------------------------------------
+# Termination handler
+# more verbose due to async locks
+
+
+def cleanup_all_servers(signum, frame):
+    """Cleanup function to terminate all running vLLM servers."""
+    logger.info(f"Clean up servers on signal {signum}, frame {frame}")
+    if not ALL_VLLM_SERVERS:
+        return
+
+    logger.info("Cleaning up all vLLM servers before exit")
+
+    # Start termination threads for all running servers
+    threads = []
+    for server_mgr in ALL_VLLM_SERVERS.values():
+        if server_mgr.is_running:
+            thread = threading.Thread(target=server_mgr._terminate_server)
+            thread.start()
+            threads.append(thread)
+
+    # Wait for all terminations to complete
+    for thread in threads:
+        thread.join(timeout=10)
+    sys.exit(0)
+
+
+# Register cleanup functions
+signal.signal(signal.SIGTERM, cleanup_all_servers)
+signal.signal(signal.SIGINT, cleanup_all_servers)
+
+# On Unix systems, also handle SIGHUP
+if hasattr(signal, 'SIGHUP'):
+    signal.signal(signal.SIGHUP, cleanup_all_servers)
+# Termination handler end
+# -------------------------------------------------------------------------------
+
 
 def get_llm_mgr(model_id="Qwen/Qwen3-4B",
                 reasoning_parser: Optional[str] = "qwen3",
@@ -288,6 +327,7 @@ async def main():
     """
     Test the async vLLM server implementation.
     """
+    from openai.types.chat import ChatCompletionUserMessageParam
     model_id = "Qwen/Qwen3-4B"
     api_key = "abc"
 
@@ -309,15 +349,15 @@ async def main():
         )
 
         # Test the server
-        content, _ = openai_client.complete_chat([
-            {"role": "user", "content": "I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building."}
+        content, _ = await openai_client.complete_chat([
+            ChatCompletionUserMessageParam(role='user', content="I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building.")
         ])
 
         logger.info("Response from vLLM server", response=content)
 
     finally:
         # Clean up server
-        await llm_server._terminate_server()
+        llm_server._terminate_server()
 
 
 if __name__ == "__main__":
