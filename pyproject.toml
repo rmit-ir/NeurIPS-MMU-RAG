@@ -33,6 +33,7 @@ dependencies = [
 # or | uv sync --all-extras
 # flashinfer-python 0.3.1 has issues with our installation, pin to 0.2.2
 vllm = ["vllm==0.10.2", "flashinfer-python==0.2.2", "numpy==1.26.4"]
+classifier = ["pip", "spacy", "scikit-learn", "joblib"]
 eval = [
     # ragas bedrock integration START
     "apscheduler>=3.11.0",
