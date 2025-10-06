@@ -291,6 +291,9 @@ async def main():
     print(f"ClueWeb A Search completed in {took_time:.4f} seconds")
     for i, doc in enumerate(results):
         print(doc.url if isinstance(doc, SearchResult) else doc)
+        print('v' * 40)
+        print(doc.text if isinstance(doc, SearchResult) else '')
+        print('^' * 40)
 
     # test clueweb B
     start_time = asyncio.get_event_loop().time()

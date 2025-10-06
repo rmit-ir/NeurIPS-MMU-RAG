@@ -244,7 +244,8 @@ Search results knowledge cutoff: December 2024
                         icon_url=to_icon_url(r.url),
                         date=str(r.date) if r.date else None,
                         sid=r.sid,
-                        title=None
+                        title=None,
+                        text=r.text
                     )
                     for r in docs if isinstance(r, SearchResult)
                 ]

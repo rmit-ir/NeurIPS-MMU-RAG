@@ -14,6 +14,7 @@ class CitationItem(TypedDict):
     icon_url: Optional[str]
     date: Optional[str]
     title: Optional[str]
+    text: Optional[str]
     sid: Optional[str]  # short id, 1, 2, 3, or 1_1, 1_2, etc.
 
 

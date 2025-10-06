@@ -99,7 +99,8 @@ class PerplexityResearchRAG(RAGInterface):
             url=url,
             icon_url=to_icon_url(url),
             date=None,
-            title=None
+            title=None,
+            text=None,
         ) for idx, url in enumerate(citations) if isinstance(url, str)]
         return citation_items
 
