@@ -7,8 +7,10 @@ import os
 from typing import Any, Dict, List, Literal, Optional, NamedTuple
 
 import aiohttp
+from aiohttp import ClientError, ServerTimeoutError, ClientConnectionError
 
 from tools.logging_utils import get_logger
+from tools.retry_utils import retry
 
 logger = get_logger('web_search')
 
@@ -154,6 +156,7 @@ async def _make_search_request(
             await session.close()
 
 
+@retry(max_retries=8, retry_on=(ClientError, ServerTimeoutError, ClientConnectionError, WebSearchError))
 async def search_fineweb(
     query: str,
     k: int = 5,
@@ -191,6 +194,7 @@ async def search_fineweb(
     return results
 
 
+@retry(max_retries=8, retry_on=(ClientError, ServerTimeoutError, ClientConnectionError, WebSearchError))
 async def search_clueweb(
     query: str,
     k: int = 5,
