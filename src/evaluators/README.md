@@ -6,18 +6,46 @@ This directory contains evaluators for assessing RAG (Retrieval-Augmented Genera
 
 ## Available Evaluators
 
-### 🧠 RAGASEvaluator 
-**Path:** `src.evaluators.ragas_evaluator.evaluator.RAGASEvaluator`
+### 🧠 DeepEvalEvaluator
+**Path:** `src.evaluators.deepeval_evaluator.evaluator.DeepEvalEvaluator`
 
-Semantic evaluation using the RAGAS framework:
-- **Faithfulness**: How factually consistent the answer is with context
-- **Context Precision**: How relevant retrieved context is to the question
+Semantic evaluation using the DeepEval framework with custom LLM integration:
+- **Faithfulness**: How factually consistent the answer is with the provided context
+- **Answer Relevancy**: How relevant the answer is to the original question
+- **Contextual Relevancy**: How relevant the retrieved context is to the question
+
+**Special Features:**
+- Custom MMU LLM integration with reasoning token handling
+- Automatic JSON extraction from markdown code blocks
+- Configurable evaluation thresholds per metric
 
 **Parameters:**
-- `model_name`: Model for evaluation (default: openai/gpt-4o-mini)
-- `api_key`: API key for model provider 
+- `model`: Model name for evaluation (default: "gpt-4o-mini")
+- `base_url`: Base URL for the LLM API (default: "https://mmu-proxy-server-llm-proxy.rankun.org/v1")
+- `api_key`: API key for authentication
+- `threshold`: Minimum score threshold for passing evaluation (default: 0.5)
 - `include_faithfulness`: Enable faithfulness metric (default: True)
-- `include_context_precision`: Enable context precision metric (default: True)
+- `include_answer_relevancy`: Enable answer relevancy metric (default: True)
+- `include_contextual_relevancy`: Enable contextual relevancy metric (default: True)
+- `verbose`: Enable verbose logging (default: False)
+
+### 📈 RAGASEvaluator
+**Path:** `src.evaluators.ragas_evaluator.evaluator.RAGASEvaluator`
+
+Semantic evaluation using the RAGAS framework with LiteLLM integration:
+- **Faithfulness**: How factually consistent the answer is with context
+- **Answer Relevancy**: How relevant the answer is to the original question
+- **Answer Correctness**: How accurate the answer is compared to the reference
+
+**Parameters:**
+- `model_name`: LiteLLM model name (default: "openai.gpt-oss-20b-1:0")
+- `api_key`: API key for LiteLLM proxy
+- `base_url`: Base URL for LiteLLM proxy (default: "https://mmu-proxy-server-llm-proxy.rankun.org/v1")
+- `embedding_model`: HuggingFace embedding model (default: "sentence-transformers/all-MiniLM-L6-v2")
+- `include_faithfulness`: Enable faithfulness metric (default: True)
+- `include_answer_relevancy`: Enable answer relevancy metric (default: True)
+- `include_answer_correctness`: Enable answer correctness metric (default: True)
+- `cache_dir`: Directory for caching results (default: "/tmp/ragas_cache")
 
 ### 📊 NLPMetricsEvaluator
 **Path:** `src.evaluators.nlp_metrics.evaluator.NLPMetricsEvaluator`
@@ -27,7 +55,7 @@ Traditional NLP metrics for surface-level text similarity:
 - **BLEU**: N-gram precision similarity with reference
 
 **Parameters:**
-- `include_rouge_l`: Enable ROUGE-L calculation (default: True) 
+- `include_rouge_l`: Enable ROUGE-L calculation (default: True)
 - `include_bleu`: Enable BLEU calculation (default: True)
 - `use_stemmer`: Use stemming for ROUGE-L (default: True)
 
@@ -36,12 +64,20 @@ Traditional NLP metrics for surface-level text similarity:
 ### Basic Usage
 
 ```bash
+# DeepEval evaluation
+python scripts/evaluate.py \\
+    --evaluator DeepEvalEvaluator \\
+    --results data/system_outputs.jsonl \\
+    --reference data/references.jsonl \\
+    --model gpt-4o-mini \\
+    --api-key sk-or-v1-your-key
+
 # RAGAS evaluation
 python scripts/evaluate.py \\
     --evaluator RAGASEvaluator \\
     --results data/system_outputs.jsonl \\
     --reference data/references.jsonl \\
-    --model-name openai/gpt-4o-mini \\
+    --model-name openai/gpt-oss-20b-1:0 \\
     --api-key sk-or-v1-your-key
 
 # NLP metrics evaluation  
@@ -54,13 +90,21 @@ python scripts/evaluate.py \\
 ### Advanced Usage
 
 ```bash
+# DeepEval with specific metrics only
+python scripts/evaluate.py \\
+    --evaluator DeepEvalEvaluator \\
+    --results data/outputs.jsonl \\
+    --reference data/refs.jsonl \\
+    --api-key sk-or-v1-your-key \\
+    --no-include-contextual-relevancy  # Only faithfulness and answer relevancy
+
 # RAGAS with specific metrics only
 python scripts/evaluate.py \\
     --evaluator RAGASEvaluator \\
     --results data/outputs.jsonl \\
     --reference data/refs.jsonl \\
     --api-key sk-or-v1-your-key \\
-    --no-include-context-precision  # Only faithfulness
+    --no-include-answer-correctness  # Only faithfulness and answer relevancy
 
 # NLP metrics with custom options
 python scripts/evaluate.py \\
@@ -71,7 +115,7 @@ python scripts/evaluate.py \\
 
 # Custom output location
 python scripts/evaluate.py \\
-    --evaluator RAGASEvaluator \\
+    --evaluator DeepEvalEvaluator \\
     --results data/outputs.jsonl \\
     --reference data/refs.jsonl \\
     --api-key sk-or-v1-your-key \\
@@ -113,10 +157,14 @@ The evaluation generates two files:
   "metrics": {
     "mean_faithfulness": 0.8633,
     "std_faithfulness": 0.0623,
+    "mean_answer_relevancy": 0.9124,
+    "std_answer_relevancy": 0.0456,
+    "mean_contextual_relevancy": 0.7892,
+    "std_contextual_relevancy": 0.0789,
     "mean_rouge_l": 0.0687,
     "std_rouge_l": 0.0200
   },
-  "evaluator_name": "RAGASEvaluator",
+  "evaluator_name": "DeepEvalEvaluator",
   "sample_count": 5,
   "timestamp": "2025-09-22T00:24:31.351107",
   "total_time_ms": 48234.5
@@ -164,6 +212,7 @@ class MyEvaluator(EvaluatorInterface):
 Use `--help` with any evaluator to see its specific parameters:
 
 ```bash
+python scripts/evaluate.py --evaluator DeepEvalEvaluator --help
 python scripts/evaluate.py --evaluator RAGASEvaluator --help
 python scripts/evaluate.py --evaluator NLPMetricsEvaluator --help
 ```
