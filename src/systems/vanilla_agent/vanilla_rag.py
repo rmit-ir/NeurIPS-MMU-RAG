@@ -22,7 +22,7 @@ class VanillaRAG(RAGInterface):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        retrieval_words_threshold: int = 8000,
+        retrieval_words_threshold: int = 5000,
         enable_think: bool = True,
         k_docs: int = 30,
         cw22_a: bool = False,
