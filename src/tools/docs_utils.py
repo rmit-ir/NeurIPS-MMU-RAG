@@ -39,6 +39,18 @@ def truncate_docs(docs: List[SearchResult], words_threshold: int = 5000) -> List
         truncated_docs.append(doc)
         total_words += word_count
 
+    if len(truncated_docs) == 0 and len(docs) > 0:
+        # Ensure at least one document is included
+        doc_0 = docs[0]
+        doc_0_txt_truncated_list = doc_0.text.split()[:words_threshold]
+        doc_0_txt_truncated = " ".join(doc_0_txt_truncated_list)
+        doc_0 = doc_0._replace(text=doc_0_txt_truncated)
+        truncated_docs.append(doc_0)
+        total_words = len(doc_0_txt_truncated_list)
+        logger.debug("No documents fit within the threshold; truncating the first document",
+                     total_words=total_words,
+                     threshold=words_threshold)
+
     logger.info("Documents truncated",
                 original_count=len(docs),
                 truncated_count=len(truncated_docs),
