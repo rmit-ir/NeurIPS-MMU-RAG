@@ -80,7 +80,7 @@ class QueryComplexity:
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_key)
         self.model = AutoModel.from_pretrained(model_key)
 
-        self.logger.info(f"Query complexity model loaded",
+        self.logger.info("Query complexity model loaded",
                          model_path=self.model_path, model_data=self.model_data)
 
     def _setup_spacy(self, is_2nd_try=False) -> None:
@@ -145,7 +145,7 @@ class QueryComplexity:
     def predict(self, query: str) -> PredictionResult:
         """
         Predict if a single query is simple or complex.
-        
+
         Returns True for simple queries (no decomposition needed),
         Returns False for complex queries (decomposition beneficial).
 
@@ -187,16 +187,17 @@ def main():
 
     print("\n1. Single Query Complexity Prediction:")
     sample_queries = [
-        "how the american judicial system works", # from Lida's output, Yes
-        "which german state benefited most from the territorial changes made by the congress of vienna", # No
-        "the first one to see the ghost of king hamlet is", # No
-        "how does watching the news affect your health", # Yes
-        "how does population density affect life", # Yes
-        "who dies in season 6 of sons of anarchy", # No
-        "I'm hoping to understand the arguments for and against legalizing euthanasia, including how it differs from physician-assisted suicide. I'm also interested in how cultural values and Western countries' perspectives influence these debates, and the moral justifications from both sides.", # TREC RAG 2025, complex query
-        "I want to understand why deforestation is such a major problem. Specifically, how does it impact the environment, climate, animals, and humans? Could you also explain its main causes, effects on rainforests like the Amazon, and what actions can prevent it?", # another complex query
-        "What are the main faktors that contribute to the US dollar's role as the dominant reserve currancy in international trade?", # LiveRAG, another long but not certain complex query, ambiguous
-        "where did choan seng song get phd", # LiveRAG, short and simple
+        "how the american judicial system works",  # from Lida's output, Yes
+        "which german state benefited most from the territorial changes made by the congress of vienna",  # No
+        "the first one to see the ghost of king hamlet is",  # No
+        "how does watching the news affect your health",  # Yes
+        "how does population density affect life",  # Yes
+        "who dies in season 6 of sons of anarchy",  # No
+        "I'm hoping to understand the arguments for and against legalizing euthanasia, including how it differs from physician-assisted suicide. I'm also interested in how cultural values and Western countries' perspectives influence these debates, and the moral justifications from both sides.",  # TREC RAG 2025, complex query
+        "I want to understand why deforestation is such a major problem. Specifically, how does it impact the environment, climate, animals, and humans? Could you also explain its main causes, effects on rainforests like the Amazon, and what actions can prevent it?",  # another complex query
+        # LiveRAG, another long but not certain complex query, ambiguous
+        "What are the main faktors that contribute to the US dollar's role as the dominant reserve currancy in international trade?",
+        "where did choan seng song get phd",  # LiveRAG, short and simple
     ]
 
     for query in sample_queries:

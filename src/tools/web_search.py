@@ -4,7 +4,7 @@ import asyncio
 import base64
 import json
 import os
-from typing import Any, Dict, List, Optional, NamedTuple
+from typing import Any, Dict, List, Literal, Optional, NamedTuple
 
 import aiohttp
 
@@ -15,17 +15,19 @@ logger = get_logger('web_search')
 
 class SearchResult(NamedTuple):
     """Typed result from external search sources."""
+    type: Literal["clue_web", "fine_web"]
     text: str
     id: str
     sid: str
     """short identifier, e.g. 1_0, 1_1, etc."""
-    dump: str
     url: str
-    date: str
-    file_path: str
-    language: str
-    language_score: float
     token_count: int
+    metadata: Dict[str, Any]
+    dump: str | None
+    date: str | None
+    file_path: str | None
+    language: str | None
+    language_score: float | None
     score: float | None
     """API doesn't return this, this is appended by reranker"""
 
@@ -44,11 +46,16 @@ class WebSearchError(Exception):
     """Custom exception for web search related errors."""
 
 
-def _decode_results(json_payload: Dict[str, Any], id_prefix: Optional[str] = None) -> List[SearchResult | SearchError]:
+def _decode_results(json_payload: Dict[str, Any], type: Literal["clue_web", "fine_web"], id_prefix: Optional[str] = None) -> List[SearchResult | SearchError]:
     """Decode the Base64 JSON documents in the 'results' field.
 
     Any decoding / JSON errors are handled gracefully: problematic entries are
     returned as SearchError objects.
+
+    Args:
+        json_payload: The JSON response containing results
+        type: Optional type parameter, when 'clue_web' uses different field mapping
+        id_prefix: Optional prefix for the sid field
     """
     raw_results = json_payload.get("results", []) or []
     results: List[SearchResult | SearchError] = []
@@ -66,19 +73,45 @@ def _decode_results(json_payload: Dict[str, Any], id_prefix: Optional[str] = Non
             if isinstance(obj, dict) and "_error" not in obj:
                 # Convert to typed SearchResult
                 try:
-                    result = SearchResult(
-                        text=obj.get("text", ""),
-                        id=obj.get("id", ""),
-                        sid=f"{id_prefix}_{idx}" if id_prefix else str(idx),
-                        dump=obj.get("dump", ""),
-                        url=obj.get("url", ""),
-                        date=obj.get("date", ""),
-                        file_path=obj.get("file_path", ""),
-                        language=obj.get("language", ""),
-                        language_score=float(obj.get("language_score", 0.0)),
-                        token_count=int(obj.get("token_count", 0)),
-                        score=obj.get("score", None)
-                    )
+                    if type == "clue_web":
+                        result = SearchResult(
+                            type=type,
+                            url=obj.get("URL", ""),
+                            id=obj.get("ClueWeb22-ID", ""),
+                            text=obj.get("Clean-Text", ""),
+                            language=obj.get("Language", ""),
+                            token_count=obj.get("Clean-Text", "").count(" "),
+                            sid=f"{id_prefix}_{idx}" if id_prefix else str(
+                                idx),
+                            metadata={
+                                "url_hash": obj.get("url_hash", ""),
+                            },
+                            date=None,
+                            dump=None,
+                            file_path=None,
+                            language_score=None,
+                            score=None,
+                        )
+                    elif type == "fine_web":
+                        result = SearchResult(
+                            type=type,
+                            url=obj.get("url", ""),
+                            id=obj.get("id", ""),
+                            text=obj.get("text", ""),
+                            language=obj.get("language", ""),
+                            token_count=int(obj.get("token_count", 0)),
+                            sid=f"{id_prefix}_{idx}" if id_prefix else str(
+                                idx),
+                            metadata=obj.get("metadata", {}),
+                            date=obj.get("date", ""),
+                            dump=obj.get("dump", ""),
+                            file_path=obj.get("file_path", ""),
+                            language_score=float(
+                                obj.get("language_score", 0.0)),
+                            score=obj.get("score", None),
+                        )
+                    else:
+                        raise ValueError(f"unknown type: {type}")
                     results.append(result)
                 except (ValueError, TypeError) as e:
                     results.append(SearchError(
@@ -154,7 +187,7 @@ async def search_fineweb(
     json_resp = await _make_search_request(
         FINEWEB_BASE_URL, params, headers, session, timeout, "FineWeb"
     )
-    results = _decode_results(json_resp, id_prefix)
+    results = _decode_results(json_resp, 'fine_web', id_prefix)
     return results
 
 
@@ -201,9 +234,8 @@ async def search_clueweb(
     json_resp = await _make_search_request(
         CLUEWEB_BASE_URL, params, headers, session, timeout, "ClueWeb"
     )
-    logger.info("TODO: ClueWeb not tested yet")
 
-    results = _decode_results(json_resp, id_prefix)
+    results = _decode_results(json_resp, 'clue_web', id_prefix)
     return results
 
 
@@ -246,17 +278,25 @@ clueweb_search = search_clueweb
 
 async def main():
     start_time = asyncio.get_event_loop().time()
-    results = await search_fineweb("BBC Home breaking news", k=50)
+    results = await search_fineweb("Amazon Web Service EC2 instances", k=50)
     took_time = asyncio.get_event_loop().time() - start_time
-    print(f"Search completed in {took_time:.4f} seconds")
+    print(f"FineWeb Search completed in {took_time:.4f} seconds")
     for i, doc in enumerate(results):
         print(doc.url if isinstance(doc, SearchResult) else doc)
 
-    # test clueweb
+    # test clueweb A
     start_time = asyncio.get_event_loop().time()
-    results = await search_clueweb("BBC Home breaking news", k=50, cw22_a=True)
+    results = await search_clueweb("What is the Python equivalent", k=30, cw22_a=True)
     took_time = asyncio.get_event_loop().time() - start_time
-    print(f"ClueWeb Search completed in {took_time:.4f} seconds")
+    print(f"ClueWeb A Search completed in {took_time:.4f} seconds")
+    for i, doc in enumerate(results):
+        print(doc.url if isinstance(doc, SearchResult) else doc)
+
+    # test clueweb B
+    start_time = asyncio.get_event_loop().time()
+    results = await search_clueweb("the official documentation for switch", k=30, cw22_a=False)
+    took_time = asyncio.get_event_loop().time() - start_time
+    print(f"ClueWeb B Search completed in {took_time:.4f} seconds")
     for i, doc in enumerate(results):
         print(doc.url if isinstance(doc, SearchResult) else doc)
 

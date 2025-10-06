@@ -5,7 +5,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.path_utils import to_icon_url
-from tools.web_search import SearchResult, search_fineweb
+from tools.web_search import SearchResult, search_clueweb
 from tools.logging_utils import get_logger
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -168,15 +168,15 @@ Only output the numbered list, nothing else.
             return sub_query  # Fallback to original sub-query
 
     async def _retrieve_documents(self, hypothetical_answer: str) -> List[Dict[str, str]]:
-        """Retrieve relevant documents using FineWeb search with hypothetical answer and rerank them."""
+        """Retrieve relevant documents using ClueWeb search with hypothetical answer and rerank them."""
         try:
             # Retrieve more documents initially for reranking
             # Retrieve more for better reranking
             initial_k = max(self.search_results_k * 2, 10)
-            self.logger.info("Searching FineWeb with hypothetical answer",
+            self.logger.info("Searching ClueWeb with hypothetical answer",
                              hypothetical_answer=hypothetical_answer,
                              initial_k=initial_k)
-            search_results = await search_fineweb(query=hypothetical_answer, k=initial_k)
+            search_results = await search_clueweb(query=hypothetical_answer, k=initial_k)
             search_results = [
                 res for res in search_results if isinstance(res, SearchResult)]
 

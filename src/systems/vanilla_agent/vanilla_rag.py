@@ -8,7 +8,7 @@ from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.reranker_vllm import GeneralReranker, get_reranker
-from tools.web_search import SearchResult, search_fineweb
+from tools.web_search import SearchResult, search_clueweb
 from tools.doc_truncation import truncate_docs
 
 
@@ -24,7 +24,8 @@ class VanillaRAG(RAGInterface):
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 8000,
         enable_think: bool = True,
-        k_docs: int = 50,
+        k_docs: int = 30,
+        cw22_a: bool = False,
     ):
         """
         Initialize VanillaRAG with LLM server.
@@ -48,6 +49,7 @@ class VanillaRAG(RAGInterface):
         self.retrieval_words_threshold = retrieval_words_threshold
         self.enable_think = enable_think
         self.k_docs = k_docs
+        self.cw22_a = cw22_a
 
         self.logger = get_logger("vanilla_rag")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -122,7 +124,8 @@ Search results knowledge cutoff: December 2024
                 raise RuntimeError("LLM or Reranker are not initialized.")
 
             # Search for relevant documents
-            docs = await search_fineweb(request.query, k=self.k_docs)
+            docs = await search_clueweb(request.query,
+                                        k=self.k_docs, cw22_a=self.cw22_a)
             docs = [r for r in docs if isinstance(r, SearchResult)]
             docs = await self.reranker.rerank(request.query, docs)
             docs = truncate_docs(docs, self.retrieval_words_threshold)
@@ -188,7 +191,8 @@ Search results knowledge cutoff: December 2024
                 )
                 self.logger.info("Searching",
                                  question=request.question, k=self.k_docs)
-                docs = await search_fineweb(request.question, k=self.k_docs)
+                docs = await search_clueweb(request.question,
+                                            k=self.k_docs, cw22_a=self.cw22_a)
                 total_docs = len(docs)
                 self.logger.info("Found documents", num_docs=total_docs)
                 docs = [r for r in docs if isinstance(r, SearchResult)]

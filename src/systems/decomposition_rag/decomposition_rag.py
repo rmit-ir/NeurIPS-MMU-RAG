@@ -5,7 +5,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.path_utils import to_icon_url
-from tools.web_search import SearchResult, search_fineweb
+from tools.web_search import SearchResult, search_clueweb
 from tools.logging_utils import get_logger
 
 
@@ -22,6 +22,7 @@ class DecompositionRAG(RAGInterface):
         search_results_k: int = 3,
         max_context_length: int = 3000,
         max_sub_queries: int = 5,
+        cw22_a: bool = False,
     ):
         """
         Initialize DecompositionRAG with vLLM server and FineWeb search.
@@ -48,6 +49,7 @@ class DecompositionRAG(RAGInterface):
         self.search_results_k = search_results_k
         self.max_context_length = max_context_length
         self.max_sub_queries = max_sub_queries
+        self.cw22_a = cw22_a
 
         self.logger = get_logger("decomposition_rag")
         self.llm_client = None
@@ -127,11 +129,11 @@ Only output the numbered list, nothing else.
             return [query]
 
     async def _retrieve_documents(self, query: str) -> List[Dict[str, str]]:
-        """Retrieve relevant documents using FineWeb search."""
+        """Retrieve relevant documents using ClueWeb search."""
         try:
-            self.logger.info("Searching FineWeb", query=query,
+            self.logger.info("Searching ClueWeb", query=query,
                              k=self.search_results_k)
-            search_results = await search_fineweb(query=query, k=self.search_results_k)
+            search_results = await search_clueweb(query=query, k=self.search_results_k, cw22_a=self.cw22_a)
             search_results = [
                 res for res in search_results if isinstance(res, SearchResult)]
 
