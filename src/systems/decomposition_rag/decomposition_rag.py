@@ -22,7 +22,7 @@ class DecompositionRAG(RAGInterface):
         search_results_k: int = 3,
         max_context_length: int = 3000,
         max_sub_queries: int = 5,
-        cw22_a: bool = False,
+        cw22_a: bool = True,
     ):
         """
         Initialize DecompositionRAG with vLLM server and FineWeb search.

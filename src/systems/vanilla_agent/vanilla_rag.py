@@ -25,7 +25,7 @@ class VanillaRAG(RAGInterface):
         retrieval_words_threshold: int = 5000,
         enable_think: bool = True,
         k_docs: int = 30,
-        cw22_a: bool = False,
+        cw22_a: bool = True,
     ):
         """
         Initialize VanillaRAG with LLM server.
