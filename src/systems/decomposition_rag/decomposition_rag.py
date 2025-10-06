@@ -95,7 +95,6 @@ Format your response as a numbered list:
 ...
 
 Only output the numbered list, nothing else.
-/nothink
 """
 
             messages: List[ChatCompletionMessageParam] = [

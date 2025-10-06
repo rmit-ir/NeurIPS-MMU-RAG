@@ -26,6 +26,7 @@ class VanillaRAG(RAGInterface):
         enable_think: bool = True,
         k_docs: int = 30,
         cw22_a: bool = True,
+        num_qvs: int = 3,
     ):
         """
         Initialize VanillaRAG with LLM server.
@@ -50,6 +51,7 @@ class VanillaRAG(RAGInterface):
         self.enable_think = enable_think
         self.k_docs = k_docs
         self.cw22_a = cw22_a
+        self.num_qvs = num_qvs
 
         self.logger = get_logger("vanilla_rag")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -74,6 +76,25 @@ class VanillaRAG(RAGInterface):
             )
         if not self.reranker:
             self.reranker = await get_reranker()
+
+    async def _generate_qvs(self, query: str) -> List[str]:
+        """Generate a list of query variants"""
+        if not self.llm_client:
+            await self._ensure_llms()
+        if not self.llm_client:
+            raise RuntimeError("LLM client is not initialized.")
+
+        system_prompt = f"You will receive a question and you need to come up with a 2 to {self.num_qvs} Google search queries to answer that question. Do not think too much. To comply with the format, put your query variants enclosed in <queries>query variant 1\nquery variant 2...</queries>, put each query in a row, do not add any prefix on each query, only provide the query itself. /nothink"
+        messages: List[ChatCompletionMessageParam] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"User question: {query}"},
+        ]
+        response, _ = await self.llm_client.complete_chat(messages)
+        if response:
+            variants = [line.strip("- ").strip()
+                        for line in response.split("\n") if line.strip()]
+            return variants[:3]  # Return up to 3 variants
+        return [query]
 
     def _to_context(self, results: list[SearchResult]) -> str:
         context = "<search-results>"
