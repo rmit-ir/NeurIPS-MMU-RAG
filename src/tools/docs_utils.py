@@ -44,3 +44,23 @@ def truncate_docs(docs: List[SearchResult], words_threshold: int = 5000) -> List
                 truncated_count=len(truncated_docs),
                 total_words=total_words)
     return truncated_docs
+
+
+def update_docs_sids(docs: List[SearchResult]) -> List[SearchResult]:
+    """
+    Update the 'sid' attribute of each SearchResult document to ensure uniqueness.
+
+    Args:
+        docs: List of SearchResult objects
+
+    Returns:
+        List of SearchResult objects with updated 'sid' attributes
+    """
+    if not docs:
+        return []
+
+    for idx, doc in enumerate(docs):
+        docs[idx] = doc._replace(sid=str(idx + 1))
+
+    logger.info("Document SIDs updated", total_docs=len(docs))
+    return docs

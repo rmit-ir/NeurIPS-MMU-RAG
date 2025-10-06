@@ -9,7 +9,7 @@ from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.reranker_vllm import GeneralReranker, get_reranker
 from tools.web_search import SearchResult, search_clueweb
-from tools.doc_truncation import truncate_docs
+from tools.docs_utils import truncate_docs, update_docs_sids
 
 
 class VanillaRAG(RAGInterface):
@@ -129,6 +129,7 @@ Search results knowledge cutoff: December 2024
             docs = [r for r in docs if isinstance(r, SearchResult)]
             docs = await self.reranker.rerank(request.query, docs)
             docs = truncate_docs(docs, self.retrieval_words_threshold)
+            docs = update_docs_sids(docs)
             messages = self._llm_messages(docs, request.query)
 
             # Generate response using LLM
@@ -200,6 +201,7 @@ Search results knowledge cutoff: December 2024
                 reranked_docs = len(docs)
                 self.logger.info("Reranked documents", num_docs=reranked_docs)
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
+                docs = update_docs_sids(docs)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
                 yield RunStreamingResponse(
