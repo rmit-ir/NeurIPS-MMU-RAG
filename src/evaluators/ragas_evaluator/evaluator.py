@@ -28,6 +28,10 @@ try:
     RAGAS_AVAILABLE = True
 except ImportError:
     RAGAS_AVAILABLE = False
+    # Dummy classes when ragas not available
+    BaseRagasLLM = object
+    LLMResult = object
+    Generation = object
 
 from src.evaluators.evaluator_interface import EvaluatorInterface, EvaluationResult
 
