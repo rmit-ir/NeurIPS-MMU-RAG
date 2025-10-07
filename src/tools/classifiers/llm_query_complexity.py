@@ -4,6 +4,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from tools.classifiers.typing import PredictionResult
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import get_llm_mgr
+from tools.logging_utils import get_logger
 
 
 class QueryComplexityLLM:
@@ -24,6 +25,7 @@ class QueryComplexityLLM:
         self.max_tokens = max_tokens
 
         self.llm_client: Optional[GeneralOpenAIClient] = None
+        self.logger = get_logger('QueryComplexityLLM')
 
     async def _ensure_llms(self):
         if not self.llm_client:
@@ -66,12 +68,19 @@ Give the final answer based on your last reasoning, yes indicates it's a complex
         ]
 
         start_time = time.time()
-        content, _ = await self.llm_client.complete_chat(messages)
+        content, cpl = await self.llm_client.complete_chat(messages)
         infer_time = time.time() - start_time
 
         # Parse the response
         is_complex = content.strip().lower() == 'yes' if content else False
         is_simple = not is_complex
+
+        # log thinking process
+        reasoning_content = cpl.choices[0].message.reasoning_content.strip() \
+            if 'reasoning_content' in cpl.choices[0].message else ''
+        self.logger.info(
+            "predict", query=query, is_complex=is_complex,
+            reasoning_content=reasoning_content, infer_time=infer_time)
 
         return PredictionResult(
             query=query,

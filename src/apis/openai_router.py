@@ -104,7 +104,7 @@ def generate_chat_hash(question: str, model: str) -> str:
 rag_systems: Dict[str, RAGInterface] = {
     "vanilla-rag": VanillaRAG(),
     "decomposition-rag": DecompositionRAG(),
-    "rag-router": RAGRouterQueryComplexity(),
+    "rag-router-qc": RAGRouterQueryComplexity(),
     "rag-router-llm": RAGRouterLLM(),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),
     "perplexity-sonar-pro": PerplexityResearchRAG(model="sonar-pro"),
