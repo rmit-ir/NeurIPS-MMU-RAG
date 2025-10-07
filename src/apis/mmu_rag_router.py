@@ -2,6 +2,7 @@
 MMU-RAG Challenge API implementation with /evaluate and /run endpoints.
 """
 
+import asyncio
 from fastapi import FastAPI, APIRouter, HTTPException
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import StreamingResponse
@@ -13,20 +14,36 @@ from systems.rag_interface import (
     EvaluateRequest,
     RunRequest,
 )
-from systems.vanilla_agent.vanilla_rag import VanillaRAG
-# from tools.llm_servers.sglang_server import get_sglang_server
+from systems.rag_router.rag_router import RAGRouter
+from tools.llm_servers.vllm_server import get_llm_mgr
+from tools.logging_utils import get_logger
+from tools.reranker_vllm import get_reranker
 from tools.responses.mmu_rag_stream import to_mmu_rag_stream
 
 
 # Create router for MMU-RAG endpoints
 router = APIRouter(prefix="", tags=["MMU-RAG Challenge"])
 
+logger = get_logger('mmu_rag_router')
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Launch llm
-    # TODO: do we want to decide the model here?
-    # await get_sglang_server()
+    logger.info("Starting reranker_vllm reranker and LLM manager in parallel...")
+    default_llm_mgr = get_llm_mgr(
+        model_id="Qwen/Qwen3-4B",
+        reasoning_parser="qwen3",
+        gpu_memory_utilization=0.8,
+        max_model_len=20000)
+
+    # Run both initialization tasks concurrently
+    await asyncio.gather(
+        get_reranker(),
+        default_llm_mgr.get_server()
+    )
+
+    logger.info("Reranker and LLM manager ready.")
     yield
 
 # Create app for standalone usage
@@ -43,7 +60,7 @@ app.add_middleware(
 )
 
 # Global RAG system instances (to be set by the application)
-rag_system: RAGInterface = VanillaRAG()
+rag_system: RAGInterface = RAGRouter()
 
 
 @router.get("/health")
