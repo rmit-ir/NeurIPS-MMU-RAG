@@ -38,7 +38,7 @@ async def lifespan(_app: FastAPI):
     default_llm_mgr = get_llm_mgr(
         model_id="Qwen/Qwen3-4B",
         reasoning_parser="qwen3",
-        gpu_memory_utilization=0.8,
+        gpu_memory_utilization=0.7,
         max_model_len=20000)
 
     # Run both initialization tasks concurrently
