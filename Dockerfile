@@ -13,7 +13,7 @@ RUN apt update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy uv configuration files
-COPY ./pyproject.toml ./uv.lock ./python-version ./
+COPY ./pyproject.toml ./uv.lock ./.python-version ./
 
 # Install dependencies in a virtual environment
 RUN mkdir ./src; uv sync --frozen --no-cache --extra vllm --extra classifier; rm -rf ./src
