@@ -16,7 +16,7 @@ RUN apt update \
 COPY ./pyproject.toml ./uv.lock ./
 
 # Install dependencies in a virtual environment
-RUN mkdir ./src; uv sync --frozen --no-cache --extra vllm; rm -rf ./src
+RUN mkdir ./src; uv sync --frozen --no-cache --extra vllm --extra classifier; rm -rf ./src
 
 # Copy source code
 COPY ./src ./src

@@ -31,8 +31,10 @@ dependencies = [
 # uv add torch --optional vllm
 # uv sync --extra vllm
 # or | uv sync --all-extras
+# required for local llm_servers
 # flashinfer-python 0.3.1 has issues with our installation, pin to 0.2.2
 vllm = ["vllm==0.10.2", "flashinfer-python==0.2.2", "numpy==1.26.4"]
+# required for query_complexity.py
 classifier = ["pip", "spacy", "scikit-learn", "joblib"]
 eval = [
     "apscheduler>=3.11.0",
@@ -41,6 +43,7 @@ eval = [
     "deepeval>=3.6.2",
     "rouge-score>=0.1.2",
 ]
+# required for scripts/proxy.py
 proxy = ["llm-proxy-ondemand>=0.1.3", "awscli>=1.42.42"]
 
 [build-system]
