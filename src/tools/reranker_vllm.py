@@ -59,6 +59,19 @@ class GeneralReranker:
             model=self.model_name,
             runner="pooling",
             max_model_len=self.max_model_len,
+            # Log says: mmu-rag-server  | (EngineCore_DP0 pid=289) INFO 10-07
+            # 14:39:36 [gpu_worker.py:251] Initial free memory 21.77777099609375
+            # GiB, reserved 2.00GiB memory for KV Cache as specified by
+            # kv_cache_memory_bytes config and skipped memory profiling. This
+            # does does not respect the gpu_memory_utilization config. Only use
+            # kv_cache_memory_bytes config when you want manual control of KV
+            # cache memory size. If OOM'ed, check the difference of initial free
+            # memory between the current run and the previous run where
+            # kv_cache_memory_bytes is suggested and update it correspondingly.
+            # 
+            # However, if I don't have gpu_memory_utilization, it was working,
+            # then at some point it started OOM again. So I added
+            # gpu_memory_utilization=0.2 to limit the memory usage.
             gpu_memory_utilization=self.gpu_memory_utilization,
             kv_cache_memory_bytes=self.kv_cache_memory_bytes,
             hf_overrides={
