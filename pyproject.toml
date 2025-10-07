@@ -14,6 +14,7 @@ dependencies = [
     "langchain-aws>=0.2.33",
     "langchain-core>=0.3.76",
     "langchain-openai>=0.3.29",
+    "langgraph>=0.6.8",
     "litellm>=1.75.3",
     "nltk>=3.9.1",
     "numpy>=1.26.4",
