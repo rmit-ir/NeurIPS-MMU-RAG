@@ -13,20 +13,12 @@ from spacy.language import Language
 from spacy.cli.download import download as spacy_download
 import numpy as np
 import torch
-from typing import NamedTuple, List, TypedDict
+from typing import List, TypedDict
 from sklearn.linear_model import LogisticRegression
 from transformers import AutoTokenizer, AutoModel
 
+from tools.classifiers.typing import PredictionResult
 from tools.logging_utils import get_logger
-
-
-class PredictionResult(NamedTuple):
-    """Query complexity prediction result."""
-    query: str
-    is_simple_prob: float
-    is_simple: bool
-    confidence: float
-    infer_time: float
 
 
 class QueryComplexityModel(TypedDict):

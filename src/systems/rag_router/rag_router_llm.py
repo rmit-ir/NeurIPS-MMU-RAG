@@ -12,12 +12,11 @@ from tools.classifiers.query_complexity import QueryComplexity
 from tools.logging_utils import get_logger
 
 
-class RAGRouter(RAGInterface):
+class RAGRouterLLM(RAGInterface):
     def __init__(self):
         self.rag_simple_query = VanillaRAG()
         self.rag_complex_query = DecompositionRAG()
-        self.query_complexity_model = QueryComplexity()
-        self.logger = get_logger('RAGRouter')
+        self.logger = get_logger('RAGRouterLLM')
 
     @property
     def name(self) -> str:
