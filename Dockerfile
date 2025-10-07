@@ -24,6 +24,9 @@ COPY ./src ./src
 # Run again with source code
 RUN uv sync --frozen --no-cache --extra vllm
 
+# Copy ML models
+COPY ./models ./models
+
 # Expose port
 EXPOSE 5025
 
