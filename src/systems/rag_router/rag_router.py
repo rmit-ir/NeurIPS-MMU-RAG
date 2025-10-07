@@ -19,6 +19,10 @@ class RAGRouter(RAGInterface):
         self.query_complexity_model = QueryComplexity()
         self.logger = get_logger('RAGRouter')
 
+    @property
+    def name(self) -> str:
+        return "rag-router"
+
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         complexity = self.query_complexity_model.predict(request.query)
         if complexity.is_simple:
