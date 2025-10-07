@@ -53,7 +53,9 @@ class VanillaAgent(RAGInterface):
         self.logger = get_logger("vanilla_agent")
 
         # Initialize LLM client directly with Qwen3 4B
-        self.llm_client = GeneralOpenAIClient(api_base=self.api_host)
+        self.llm_client = GeneralOpenAIClient(
+            api_base=self.api_host, model_id="Qwen/Qwen3-4B",
+            temperature=self.temperature, max_tokens=self.max_tokens)
         self.reranker = None
 
         # Build the agentic workflow
