@@ -23,7 +23,7 @@ class GeneralReranker:
                  drop_irrelevant_threshold: Optional[float] = 0.5):
         """Initialize the VLLM reranker."""
         self.model_name = model_name
-        # self.kv_cache_memory_bytes = 2 * 1024 * 1024 * 1024  # 2GB
+        self.kv_cache_memory_bytes = 2 * 1024 * 1024 * 1024  # 2GB
         self.gpu_memory_utilization = 0.2
         self.max_model_len = 16000
         # e.g., 0.5 to drop irrelevant results
@@ -60,7 +60,7 @@ class GeneralReranker:
             runner="pooling",
             max_model_len=self.max_model_len,
             gpu_memory_utilization=self.gpu_memory_utilization,
-            # kv_cache_memory_bytes=self.kv_cache_memory_bytes,
+            kv_cache_memory_bytes=self.kv_cache_memory_bytes,
             hf_overrides={
                 "architectures": ["Qwen3ForSequenceClassification"],
                 "classifier_from_token": ["no", "yes"],
