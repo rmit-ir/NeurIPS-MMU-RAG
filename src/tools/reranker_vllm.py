@@ -58,7 +58,8 @@ class GeneralReranker:
             model=self.model_name,
             runner="pooling",
             max_model_len=self.max_model_len,
-            kv_cache_memory_bytes=self.kv_cache_memory_bytes,
+            gpu_memory_utilization=0.2,
+            # kv_cache_memory_bytes=self.kv_cache_memory_bytes,
             hf_overrides={
                 "architectures": ["Qwen3ForSequenceClassification"],
                 "classifier_from_token": ["no", "yes"],
