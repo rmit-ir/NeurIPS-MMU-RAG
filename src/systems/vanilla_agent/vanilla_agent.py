@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator, Callable, List, Literal
+from typing import AsyncGenerator, Callable, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 from langgraph.graph import StateGraph, MessagesState, START, END
@@ -9,6 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam
 
 # Import existing components
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from tools.llm_servers.vllm_server import get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.web_search import SearchResult, search_clueweb
 from tools.reranker_vllm import get_reranker
@@ -33,7 +34,12 @@ class VanillaAgent(RAGInterface):
 
     def __init__(
         self,
-        api_host: str = "http://localhost:8088/v1",
+        api_host: str | None = None,
+        model_id: str = "Qwen/Qwen3-4B",
+        reasoning_parser: Optional[str] = "qwen3",
+        gpu_memory_utilization: Optional[float] = 0.6,
+        max_model_len: Optional[int] = 20000,
+        api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 5000,
@@ -45,6 +51,11 @@ class VanillaAgent(RAGInterface):
         self.api_host = api_host
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.model_id = model_id
+        self.reasoning_parser = reasoning_parser
+        self.gpu_memory_utilization = gpu_memory_utilization
+        self.max_model_len = max_model_len
+        self.api_key = api_key
         self.retrieval_words_threshold = retrieval_words_threshold
         self.enable_think = enable_think
         self.k_docs = k_docs
@@ -53,9 +64,7 @@ class VanillaAgent(RAGInterface):
         self.logger = get_logger("vanilla_agent")
 
         # Initialize LLM client directly with Qwen3 4B
-        self.llm_client = GeneralOpenAIClient(
-            api_base=self.api_host, model_id="Qwen/Qwen3-4B",
-            temperature=self.temperature, max_tokens=self.max_tokens)
+        self.llm_client = None
         self.reranker = None
 
         # Build the agentic workflow
@@ -66,8 +75,25 @@ class VanillaAgent(RAGInterface):
     def name(self) -> str:
         return "vanilla-agent"
 
-    async def _ensure_reranker(self):
-        """Ensure reranker is initialized."""
+    async def _ensure_llms(self):
+        """Ensure LLMs are initialized."""
+        if not self.llm_client:
+            if self.api_host:
+                self.llm_client = GeneralOpenAIClient(
+                    api_base=self.api_host, model_id=self.model_id,
+                    temperature=self.temperature, max_tokens=self.max_tokens)
+            else:
+                llm_mgr = get_llm_mgr(
+                    model_id=self.model_id,
+                    reasoning_parser=self.reasoning_parser,
+                    gpu_memory_utilization=self.gpu_memory_utilization,
+                    max_model_len=self.max_model_len,
+                    api_key=self.api_key
+                )
+                self.llm_client = await llm_mgr.get_openai_client(
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature
+                )
         if not self.reranker:
             self.reranker = await get_reranker()
 
@@ -76,7 +102,7 @@ class VanillaAgent(RAGInterface):
         @tool
         async def retrieve_documents(query: str) -> str:
             """Search and return relevant documents for the given query."""
-            await self._ensure_reranker()
+            await self._ensure_llms()
             if not self.reranker:
                 raise ValueError("Reranker is not initialized.")
             try:
@@ -114,6 +140,10 @@ class VanillaAgent(RAGInterface):
 
         async def grade_documents(state: MessagesState) -> Literal["generate_answer", "rewrite_question"]:
             """Determine whether retrieved documents are relevant using Qwen3 4B."""
+            await self._ensure_llms()
+            if not self.llm_client or not self.reranker:
+                raise RuntimeError("LLM or Reranker are not initialized.")
+
             GRADE_PROMPT = (
                 "You are a grader assessing relevance of a retrieved document to a user question. "
                 "Here is the retrieved document:\n\n{context}\n\n"
@@ -142,6 +172,10 @@ class VanillaAgent(RAGInterface):
 
         async def rewrite_question(state: MessagesState):
             """Rewrite the original user question for better retrieval"""
+            await self._ensure_llms()
+            if not self.llm_client or not self.reranker:
+                raise RuntimeError("LLM or Reranker are not initialized.")
+
             REWRITE_PROMPT = (
                 "Look at the input and try to reason about the underlying semantic intent / meaning.\n"
                 "Here is the initial question:\n"
@@ -169,6 +203,10 @@ class VanillaAgent(RAGInterface):
 
         async def generate_answer(state: MessagesState):
             """Generate final answer based on retrieved context using Qwen3 4B."""
+            await self._ensure_llms()
+            if not self.llm_client or not self.reranker:
+                raise RuntimeError("LLM or Reranker are not initialized.")
+
             GENERATE_PROMPT = (
                 "You are an assistant for question-answering tasks. "
                 "Use the following pieces of retrieved context to answer the question. "
@@ -214,7 +252,7 @@ class VanillaAgent(RAGInterface):
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """Process an evaluation request using the agentic workflow."""
         try:
-            await self._ensure_reranker()
+            await self._ensure_llms()
 
             if not self.graph:
                 self.workflow = await self._build_workflow()
@@ -262,7 +300,7 @@ class VanillaAgent(RAGInterface):
                     complete=False
                 )
 
-                await self._ensure_reranker()
+                await self._ensure_llms()
 
                 if not self.graph:
                     yield RunStreamingResponse(
