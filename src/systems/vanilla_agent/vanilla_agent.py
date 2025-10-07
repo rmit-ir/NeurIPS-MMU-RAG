@@ -33,7 +33,7 @@ class VanillaAgent(RAGInterface):
 
     def __init__(
         self,
-        api_host: str = "http://localhost:8088",
+        api_host: str = "http://localhost:8088/v1",
         temperature: float = 0.0,
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 5000,
@@ -323,7 +323,7 @@ if __name__ == "__main__":
 
         # Initialize VanillaAgent
         agent = VanillaAgent(
-            api_host="http://localhost:8088",
+            api_host="http://localhost:8088/v1",
             temperature=0.0,
             max_tokens=4096
         )
