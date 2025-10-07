@@ -22,7 +22,7 @@ RUN mkdir ./src; uv sync --frozen --no-cache --extra vllm --extra classifier; rm
 COPY ./src ./src
 
 # Run again with source code
-RUN uv sync --frozen --no-cache --extra vllm
+RUN uv sync --frozen --no-cache --extra vllm --extra classifier
 
 # Copy ML models
 COPY ./models ./models
