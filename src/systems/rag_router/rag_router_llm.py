@@ -8,7 +8,7 @@ from systems.rag_interface import (
     RunStreamingResponse,
 )
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
-from tools.classifiers.query_complexity import QueryComplexity
+from tools.classifiers.llm_query_complexity import QueryComplexityLLM
 from tools.logging_utils import get_logger
 
 
@@ -16,6 +16,7 @@ class RAGRouterLLM(RAGInterface):
     def __init__(self):
         self.rag_simple_query = VanillaRAG()
         self.rag_complex_query = DecompositionRAG()
+        self.query_complexity_model = QueryComplexityLLM()
         self.logger = get_logger('RAGRouterLLM')
 
     @property
@@ -23,7 +24,7 @@ class RAGRouterLLM(RAGInterface):
         return "rag-router"
 
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        complexity = self.query_complexity_model.predict(request.query)
+        complexity = await self.query_complexity_model.predict(request.query)
         if complexity.is_simple:
             self.logger.info(
                 f"Routing to VanillaRAG for query: {request.query}")
@@ -36,7 +37,7 @@ class RAGRouterLLM(RAGInterface):
     async def run_streaming(
         self, request: RunRequest
     ) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
-        complexity = self.query_complexity_model.predict(request.question)
+        complexity = await self.query_complexity_model.predict(request.question)
         if complexity.is_simple:
             self.logger.info(
                 f"Routing to VanillaRAG for query: {request.question}")

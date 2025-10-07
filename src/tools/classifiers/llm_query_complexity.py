@@ -1,4 +1,6 @@
-from typing import Optional
+import time
+from typing import List, Optional
+from openai.types.chat import ChatCompletionMessageParam
 from tools.classifiers.typing import PredictionResult
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import get_llm_mgr
@@ -38,5 +40,43 @@ class QueryComplexityLLM:
                 temperature=self.temperature
             )
 
-    def predict(self, query: str) -> PredictionResult:
-        pass
+    async def predict(self, query: str) -> PredictionResult:
+        """Predict if a query is complex using LLM."""
+        await self._ensure_llms()
+
+        if not self.llm_client:
+            raise RuntimeError("Failed to initialize LLM client")
+
+        system_prompt = """Judge if the user query is a complex query. Note that the answer can only be "yes" or "no".
+
+Given the query below, if you are doing the research, do you think you can do a single search on Google and find out the answer?
+
+If so, it's not a complex query. If you need to search multiple times, it's a complex query.
+
+If the user query is long, but can be summarized into a simple question, then it's still not a complex query.
+
+Generally, for straightforward questions, the answer is no, if the question is ambiguous, multifaceted, contains multiple parts or requires multiple steps to answer, the answer is yes.
+
+Give the final answer based on your last reasoning, yes indicates it's a complex query or no indicating it's not a complex query.
+"""
+
+        messages: List[ChatCompletionMessageParam] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query}
+        ]
+
+        start_time = time.time()
+        content, _ = await self.llm_client.complete_chat(messages)
+        infer_time = time.time() - start_time
+
+        # Parse the response
+        is_complex = content.strip().lower() == 'yes' if content else False
+        is_simple = not is_complex
+
+        return PredictionResult(
+            query=query,
+            is_simple_prob=1,
+            is_simple=is_simple,
+            confidence=1,
+            infer_time=infer_time
+        )

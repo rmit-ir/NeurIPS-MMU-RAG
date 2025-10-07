@@ -19,6 +19,7 @@ from systems.commercial.azure_o3_research import AzureO3ResearchRAG
 from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
+from systems.rag_router.rag_router_llm import RAGRouterLLM
 from systems.rag_router.rag_router_query_complexity import RAGRouterQueryComplexity
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.llm_servers.vllm_server import get_llm_mgr
@@ -104,6 +105,7 @@ rag_systems: Dict[str, RAGInterface] = {
     "vanilla-rag": VanillaRAG(),
     "decomposition-rag": DecompositionRAG(),
     "rag-router": RAGRouterQueryComplexity(),
+    "rag-router-llm": RAGRouterLLM(),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),
     "perplexity-sonar-pro": PerplexityResearchRAG(model="sonar-pro"),
     "perplexity-sonar-reasoning": PerplexityResearchRAG(model="sonar-reasoning"),
