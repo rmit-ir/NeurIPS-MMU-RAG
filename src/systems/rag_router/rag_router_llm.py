@@ -34,21 +34,29 @@ class RAGRouterLLM(RAGInterface):
                 f"Routing to DecompositionRAG for query: {request.query}")
             return await self.rag_complex_query.evaluate(request)
 
+    def _inter_resp(self, desc: str):
+        self.logger.info(f"Intermediate step | {desc}")
+        return RunStreamingResponse(
+            intermediate_steps=desc,
+            is_intermediate=True,
+            complete=False
+        )
+
     async def run_streaming(
         self, request: RunRequest
     ) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
 
         async def route_and_stream():
-            # Predict complexity inside the returned callable
+            yield self._inter_resp(f"Checking query: {request.question}...")
+
+            # Predict complexity
             complexity = await self.query_complexity_model.predict(request.question)
 
             if complexity.is_simple:
-                self.logger.info(
-                    f"Routing to VanillaRAG for query: {request.question}")
+                yield self._inter_resp("simple\n\n")
                 stream_func = await self.rag_simple_query.run_streaming(request)
             else:
-                self.logger.info(
-                    f"Routing to DecompositionRAG for query: {request.question}")
+                yield self._inter_resp("complex\n\n")
                 stream_func = await self.rag_complex_query.run_streaming(request)
 
             # Execute the selected stream and yield all responses

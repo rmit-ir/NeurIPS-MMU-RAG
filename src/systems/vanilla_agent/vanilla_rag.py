@@ -175,6 +175,14 @@ Search results knowledge cutoff: December 2024
                 generated_response=f"Error processing query: {str(e)}"
             )
 
+    def _inter_resp(self, desc: str):
+        self.logger.info(f"Intermediate step | {desc}")
+        return RunStreamingResponse(
+            intermediate_steps=desc,
+            is_intermediate=True,
+            complete=False
+        )
+
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
         Process a streaming request using LLM server.
@@ -190,27 +198,15 @@ Search results knowledge cutoff: December 2024
                 self.logger.info(f"Processing question: {request.question}")
                 # TODO: this message is not sent to frontend, it's blocked by LLM startup
                 # Ensure server is running
-                yield RunStreamingResponse(
-                    intermediate_steps="Initializing LLM server...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp("Preparing to answer...\n\n")
 
                 await self._ensure_llms()
                 if not self.llm_client or not self.reranker:
                     raise RuntimeError("LLM or Reranker failed to launch\n\n")
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Processing question with language model...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                # yield self._inter_resp("Processing question with language model...\n\n")
 
-                yield RunStreamingResponse(
-                    intermediate_steps=f"Searching: {request.question}\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp(f"Searching: {request.question}\n\n")
                 self.logger.info("Searching",
                                  question=request.question, k=self.k_docs)
                 docs = await search_clueweb(request.question,
@@ -225,20 +221,13 @@ Search results knowledge cutoff: December 2024
                 docs = update_docs_sids(docs)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
-                yield RunStreamingResponse(
-                    intermediate_steps=f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
 
-{md_urls}\n\n""",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp(f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
+
+{md_urls}\n\n""")
                 messages = self._llm_messages(docs, request.question)
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Starting to answer\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp("Starting final answer\n\n")
 
                 async for chunk in self.llm_client.complete_chat_streaming(messages):
                     if chunk.choices[0].finish_reason is not None:
@@ -246,12 +235,10 @@ Search results knowledge cutoff: December 2024
                         break
                     delta = chunk.choices[0].delta
                     if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
-                        yield RunStreamingResponse(
-                            intermediate_steps=delta.reasoning_content,
-                            is_intermediate=True,
-                            complete=False
-                        )
+                        # still intermediate steps
+                        yield self._inter_resp(delta.reasoning_content)
                     elif hasattr(delta, 'content') and delta.content:
+                        # final report
                         yield RunStreamingResponse(
                             final_report=delta.content,
                             is_intermediate=False,
@@ -272,7 +259,7 @@ Search results knowledge cutoff: December 2024
                 ]
                 # Final response
                 yield RunStreamingResponse(
-                    citations=citations,  # TODO: Add real citation extraction logic
+                    citations=citations,
                     is_intermediate=False,
                     complete=True
                 )

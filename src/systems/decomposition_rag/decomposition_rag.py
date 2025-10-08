@@ -139,12 +139,12 @@ Only output the numbered list, nothing else.
             documents = []
             for result in search_results:
                 content = result.text
-                url = result.url
-
                 if content:
                     documents.append({
                         "content": content[:self.max_context_length],
-                        "url": url
+                        "url": result.url,
+                        "text": content,  # full text
+                        "sid": result.sid,
                     })
 
             self.logger.info("Retrieved documents", count=len(documents))
@@ -335,6 +335,14 @@ If there are any contradictions or gaps, note them clearly.
         finally:
             self._is_processing = False
 
+    def _inter_resp(self, desc: str):
+        self.logger.info(f"Intermediate step | {desc}")
+        return RunStreamingResponse(
+            intermediate_steps=desc,
+            is_intermediate=True,
+            complete=False
+        )
+
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
         Process a streaming request using decomposition RAG.
@@ -348,40 +356,23 @@ If there are any contradictions or gaps, note them clearly.
         async def stream():
             self._is_processing = True
             try:
-                yield RunStreamingResponse(
-                    intermediate_steps="Initializing LLM server...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
-
+                yield self._inter_resp("Preparing to answer...\n\n")
                 await self._ensure_llm_client()
                 if not self.llm_client:
                     raise RuntimeError("LLM server failed to launch")
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Decomposing complex query into sub-questions...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp("Decomposing complex query into sub-questions...\n\n")
 
                 # Step 1: Decompose the query
                 sub_queries = await self._decompose_query(request.question)
 
-                yield RunStreamingResponse(
-                    intermediate_steps=f"Query decomposed into {len(sub_queries)} sub-questions. Processing each sub-question...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp(f"Query decomposed into {len(sub_queries)} sub-questions. Processing each sub-question...\n\n")
 
                 # Step 2: Answer each sub-query in parallel
                 sub_answers = []
                 all_documents = []
 
-                yield RunStreamingResponse(
-                    intermediate_steps=f"Processing {len(sub_queries)} sub-questions...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp(f"Processing {len(sub_queries)} sub-questions...\n\n")
 
                 # Process all sub-queries concurrently
                 tasks = [self._process_sub_query(i, sub_queries, sub_query)
@@ -398,41 +389,26 @@ If there are any contradictions or gaps, note them clearly.
                         all_documents.extend(documents)
                         completed_count += 1
 
-                        yield RunStreamingResponse(
-                            intermediate_steps=f"✓ Completed sub-question {completed_count}/{len(sub_queries)}: {sub_query}\n\n",
-                            is_intermediate=True,
-                            complete=False
-                        )
+                        yield self._inter_resp(f"✓ Completed sub-question {completed_count}/{len(sub_queries)}: {sub_query}\n\n")
+
                     except Exception as e:
                         self.logger.error(
                             "Error processing sub-query in streaming", error=str(e))
                         completed_count += 1
-                        yield RunStreamingResponse(
-                            intermediate_steps=f"✗ Error in sub-question ({completed_count}/{len(sub_queries)} total)\n\n",
-                            is_intermediate=True,
-                            complete=False
-                        )
+                        yield self._inter_resp(f"✗ Error in sub-question ({completed_count}/{len(sub_queries)} total)\n\n")
 
                 # Fill any empty values with error messages (in case of exceptions)
                 for i, answer in enumerate(sub_answers):
                     if not answer:
                         sub_answers[i] = f"Error processing sub-query {i+1}"
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Synthesizing comprehensive answer from all sub-question responses...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp("Synthesizing comprehensive answer from all sub-question responses...\n\n")
 
                 # Step 3: Stream the synthesis process
                 messages = self._prepare_synthesis_messages(
                     request.question, sub_queries, sub_answers)
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Starting to synthesize final answer...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield self._inter_resp("Starting final answer\n\n")
 
                 # Stream the final synthesis using complete_chat_streaming like vanilla_rag
                 async for chunk in self.llm_client.complete_chat_streaming(messages):
@@ -441,11 +417,7 @@ If there are any contradictions or gaps, note them clearly.
                         break
                     delta = chunk.choices[0].delta
                     if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
-                        yield RunStreamingResponse(
-                            intermediate_steps=delta.reasoning_content,
-                            is_intermediate=True,
-                            complete=False
-                        )
+                        yield self._inter_resp(delta.reasoning_content)
                     elif hasattr(delta, 'content') and delta.content:
                         yield RunStreamingResponse(
                             final_report=delta.content,
@@ -461,12 +433,12 @@ If there are any contradictions or gaps, note them clearly.
                     if doc.get("url") and doc["url"] not in unique_urls:
                         unique_urls.add(doc["url"])
                         citations.append(CitationItem(
-                            url=doc["url"],
-                            icon_url=to_icon_url(doc["url"]),
+                            url=doc.get("url", ""),
+                            icon_url=to_icon_url(doc.get("url", "")),
                             date=None,
                             title=None,
-                            sid=None,
-                            text=None,
+                            sid=doc.get("sid", None),
+                            text=doc.get("text", None),
                         ))
 
                 # Final response

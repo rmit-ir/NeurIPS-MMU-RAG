@@ -65,7 +65,7 @@ def ensure_dir(file_path, create_if_not=True):
     return directory
 
 
-def to_icon_url(url: str) -> str:
+def to_icon_url(url: str | None) -> str:
     """
     Convert a URL to its favicon URL using Google's favicon service.
 
@@ -75,4 +75,7 @@ def to_icon_url(url: str) -> str:
     Returns:
         str: The favicon URL
     """
+    if not url:
+        # Google favicon service works with any domain, this is a placeholder
+        url = "https://example.com"
     return f"https://www.google.com/s2/favicons?domain={urlparse(url).netloc}&sz=64"
