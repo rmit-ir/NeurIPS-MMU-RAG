@@ -175,8 +175,9 @@ Search results knowledge cutoff: December 2024
                 generated_response=f"Error processing query: {str(e)}"
             )
 
-    def _inter_resp(self, desc: str):
-        self.logger.info(f"Intermediate step | {desc}")
+    def _inter_resp(self, desc: str, silent: bool = False) -> RunStreamingResponse:
+        if not silent:
+            self.logger.info(f"Intermediate step | {desc}")
         return RunStreamingResponse(
             intermediate_steps=desc,
             is_intermediate=True,
@@ -236,7 +237,7 @@ Search results knowledge cutoff: December 2024
                     delta = chunk.choices[0].delta
                     if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         # still intermediate steps
-                        yield self._inter_resp(delta.reasoning_content)
+                        yield self._inter_resp(delta.reasoning_content, silent=True)
                     elif hasattr(delta, 'content') and delta.content:
                         # final report
                         yield RunStreamingResponse(
