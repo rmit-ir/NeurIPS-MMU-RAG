@@ -2,7 +2,7 @@
 FROM docker.io/ubuntu:24.04
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.9.0 /uv /uvx /usr/local/bin/
 
 # Set working directory
 WORKDIR /app
