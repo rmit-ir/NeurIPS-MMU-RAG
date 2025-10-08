@@ -404,17 +404,17 @@ if hasattr(signal, 'SIGHUP'):
     signal.signal(signal.SIGHUP, cleanup_all_rerankers)
 
 
-def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
-                 drop_irrelevant_threshold: Optional[float] = 0.5,
-                 gpu_memory_utilization: Optional[float] = 0.2,
-                 max_model_len: Optional[int] = 16000,
-                 kv_cache_memory_bytes: Optional[int] = None,
-                 hf_overrides: Optional[Dict[str, Any]] = None,
-                 host: str = "0.0.0.0",
-                 port: Optional[int] = None,
-                 api_key: Optional[str] = None) -> GeneralReranker:
+async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
+                       drop_irrelevant_threshold: Optional[float] = 0.5,
+                       gpu_memory_utilization: Optional[float] = 0.2,
+                       max_model_len: Optional[int] = 16000,
+                       kv_cache_memory_bytes: Optional[int] = None,
+                       hf_overrides: Optional[Dict[str, Any]] = None,
+                       host: str = "0.0.0.0",
+                       port: Optional[int] = None,
+                       api_key: Optional[str] = None) -> GeneralReranker:
     """
-    Get a reranker instance, creating if necessary.
+    Get a reranker instance, creating if necessary and ensuring server is started.
 
     Args:
         model_name: The reranker model name
@@ -428,7 +428,7 @@ def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
         api_key: API key for authentication
 
     Returns:
-        GeneralReranker instance
+        GeneralReranker instance with server started
     """
     if model_name not in ALL_RERANKERS:
         ALL_RERANKERS[model_name] = GeneralReranker(
@@ -442,4 +442,8 @@ def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
             port=port,
             api_key=api_key
         )
-    return ALL_RERANKERS[model_name]
+    
+    # Ensure the server is started
+    reranker = ALL_RERANKERS[model_name]
+    await reranker._get_server()
+    return reranker
