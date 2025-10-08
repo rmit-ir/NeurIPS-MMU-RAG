@@ -29,6 +29,31 @@ Semantic evaluation using the DeepEval framework with custom LLM integration:
 - `include_contextual_relevancy`: Enable contextual relevancy metric (default: True)
 - `verbose`: Enable verbose logging (default: False)
 
+### 🤖 LLMEvaluator
+**Path:** `src.evaluators.llm_evaluator.evaluator.LLMEvaluator`
+
+LLM-powered evaluation using Claude Sonnet 3.5 through the MMU PROXY Router server:
+- **Relevance**: How well the answer addresses the question (4-point scale: -1 to 2)
+- **Faithfulness**: How well the answer is grounded in retrieved documents (3-point scale: -1 to 1)
+
+**Special Features:**
+- Detailed evaluation notes explaining scoring rationale
+- Gold reference answer integration for enhanced accuracy
+- Concurrent multi-threaded processing
+- Combined prompt system for efficient evaluation
+- Comprehensive debug logging
+
+**Parameters:**
+- `model_id`: Model ID for evaluation (default: "openai.gpt-oss-20b-1:0")
+- `temperature`: LLM temperature setting (default: 0.0)
+- `max_tokens`: Maximum tokens to generate (default: 2048)
+- `use_gold_references`: Include gold reference answers (default: True)
+- `num_threads`: Number of concurrent threads (default: 1)
+- `answer_word_limit`: Maximum words in answer (default: 300)
+- `api_base`: MMU proxy server URL (default: "https://mmu-proxy-server-llm-proxy.rankun.org")
+- `api_key`: API key for authentication (or use `MMU_OPENAI_API_KEY` env var)
+- `combined_prompt`: Use combined evaluation prompt (default: True)
+
 ### 📈 RAGASEvaluator
 **Path:** `src.evaluators.ragas_evaluator.evaluator.RAGASEvaluator`
 
@@ -72,6 +97,14 @@ python scripts/evaluate.py \\
     --model gpt-4o-mini \\
     --api-key sk-or-v1-your-key
 
+# LLM evaluation
+python scripts/evaluate.py \\
+    --evaluator LLMEvaluator \\
+    --results data/system_outputs.jsonl \\
+    --reference data/references.jsonl \\
+    --output-dir data/evaluation_results \\
+    --output-prefix llm_eval
+
 # RAGAS evaluation
 python scripts/evaluate.py \\
     --evaluator RAGASEvaluator \\
@@ -97,6 +130,17 @@ python scripts/evaluate.py \\
     --reference data/refs.jsonl \\
     --api-key sk-or-v1-your-key \\
     --no-include-contextual-relevancy  # Only faithfulness and answer relevancy
+
+# LLM evaluation with custom parameters
+python scripts/evaluate.py \\
+    --evaluator LLMEvaluator \\
+    --results data/outputs.jsonl \\
+    --reference data/refs.jsonl \\
+    --output-dir data/evaluation_results \\
+    --output-prefix custom_llm_eval \\
+    --num-threads 4 \\
+    --answer-word-limit 500 \\
+    --temperature 0.1
 
 # RAGAS with specific metrics only
 python scripts/evaluate.py \\

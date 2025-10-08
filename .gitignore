@@ -194,3 +194,5 @@ config.yaml
 docker-compose.override.yaml
 
 data/raw_responses/
+
+.deepeval/
