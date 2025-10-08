@@ -213,11 +213,11 @@ Search results knowledge cutoff: December 2024
                 docs = await search_clueweb(request.question,
                                             k=self.k_docs, cw22_a=self.cw22_a)
                 total_docs = len(docs)
-                self.logger.info("Found documents", num_docs=total_docs)
+                yield self._inter_resp(f"Found {total_docs} documents for {request.question}\n\n")
                 docs = [r for r in docs if isinstance(r, SearchResult)]
                 docs = await self.reranker.rerank(request.question, docs)
                 reranked_docs = len(docs)
-                self.logger.info("Reranked documents", num_docs=reranked_docs)
+                yield self._inter_resp(f"Reranked {reranked_docs} documents for {request.question}\n\n")
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 docs = update_docs_sids(docs)
                 md_urls = '\n'.join(
