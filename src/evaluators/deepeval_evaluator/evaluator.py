@@ -12,10 +12,12 @@ import os
 import sys
 import json
 import argparse
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from pathlib import Path
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 try:
     from deepeval.metrics import (
@@ -28,8 +30,9 @@ try:
 except ImportError:
     DEEPEVAL_AVAILABLE = False
 
-from src.evaluators.evaluator_interface import EvaluatorInterface, EvaluationResult
 from .custom_llm import MMUCustomLLM
+
+from src.evaluators.evaluator_interface import EvaluatorInterface, EvaluationResult
 
 
 class DeepEvalEvaluator(EvaluatorInterface):
@@ -51,7 +54,8 @@ class DeepEvalEvaluator(EvaluatorInterface):
         answer_relevancy_threshold: float = 0.7,
         contextual_relevancy_threshold: float = 0.7,
         include_reason: bool = True,
-        verbose: bool = False
+        verbose: bool = False,
+        num_workers: Optional[int] = None
     ):
         """
         Initialize DeepEval evaluator.
@@ -65,6 +69,7 @@ class DeepEvalEvaluator(EvaluatorInterface):
             contextual_relevancy_threshold: Minimum passing threshold for contextual relevancy
             include_reason: Whether to include reasoning in results
             verbose: Whether to print detailed logs
+            num_workers: Number of worker processes for parallel evaluation (default: None for sequential)
         """
         if not DEEPEVAL_AVAILABLE:
             raise ImportError(
@@ -73,6 +78,8 @@ class DeepEvalEvaluator(EvaluatorInterface):
         
         self.verbose = verbose
         self.include_reason = include_reason
+        self.num_workers = num_workers or multiprocessing.cpu_count()
+        self.api_key = api_key
         
         # Initialize custom LLM
         self.custom_llm = MMUCustomLLM(
@@ -106,6 +113,60 @@ class DeepEvalEvaluator(EvaluatorInterface):
         if self.verbose:
             print(f"Initialized DeepEval evaluator with model: {model}")
     
+    def _evaluate_single_sample(
+        self, 
+        output: Dict[str, Any], 
+        reference: Dict[str, Any]
+    ) -> Tuple[str, Dict[str, Any]]:
+        """
+        Evaluate a single sample with all metrics.
+        
+        Args:
+            output: System output dictionary
+            reference: Reference dictionary
+            
+        Returns:
+            Tuple of (output_id, result_dict)
+        """
+        output_id = output.get('iid', output.get('query_id'))
+        
+        try:
+            # Create test case
+            test_case = self._create_test_case(output, reference)
+            
+            # Measure all metrics
+            self.faithfulness_metric.measure(test_case)
+            faithfulness_score = self.faithfulness_metric.score
+            
+            self.answer_relevancy_metric.measure(test_case)
+            answer_relevancy_score = self.answer_relevancy_metric.score
+            
+            self.contextual_relevancy_metric.measure(test_case)
+            contextual_relevancy_score = self.contextual_relevancy_metric.score
+            
+            # Create result
+            result = {
+                'id': output_id,
+                'faithfulness': faithfulness_score,
+                'answer_relevancy': answer_relevancy_score,
+                'contextual_relevancy': contextual_relevancy_score
+            }
+            
+            if self.include_reason:
+                result['faithfulness_reason'] = self.faithfulness_metric.reason
+                result['answer_relevancy_reason'] = self.answer_relevancy_metric.reason
+                result['contextual_relevancy_reason'] = self.contextual_relevancy_metric.reason
+            
+            return output_id, result
+            
+        except Exception as e:
+            return output_id, {
+                'id': output_id,
+                'faithfulness': 0.0,
+                'answer_relevancy': 0.0,
+                'contextual_relevancy': 0.0,
+                'error': str(e)
+            }
     @property
     def name(self) -> str:
         """Return evaluator name."""
@@ -192,69 +253,69 @@ class DeepEvalEvaluator(EvaluatorInterface):
             if ref_id:
                 ref_lookup[ref_id] = ref
         
-        # Evaluate each sample
+        # Prepare evaluation tasks
+        evaluation_tasks = []
+        for output in system_outputs:
+            output_id = output.get('iid', output.get('query_id'))
+            reference = ref_lookup.get(output_id, {})
+            evaluation_tasks.append((output, reference))
+        
+        # Evaluate samples (parallel or sequential based on num_workers)
+        row_results = []
         faithfulness_scores = []
         answer_relevancy_scores = []
         contextual_relevancy_scores = []
-        row_results = []
         
-        for i, output in enumerate(system_outputs):
-            output_id = output.get('iid', output.get('query_id'))
-            reference = ref_lookup.get(output_id, {})
-            
+        if self.num_workers > 1 and len(evaluation_tasks) > 1:
+            # Use parallel processing
             if self.verbose:
-                print(f"\nEvaluating sample {i+1}/{len(system_outputs)} (ID: {output_id})")
+                print(f"Using {self.num_workers} workers for parallel evaluation")
             
-            try:
-                # Create test case
-                test_case = self._create_test_case(output, reference)
-                
-                # Measure faithfulness
-                self.faithfulness_metric.measure(test_case)
-                faithfulness_score = self.faithfulness_metric.score
-                faithfulness_scores.append(faithfulness_score)
-                
-                # Measure answer relevancy
-                self.answer_relevancy_metric.measure(test_case)
-                answer_relevancy_score = self.answer_relevancy_metric.score
-                answer_relevancy_scores.append(answer_relevancy_score)
-                
-                # Measure contextual relevancy
-                self.contextual_relevancy_metric.measure(test_case)
-                contextual_relevancy_score = self.contextual_relevancy_metric.score
-                contextual_relevancy_scores.append(contextual_relevancy_score)
-                
-                # Store row result
-                row_result = {
-                    'id': output_id,
-                    'faithfulness': faithfulness_score,
-                    'answer_relevancy': answer_relevancy_score,
-                    'contextual_relevancy': contextual_relevancy_score
+            with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
+                # Submit all tasks
+                future_to_task = {
+                    executor.submit(
+                        _evaluate_sample_worker,
+                        output, reference,
+                        self.custom_llm.model_name, self.custom_llm.base_url, self.api_key,
+                        self.faithfulness_metric.threshold,
+                        self.answer_relevancy_metric.threshold,
+                        self.contextual_relevancy_metric.threshold,
+                        self.include_reason, self.verbose
+                    ): (output, reference) for output, reference in evaluation_tasks
                 }
                 
-                if self.include_reason:
-                    row_result['faithfulness_reason'] = self.faithfulness_metric.reason
-                    row_result['answer_relevancy_reason'] = self.answer_relevancy_metric.reason
-                    row_result['contextual_relevancy_reason'] = self.contextual_relevancy_metric.reason
+                # Collect results as they complete
+                for future in as_completed(future_to_task):
+                    output_id, result = future.result()
+                    row_results.append(result)
+                    
+                    # Collect scores
+                    faithfulness_scores.append(result['faithfulness'])
+                    answer_relevancy_scores.append(result['answer_relevancy'])
+                    contextual_relevancy_scores.append(result['contextual_relevancy'])
+                    
+                    if self.verbose:
+                        print(f"Completed evaluation for sample ID: {output_id}")
+        else:
+            # Use sequential processing
+            if self.verbose:
+                print("Using sequential evaluation")
+            
+            for i, (output, reference) in enumerate(evaluation_tasks):
+                output_id, result = self._evaluate_single_sample(output, reference)
+                row_results.append(result)
                 
-                row_results.append(row_result)
+                # Collect scores
+                faithfulness_scores.append(result['faithfulness'])
+                answer_relevancy_scores.append(result['answer_relevancy'])
+                contextual_relevancy_scores.append(result['contextual_relevancy'])
                 
                 if self.verbose:
-                    print(f"  Faithfulness: {faithfulness_score:.3f}")
-                    print(f"  Answer Relevancy: {answer_relevancy_score:.3f}")
-                    print(f"  Contextual Relevancy: {contextual_relevancy_score:.3f}")
-                
-            except Exception as e:
-                if self.verbose:
-                    print(f"  Error evaluating sample: {e}")
-                # Add failed row with zero scores
-                row_results.append({
-                    'id': output_id,
-                    'faithfulness': 0.0,
-                    'answer_relevancy': 0.0,
-                    'contextual_relevancy': 0.0,
-                    'error': str(e)
-                })
+                    print(f"Evaluating sample {i+1}/{len(evaluation_tasks)} (ID: {output_id})")
+                    print(f"  Faithfulness: {result['faithfulness']:.3f}")
+                    print(f"  Answer Relevancy: {result['answer_relevancy']:.3f}")
+                    print(f"  Contextual Relevancy: {result['contextual_relevancy']:.3f}")
         
         # Calculate average metrics
         avg_faithfulness = sum(faithfulness_scores) / len(faithfulness_scores) if faithfulness_scores else 0.0
@@ -293,6 +354,122 @@ class DeepEvalEvaluator(EvaluatorInterface):
         )
 
 
+def _evaluate_sample_worker(
+    output: Dict[str, Any],
+    reference: Dict[str, Any],
+    model: str,
+    base_url: str,
+    api_key: Optional[str],
+    faithfulness_threshold: float,
+    answer_relevancy_threshold: float,
+    contextual_relevancy_threshold: float,
+    include_reason: bool,
+    verbose: bool
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Worker function for evaluating a single sample with all metrics.
+    This function is designed to be used with multiprocessing.
+    """
+    output_id = output.get('iid', output.get('query_id'))
+    
+    try:
+        # Initialize custom LLM (each worker gets its own instance)
+        custom_llm = MMUCustomLLM(
+            model=model,
+            base_url=base_url,
+            api_key=api_key
+        )
+        
+        # Initialize metrics
+        faithfulness_metric = FaithfulnessMetric(
+            threshold=faithfulness_threshold,
+            model=custom_llm,
+            include_reason=include_reason,
+            verbose_mode=verbose
+        )
+        
+        answer_relevancy_metric = AnswerRelevancyMetric(
+            threshold=answer_relevancy_threshold,
+            model=custom_llm,
+            include_reason=include_reason,
+            verbose_mode=verbose
+        )
+        
+        contextual_relevancy_metric = ContextualRelevancyMetric(
+            threshold=contextual_relevancy_threshold,
+            model=custom_llm,
+            include_reason=include_reason,
+            verbose_mode=verbose
+        )
+        
+        # Create test case
+        input_text = (
+            output.get('query') or
+            output.get('input') or
+            reference.get('query') or
+            reference.get('input') or
+            ''
+        )
+        
+        actual_output = (
+            output.get('response') or
+            output.get('generated_response') or
+            output.get('output') or
+            output.get('actual_output') or
+            ''
+        )
+        
+        # Extract retrieval context
+        retrieval_context = []
+        if 'contexts' in output:
+            retrieval_context = output['contexts']
+        elif 'retrieved_contexts' in output:
+            retrieval_context = output['retrieved_contexts']
+        elif 'context' in output:
+            ctx = output['context']
+            retrieval_context = [ctx] if isinstance(ctx, str) else ctx
+        
+        test_case = LLMTestCase(
+            input=input_text,
+            actual_output=actual_output,
+            retrieval_context=retrieval_context
+        )
+        
+        # Measure all metrics
+        faithfulness_metric.measure(test_case)
+        faithfulness_score = faithfulness_metric.score
+        
+        answer_relevancy_metric.measure(test_case)
+        answer_relevancy_score = answer_relevancy_metric.score
+        
+        contextual_relevancy_metric.measure(test_case)
+        contextual_relevancy_score = contextual_relevancy_metric.score
+        
+        # Create result
+        result = {
+            'id': output_id,
+            'faithfulness': faithfulness_score,
+            'answer_relevancy': answer_relevancy_score,
+            'contextual_relevancy': contextual_relevancy_score
+        }
+        
+        if include_reason:
+            result['faithfulness_reason'] = faithfulness_metric.reason
+            result['answer_relevancy_reason'] = answer_relevancy_metric.reason
+            result['contextual_relevancy_reason'] = contextual_relevancy_metric.reason
+        
+        return output_id, result
+        
+    except Exception as e:
+        return output_id, {
+            'id': output_id,
+            'faithfulness': 0.0,
+            'answer_relevancy': 0.0,
+            'contextual_relevancy': 0.0,
+            'error': str(e)
+        }
+
+
 def load_system_outputs(filepath: str) -> List[Dict[str, Any]]:
     """Load system outputs from JSONL file."""
     outputs = []
@@ -315,8 +492,8 @@ def load_references(filepath: str) -> List[Dict[str, Any]]:
         for line in f:
             data = json.loads(line)
             references.append({
-                'iid': data.get('iid', data.get('query_id')),
-                'query': data.get('query', ''),
+                'iid': data.get('id', data.get('iid', data.get('query_id'))),
+                'query': data.get('narrative', data.get('query', '')),
                 'reference': data.get('reference', '')
             })
     return references
@@ -390,6 +567,12 @@ def main():
         default=None,
         help='Output JSON file (default: auto-generated in results/)'
     )
+    parser.add_argument(
+        '--num-workers',
+        type=int,
+        default=None,
+        help='Number of worker processes for parallel evaluation (default: CPU count)'
+    )
     
     args = parser.parse_args()
     
@@ -433,7 +616,8 @@ def main():
             answer_relevancy_threshold=args.answer_relevancy_threshold,
             contextual_relevancy_threshold=args.contextual_relevancy_threshold,
             include_reason=not args.no_reason,
-            verbose=args.verbose
+            verbose=args.verbose,
+            num_workers=args.num_workers
         )
         
         # Evaluate

@@ -162,12 +162,30 @@ def load_system_outputs(file_path: str) -> List[Dict[str, Any]]:
 
 
 def load_references(file_path: str) -> List[Dict[str, Any]]:
-    """Load reference data from JSONL file."""
+    """Load reference data from JSON or JSONL file."""
     references = []
     with open(file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            if line.strip():
-                references.append(json.loads(line))
+        content = f.read().strip()
+        
+    # Try to parse as JSON array first
+    if content.startswith('[') and content.endswith(']'):
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                references = data
+            else:
+                references = [data]
+        except json.JSONDecodeError:
+            pass
+    
+    # If not a JSON array, try parsing as JSONL
+    if not references:
+        references = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    references.append(json.loads(line))
+    
     return references
 
 

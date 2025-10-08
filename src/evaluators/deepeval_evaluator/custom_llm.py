@@ -11,6 +11,7 @@ import re
 from typing import Optional
 from pydantic import BaseModel
 import openai
+from dotenv import load_dotenv
 from deepeval.models import DeepEvalBaseLLM
 
 
@@ -28,7 +29,8 @@ class MMUCustomLLM(DeepEvalBaseLLM):
         base_url: str = "https://mmu-proxy-server-llm-proxy.rankun.org",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
-        max_tokens: int = 16384
+        max_tokens: int = 16000,
+        seed: int = 42
     ):
         """
         Initialize the custom LLM.
@@ -37,11 +39,18 @@ class MMUCustomLLM(DeepEvalBaseLLM):
             model: Model name to use
             base_url: Base URL for the MMU proxy server
             api_key: API key (defaults to MMU_OPENAI_API_KEY env var)
-            temperature: Temperature for generation
-            max_tokens: Maximum tokens to generate
+            temperature: Temperature for generation (default: 0.0)
+            max_tokens: Maximum tokens to generate (default: 16000)
+            seed: Random seed for reproducible results (default: 42)
         """
+        # Load environment variables from .env file
+        load_dotenv()
+        
         self.model_name = model
+        self.base_url = base_url
         self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.seed = seed
         self.max_tokens = max_tokens
         
         # Set API key from environment if not provided
@@ -221,6 +230,7 @@ class MMUCustomLLM(DeepEvalBaseLLM):
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
+                seed=self.seed,
                 stream=False
             )
             
