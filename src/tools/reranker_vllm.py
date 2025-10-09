@@ -5,15 +5,28 @@ import atexit
 import json
 import signal
 import sys
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, NamedTuple
 import aiohttp
 
-from tools.web_search import SearchResult
+from tools.web_search import SearchError, SearchResult, search_clueweb
 from tools.llm_servers.command_server import launch_command_server, find_available_port, RunningServer
 from tools.llm_servers.sglang_utils import wait_for_server
 from tools.logging_utils import get_logger
 
 logger = get_logger('reranker_vllm')
+
+
+class RerankerConfig(NamedTuple):
+    """Configuration for vLLM reranker server parameters."""
+    model_id: str
+    gpu_memory_utilization: Optional[float] = 0.2
+    max_model_len: Optional[int] = 16000
+    kv_cache_memory_bytes: Optional[int] = None
+    hf_overrides: Optional[Dict[str, Any]] = None
+    host: str = "0.0.0.0"
+    port: Optional[int] = None
+    api_key: Optional[str] = None
+
 
 # Global server state
 _reranker_server: Optional[RunningServer] = None
@@ -23,24 +36,20 @@ _api_base = None
 _port = None
 
 
-def build_reranker_command(model_id: str,
-                           gpu_memory_utilization: Optional[float] = 0.2,
-                           max_model_len: Optional[int] = 16000,
-                           kv_cache_memory_bytes: Optional[int] = None,
-                           hf_overrides: Optional[Dict[str, Any]] = None,
-                           host: str = "0.0.0.0",
-                           port: Optional[int] = None,
-                           api_key: Optional[str] = None) -> Tuple[List[str], str, str, int]:
+def build_reranker_command(config: RerankerConfig) -> Tuple[List[str], str, str, int]:
     """Build command for vLLM reranker server."""
     # Find an available port if not specified
+    port = config.port
     if port is None:
         port = find_available_port()
 
     # Default KV cache memory for reranker
+    kv_cache_memory_bytes = config.kv_cache_memory_bytes
     if kv_cache_memory_bytes is None:
         kv_cache_memory_bytes = 2 * 1024 * 1024 * 1024  # 2GB
 
     # Default hf_overrides for Qwen3-Reranker
+    hf_overrides = config.hf_overrides
     if hf_overrides is None:
         hf_overrides = {
             "architectures": ["Qwen3ForSequenceClassification"],
@@ -50,35 +59,29 @@ def build_reranker_command(model_id: str,
 
     command = [
         "python", "-m", "vllm.entrypoints.openai.api_server",
-        "--model", model_id,
+        "--model", config.model_id,
         "--runner", "pooling",
-        *(["--gpu-memory-utilization", str(gpu_memory_utilization)]
-          if gpu_memory_utilization else []),
-        *(["--max-model-len", str(max_model_len)] if max_model_len else []),
+        *(["--gpu-memory-utilization", str(config.gpu_memory_utilization)]
+          if config.gpu_memory_utilization else []),
+        *(["--max-model-len", str(config.max_model_len)]
+          if config.max_model_len else []),
         *(["--kv-cache-memory-bytes", str(kv_cache_memory_bytes)]
           if kv_cache_memory_bytes else []),
         *(["--hf-overrides", json.dumps(hf_overrides)] if hf_overrides else []),
-        "--host", host,
+        "--host", config.host,
         "--port", str(port),
     ]
 
-    if api_key:
-        command.extend(["--api-key", api_key])
+    if config.api_key:
+        command.extend(["--api-key", config.api_key])
 
-    server_host = f"http://{host}:{port}"
-    api_base = f"{server_host}/v1"
+    server_host = f"http://{config.host}:{port}"
+    api_base = server_host
 
     return command, server_host, api_base, port
 
 
-async def ensure_reranker_server(model_id: str,
-                                 gpu_memory_utilization: Optional[float],
-                                 max_model_len: Optional[int],
-                                 kv_cache_memory_bytes: Optional[int],
-                                 hf_overrides: Optional[Dict[str, Any]],
-                                 host: str,
-                                 port: Optional[int],
-                                 api_key: Optional[str]) -> Tuple[str, str, int]:
+async def ensure_reranker_server(config: RerankerConfig) -> Tuple[str, str, int]:
     """Ensure reranker server is running, launch if needed."""
     global _reranker_server, _server_host, _api_base, _port
 
@@ -90,19 +93,11 @@ async def ensure_reranker_server(model_id: str,
 
         # Build command and server info
         command, server_host, api_base, server_port = build_reranker_command(
-            model_id=model_id,
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_model_len=max_model_len,
-            kv_cache_memory_bytes=kv_cache_memory_bytes,
-            hf_overrides=hf_overrides,
-            host=host,
-            port=port,
-            api_key=api_key
-        )
+            config)
 
         # Health check function
         async def health_check():
-            await wait_for_server(server_host, timeout=1800, api_key=api_key)
+            await wait_for_server(server_host, timeout=1800, api_key=config.api_key)
 
         # Launch server using command server
         _reranker_server = await launch_command_server(
@@ -123,25 +118,12 @@ class GeneralReranker:
     """VLLM-based reranker using Qwen3-Reranker model with API server."""
 
     def __init__(self,
-                 model_name="Qwen/Qwen3-Reranker-0.6B",
-                 drop_irrelevant_threshold: Optional[float] = 0.5,
-                 gpu_memory_utilization: Optional[float] = 0.2,
-                 max_model_len: Optional[int] = 16000,
-                 kv_cache_memory_bytes: Optional[int] = None,
-                 hf_overrides: Optional[Dict[str, Any]] = None,
-                 host: str = "0.0.0.0",
-                 port: Optional[int] = None,
-                 api_key: Optional[str] = None):
+                 config: Optional[RerankerConfig] = None,
+                 drop_irrelevant_threshold: Optional[float] = None):
         """Initialize the VLLM reranker with API server."""
-        self.model_name = model_name
+        self.config = config or RerankerConfig(
+            model_id="Qwen/Qwen3-Reranker-0.6B")
         self.drop_irrelevant_threshold = drop_irrelevant_threshold
-        self.gpu_memory_utilization = gpu_memory_utilization
-        self.max_model_len = max_model_len
-        self.kv_cache_memory_bytes = kv_cache_memory_bytes
-        self.hf_overrides = hf_overrides
-        self.host = host
-        self.port = port
-        self.api_key = api_key
 
         # HTTP client for making requests
         self._http_client: Optional[aiohttp.ClientSession] = None
@@ -152,28 +134,18 @@ class GeneralReranker:
         self.query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
         self.document_template = "<Document>: {doc}{suffix}"
 
-        # Logger with model-specific context
-        self._logger = get_logger(f"reranker_{model_name.replace('/', '_')}")
+        self.logger = get_logger(f"reranker_vllm")
 
     async def _get_server(self) -> Tuple[str, str, int]:
         """Get or ensure reranker server is running."""
-        return await ensure_reranker_server(
-            model_id=self.model_name,
-            gpu_memory_utilization=self.gpu_memory_utilization,
-            max_model_len=self.max_model_len,
-            kv_cache_memory_bytes=self.kv_cache_memory_bytes,
-            hf_overrides=self.hf_overrides,
-            host=self.host,
-            port=self.port,
-            api_key=self.api_key
-        )
+        return await ensure_reranker_server(self.config)
 
     def _get_http_client(self) -> aiohttp.ClientSession:
         """Get or create HTTP client."""
         if self._http_client is None:
             headers = {}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+            if self.config.api_key:
+                headers["Authorization"] = f"Bearer {self.config.api_key}"
 
             timeout = aiohttp.ClientTimeout(total=300.0)  # 5 minutes timeout
             self._http_client = aiohttp.ClientSession(
@@ -200,9 +172,9 @@ class GeneralReranker:
 
             # Prepare the request payload for vLLM score endpoint
             payload = {
-                "model": self.model_name,
-                "query": query_fmt,
-                "documents": docs_fmt
+                "model": self.config.model_id,
+                "text_1": query_fmt,
+                "text_2": docs_fmt
             }
 
             # Make request to the score endpoint
@@ -212,18 +184,22 @@ class GeneralReranker:
             ) as response:
                 response.raise_for_status()
                 result = await response.json()
-                scores = result.get("scores", [0.0] * len(docs_fmt))
-
+                scores = result.get("data", [])
+                scores = [item.get("score", 0.0) for item in scores]
+                self.logger.info("vLLM API scoring successful",
+                                 num_docs=len(docs_fmt),
+                                 result=result,
+                                 scores=scores)
             return scores
 
         except Exception as e:
-            self._logger.error("Error during vLLM API scoring", error=str(e))
+            self.logger.error("Error during vLLM API scoring", error=str(e))
             # Fallback: return zero scores
             return [0.0] * len(docs_fmt)
 
     async def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000) -> List[SearchResult]:
         if not search_results:
-            self._logger.warning("No search results to rerank")
+            self.logger.warning("No search results to rerank")
             return []
 
         instruction = (
@@ -251,9 +227,9 @@ class GeneralReranker:
         # Get scores from vLLM via API
         scores = await self._score_via_api(query_fmt, docs_fmt)
 
-        self._logger.info("Re-ranking completed",
-                          num_results=len(search_results),
-                          query_length=len(query))
+        self.logger.info("Re-ranking completed",
+                         num_results=len(search_results),
+                         query_length=len(query))
 
         # Create ranked results
         ranked_results = [
@@ -270,8 +246,8 @@ class GeneralReranker:
                 res for res in ranked_results
                 if (res.score or 0.0) > self.drop_irrelevant_threshold
             ]
-            self._logger.info("Filtered irrelevant results",
-                              num_remaining=len(ranked_results))
+            self.logger.info("Filtered irrelevant results",
+                             num_remaining=len(ranked_results))
 
         return ranked_results
 
@@ -279,8 +255,8 @@ class GeneralReranker:
         """Terminate the running vLLM reranker server instance."""
         global _reranker_server
         if _reranker_server is not None:
-            self._logger.info("Terminating vLLM reranker server",
-                              port=_port, model_name=self.model_name)
+            self.logger.info("Terminating vLLM reranker server",
+                             port=_port, model_name=self.config.model_id)
             _reranker_server.terminate()
 
         # Close HTTP client
@@ -297,14 +273,7 @@ class GeneralReranker:
     def server_info(self) -> Dict[str, Any]:
         """Get current server information."""
         return {
-            "model_name": self.model_name,
-            "is_running": self.is_running,
-            "port": _port,
-            "api_base": _api_base,
-            "server_host": _server_host,
-            "gpu_memory_utilization": self.gpu_memory_utilization,
-            "max_model_len": self.max_model_len,
-            "host": self.host,
+            **self.config._asdict(),
             "drop_irrelevant_threshold": self.drop_irrelevant_threshold
         }
 
@@ -313,30 +282,7 @@ class GeneralReranker:
 ALL_RERANKERS: Dict[str, GeneralReranker] = {}
 
 
-def cleanup_all_rerankers(signum: Optional[int], frame: Optional[Any]):
-    """Cleanup function to terminate all running vLLM reranker servers."""
-    global _reranker_server
-    logger.info(f"Clean up reranker servers on signal {signum}, frame {frame}")
-
-    if _reranker_server:
-        logger.info("Cleaning up vLLM reranker server before exit")
-        _reranker_server.terminate()
-        _reranker_server = None
-
-    sys.exit(0)
-
-
-# Register cleanup function for normal exit and termination signals
-atexit.register(lambda: cleanup_all_rerankers(None, None))
-signal.signal(signal.SIGTERM, cleanup_all_rerankers)
-signal.signal(signal.SIGINT, cleanup_all_rerankers)
-
-# On Unix systems, also handle SIGHUP
-if hasattr(signal, 'SIGHUP'):
-    signal.signal(signal.SIGHUP, cleanup_all_rerankers)
-
-
-async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
+async def get_reranker(model_id="Qwen/Qwen3-Reranker-0.6B",
                        drop_irrelevant_threshold: Optional[float] = 0.5,
                        gpu_memory_utilization: Optional[float] = 0.2,
                        max_model_len: Optional[int] = 16000,
@@ -348,31 +294,68 @@ async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
     """
     Get a reranker instance, creating if necessary and ensuring server is started.
     """
-    if model_name not in ALL_RERANKERS:
-        ALL_RERANKERS[model_name] = GeneralReranker(
-            model_name=model_name,
+    if model_id not in ALL_RERANKERS:
+        ALL_RERANKERS[model_id] = GeneralReranker(
+            config=RerankerConfig(
+                model_id=model_id,
+                gpu_memory_utilization=gpu_memory_utilization,
+                max_model_len=max_model_len,
+                kv_cache_memory_bytes=kv_cache_memory_bytes,
+                hf_overrides=hf_overrides,
+                host=host,
+                port=port,
+                api_key=api_key,
+            ),
             drop_irrelevant_threshold=drop_irrelevant_threshold,
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_model_len=max_model_len,
-            kv_cache_memory_bytes=kv_cache_memory_bytes,
-            hf_overrides=hf_overrides,
-            host=host,
-            port=port,
-            api_key=api_key
         )
 
     # Ensure the server is started
-    reranker = ALL_RERANKERS[model_name]
+    reranker = ALL_RERANKERS[model_id]
     await reranker._get_server()
     return reranker
 
 
-async def main():
+async def test_batch():
     """
-    Test the vLLM reranker implementation.
+    Test the vLLM reranker batch reranking
     """
     model_name = "Qwen/Qwen3-Reranker-0.6B"
-    api_key = "abc"
+    queries = [
+        "where did choan seng song get phd",
+        "what are differences between real time display and real time recording for surveillance DVR units",
+        "employer obligations nepal social security washington",
+        "esential preparation tecniques nigt sky viewing",
+        "As a prison chaplain, what Buddhist organizations provide support for inmates and prison services?"
+    ]
+    # search queries in parallel using search_clueweb
+    start_time = asyncio.get_event_loop().time()
+    results = await asyncio.gather(*[search_clueweb(q, 50) for q in queries], return_exceptions=False)
+    for doc_list in results:
+        if isinstance(doc_list, SearchError):
+            logger.error("Error during search", error=str(doc_list))
+
+    end_time = asyncio.get_event_loop().time()
+    logger.info("Search completed for multiple queries",
+                num_queries=len(queries),
+                num_results=[len(r) if isinstance(r, list)
+                             else 0 for r in results],
+                total_time=end_time - start_time)
+
+    # rerank in parallel
+    reranker = await get_reranker(model_id=model_name, drop_irrelevant_threshold=0.3)
+
+    start_time = asyncio.get_event_loop().time()
+    scores = await asyncio.gather(*[
+        reranker.rerank(q, r) for q, r in zip(queries, results)
+    ], return_exceptions=False)
+    end_time = asyncio.get_event_loop().time()
+    logger.info("Reranking multiple queries completed",
+                num_queries=len(queries),
+                total_time=end_time - start_time)
+
+
+async def test_single():
+    model_name = "Qwen/Qwen3-Reranker-0.6B"
 
     def _search_result(sid: str, text: str) -> SearchResult:
         return SearchResult(
@@ -403,8 +386,7 @@ async def main():
 
     # Get reranker instance
     reranker = await get_reranker(
-        model_name=model_name,
-        api_key=api_key,
+        model_id=model_name,
         drop_irrelevant_threshold=0.3
     )
 
@@ -429,6 +411,11 @@ async def main():
                     ("..." if len(result.text) > 100 else ""),
                     score=result.score,
                     url=result.url)
+
+
+async def main():
+    await test_single()
+    await test_batch()
 
 
 if __name__ == "__main__":

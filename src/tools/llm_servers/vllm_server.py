@@ -81,6 +81,9 @@ async def launch_server(model_id="Qwen/Qwen3-4B",
 
     def terminate():
         terminate_process(server_process)
+        
+    atexit.register(terminate)
+    
     return server_process, terminate, server_host, api_base, port
 
 
@@ -265,44 +268,6 @@ class VLLMServerManager:
 
 
 ALL_VLLM_SERVERS: Dict[str, VLLMServerManager] = {}
-
-# ----------------------------------------------------------------------------
-# Termination handler
-# more verbose due to async locks
-
-
-def cleanup_all_servers(signum: Optional[int], frame: Optional[Any]):
-    """Cleanup function to terminate all running vLLM servers."""
-    logger.info(f"Clean up servers on signal {signum}, frame {frame}")
-    if not ALL_VLLM_SERVERS:
-        return
-
-    logger.info("Cleaning up all vLLM servers before exit")
-
-    # Start termination threads for all running servers
-    threads = []
-    for server_mgr in ALL_VLLM_SERVERS.values():
-        if server_mgr.is_running:
-            thread = threading.Thread(target=server_mgr._terminate_server)
-            thread.start()
-            threads.append(thread)
-
-    # Wait for all terminations to complete
-    for thread in threads:
-        thread.join(timeout=10)
-    sys.exit(0)
-
-
-# Register cleanup function for normal exit and termination signals
-atexit.register(lambda: cleanup_all_servers(None, None))
-signal.signal(signal.SIGTERM, cleanup_all_servers)
-signal.signal(signal.SIGINT, cleanup_all_servers)
-
-# On Unix systems, also handle SIGHUP
-if hasattr(signal, 'SIGHUP'):
-    signal.signal(signal.SIGHUP, cleanup_all_servers)
-# Termination handler end
-# -------------------------------------------------------------------------------
 
 
 def get_llm_mgr(model_id="Qwen/Qwen3-4B",

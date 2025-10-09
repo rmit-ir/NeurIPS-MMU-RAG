@@ -1,6 +1,7 @@
 """Generic command server for managing subprocess-based servers with async coordination."""
 
 import asyncio
+import atexit
 import subprocess
 import socket
 from typing import List, NamedTuple, Callable, Awaitable
@@ -62,5 +63,8 @@ async def launch_command_server(command: List[str],
 
     def terminate():
         terminate_process(server_process)
+
+    # Register automatic cleanup on process exit
+    atexit.register(terminate)
 
     return RunningServer(process=server_process, terminate=terminate)

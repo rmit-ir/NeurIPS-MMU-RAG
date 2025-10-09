@@ -183,7 +183,7 @@ async def search_fineweb(
         raise ValueError("k must be > 0")
     key = api_key or os.getenv("FINEWEB_API_KEY")
     if not key:
-        raise WebSearchError("FINEWEB_API_KEY required")
+        raise ValueError("FINEWEB_API_KEY required")
 
     params = {"query": query, "k": str(k)}
     headers = {"x-api-key": key}
@@ -226,7 +226,7 @@ async def search_clueweb(
     key = api_key or os.getenv(
         "CLUEWEB_API_KEY") or os.getenv("RAG_CLUEWEB_API_KEY")
     if not key:
-        raise WebSearchError(
+        raise ValueError(
             "ClueWeb API key not provided. Set CLUEWEB_API_KEY or pass api_key."
         )
 
