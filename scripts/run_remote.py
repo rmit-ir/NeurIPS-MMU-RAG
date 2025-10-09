@@ -15,6 +15,7 @@ The system_key parameter is passed to the remote API as server_key.
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 from pathlib import Path
@@ -61,12 +62,13 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
     }
 
     async with session.get(url, headers=headers) as response:
-        result = await response.json()
+        # result = await response.json()
+        text = await response.text()
         if response.status != 200:
             logger.error("Remote API error",
-                         status=response.status, response=result)
+                         status=response.status, response=text)
         response.raise_for_status()
-        return result
+        return json.loads(text)
 
 
 async def process_topic_remote(session: aiohttp.ClientSession, request: EvaluateRequest,
