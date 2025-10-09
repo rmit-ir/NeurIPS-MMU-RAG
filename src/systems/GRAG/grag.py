@@ -3,7 +3,7 @@ import asyncio
 import re
 from openai.types.chat import ChatCompletionMessageParam
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
-from tools.llm_servers.vllm_server import get_llm_mgr
+from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_clueweb
 from tools.logging_utils import get_logger
@@ -70,13 +70,11 @@ class GRAG(RAGInterface):
 
     async def _ensure_llm_client(self):
         if not self.llm_client:
-            llm_mgr = get_llm_mgr(
-                model_id=self.model_id,
-                reasoning_parser=self.reasoning_parser,
-                gpu_memory_utilization=self.gpu_memory_utilization,
-                max_model_len=self.max_model_len,
-                api_key=self.api_key
-            )
+            llm_mgr = get_llm_mgr(VllmConfig(model_id=self.model_id,
+                                             reasoning_parser=self.reasoning_parser,
+                                             gpu_memory_utilization=self.gpu_memory_utilization,
+                                             max_model_len=self.max_model_len,
+                                             api_key=self.api_key))
             self.llm_client = await llm_mgr.get_openai_client(
                 max_tokens=self.max_tokens,
                 temperature=self.temperature

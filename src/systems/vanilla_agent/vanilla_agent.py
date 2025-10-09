@@ -9,7 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam
 
 # Import existing components
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
-from tools.llm_servers.vllm_server import get_llm_mgr
+from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.web_search import SearchResult, search_clueweb
 from tools.reranker_vllm import get_reranker
@@ -83,13 +83,11 @@ class VanillaAgent(RAGInterface):
                     api_base=self.api_host, model_id=self.model_id,
                     temperature=self.temperature, max_tokens=self.max_tokens)
             else:
-                llm_mgr = get_llm_mgr(
-                    model_id=self.model_id,
-                    reasoning_parser=self.reasoning_parser,
-                    gpu_memory_utilization=self.gpu_memory_utilization,
-                    max_model_len=self.max_model_len,
-                    api_key=self.api_key
-                )
+                llm_mgr = get_llm_mgr(VllmConfig(model_id=self.model_id,
+                                                 reasoning_parser=self.reasoning_parser,
+                                                 gpu_memory_utilization=self.gpu_memory_utilization,
+                                                 max_model_len=self.max_model_len,
+                                                 api_key=self.api_key))
                 self.llm_client = await llm_mgr.get_openai_client(
                     max_tokens=self.max_tokens,
                     temperature=self.temperature

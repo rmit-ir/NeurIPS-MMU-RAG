@@ -16,7 +16,7 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 
 import jsonlines
 from systems.rag_interface import EvaluateResponse, RAGInterface, EvaluateRequest
@@ -49,7 +49,8 @@ async def process_topic(system: RAGInterface, request: EvaluateRequest) -> Evalu
         return EvaluateResponse(
             query_id=request.iid,
             generated_response=f"Error: {str(e)}",
-            citations=[]
+            citations=[],
+            contexts=[]
         )
 
 
@@ -103,7 +104,8 @@ async def run_system_parallel(system: RAGInterface, topics: List[EvaluateRequest
                 error_result = EvaluateResponse(
                     query_id=request.iid,
                     generated_response=f"Error: {str(e)}",
-                    citations=[]
+                    citations=[],
+                    contexts=[]
                 )
                 results.append(error_result)
                 work_queue.task_done()
