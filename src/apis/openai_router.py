@@ -43,6 +43,7 @@ async def lifespan(_app: FastAPI):
 
     # Run both initialization tasks concurrently
     await asyncio.gather(
+        # This has to be run first, otherwise it will OOM
         vllm_mgr.get_server(),
         get_reranker(RerankerConfig(gpu_memory_utilization=0.2,
                                     max_model_len=16_000),

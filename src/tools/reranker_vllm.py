@@ -182,10 +182,10 @@ class GeneralReranker:
                 result = await response.json()
                 scores = result.get("data", [])
                 scores = [item.get("score", 0.0) for item in scores]
-                self.logger.info("vLLM API scoring successful",
-                                 num_docs=len(docs_fmt),
-                                 result=result,
-                                 scores=scores)
+                self.logger.debug("vLLM API scoring successful",
+                                  num_docs=len(docs_fmt),
+                                  result=result,
+                                  scores=scores)
             return scores
 
         except Exception as e:
