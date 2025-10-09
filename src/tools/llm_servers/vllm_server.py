@@ -1,9 +1,6 @@
 import asyncio
 import atexit
-import signal
 import subprocess
-import sys
-import threading
 from typing import Callable, NamedTuple, Optional, Dict, Tuple, Any
 
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
@@ -27,8 +24,10 @@ def terminate_process(process):
 class VllmConfig(NamedTuple):
     model_id: str = "Qwen/Qwen3-4B"
     reasoning_parser: Optional[str] = "qwen3"
-    gpu_memory_utilization: Optional[float] = 0.6
+    gpu_memory_utilization: Optional[float] = None
+    """Fraction of GPU memory to use, e.g., 0.75"""
     max_model_len: Optional[int] = 20000
+    kv_cache_memory: Optional[int] = None  # In bytes
     host: str = "0.0.0.0"
     port: Optional[int] = None
     api_key: Optional[str] = None
@@ -62,6 +61,8 @@ async def launch_server(config: VllmConfig):
           if config.gpu_memory_utilization else []),
         *(["--max-model-len", str(config.max_model_len)]
           if config.max_model_len else []),
+        *(["--kv-cache-memory-bytes", str(config.kv_cache_memory)]
+          if config.kv_cache_memory else []),
         "--host", config.host,
         "--port", str(config.port),
     ]

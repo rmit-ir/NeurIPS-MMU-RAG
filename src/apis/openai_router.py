@@ -36,18 +36,21 @@ async def lifespan(_app: FastAPI):
     # Launch both services in parallel using separate threads
     logger.info("Starting reranker_vllm reranker and LLM manager in parallel...")
 
-    vllm_mgr = get_llm_mgr(VllmConfig(model_id="Qwen/Qwen3-4B",
+    vllm_config = VllmConfig(model_id="Qwen/Qwen3-4B",
                                       reasoning_parser="qwen3",
-                                      gpu_memory_utilization=0.75,
-                                      max_model_len=20_000))
+                                      max_model_len=20_000,
+                                      # model=7.56GB, arch=1.4+4.1+0.61=6.11GB, kv_cache=6GB
+                                      kv_cache_memory=6*1024**3)
+    reranker_config = RerankerConfig(model_id="Qwen/Qwen3-Reranker-0.6B",
+                                     max_model_len=16_000,
+                                     kv_cache_memory_bytes=4*1024**3,)
 
+    vllm_mgr = get_llm_mgr(vllm_config)
     # Run both initialization tasks concurrently
     await asyncio.gather(
-        # This has to be run first, otherwise it will OOM
+        # main model has to run first, otherwise it will OOM
         vllm_mgr.get_server(),
-        get_reranker(RerankerConfig(gpu_memory_utilization=0.2,
-                                    max_model_len=16_000),
-                     drop_irrelevant_threshold=0.5),
+        get_reranker(reranker_config, drop_irrelevant_threshold=0.5),
     )
 
     logger.info("Reranker and LLM manager ready.")

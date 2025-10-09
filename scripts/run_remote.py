@@ -26,6 +26,7 @@ import jsonlines
 from systems.rag_interface import EvaluateResponse, EvaluateRequest
 from tools.loaders import load_topics
 from tools.logging_utils import get_logger
+from tools.retry_utils import retry
 
 logger = get_logger('run_remote')
 
@@ -33,6 +34,7 @@ logger = get_logger('run_remote')
 REMOTE_API_BASE_URL = "https://ase-server-api.rankun.org/api/search/ai-overview"
 
 
+@retry(max_retries=4, retry_on=(aiohttp.ClientError, aiohttp.ClientResponseError, asyncio.TimeoutError))
 async def make_remote_request(session: aiohttp.ClientSession, query: str,
                               server_key: str, api_key: str) -> dict:
     """
