@@ -18,11 +18,15 @@ logger = get_logger('reranker_vllm')
 
 class RerankerConfig(NamedTuple):
     """Configuration for vLLM reranker server parameters."""
-    model_id: str
+    model_id: Optional[str] = "Qwen/Qwen3-Reranker-0.6B"
     gpu_memory_utilization: Optional[float] = 0.2
     max_model_len: Optional[int] = 16000
     kv_cache_memory_bytes: Optional[int] = None
-    hf_overrides: Optional[Dict[str, Any]] = None
+    hf_overrides: Optional[Dict[str, Any]] = {
+        "architectures": ["Qwen3ForSequenceClassification"],
+        "classifier_from_token": ["no", "yes"],
+        "is_original_qwen3_reranker": True
+    }
     host: str = "0.0.0.0"
     port: Optional[int] = None
     api_key: Optional[str] = None
@@ -48,15 +52,6 @@ def build_reranker_command(config: RerankerConfig) -> Tuple[List[str], str, str,
     if kv_cache_memory_bytes is None:
         kv_cache_memory_bytes = 2 * 1024 * 1024 * 1024  # 2GB
 
-    # Default hf_overrides for Qwen3-Reranker
-    hf_overrides = config.hf_overrides
-    if hf_overrides is None:
-        hf_overrides = {
-            "architectures": ["Qwen3ForSequenceClassification"],
-            "classifier_from_token": ["no", "yes"],
-            "is_original_qwen3_reranker": True
-        }
-
     command = [
         "python", "-m", "vllm.entrypoints.openai.api_server",
         "--model", config.model_id,
@@ -67,7 +62,8 @@ def build_reranker_command(config: RerankerConfig) -> Tuple[List[str], str, str,
           if config.max_model_len else []),
         *(["--kv-cache-memory-bytes", str(kv_cache_memory_bytes)]
           if kv_cache_memory_bytes else []),
-        *(["--hf-overrides", json.dumps(hf_overrides)] if hf_overrides else []),
+        *(["--hf-overrides", json.dumps(config.hf_overrides)]
+          if config.hf_overrides else []),
         "--host", config.host,
         "--port", str(port),
     ]
@@ -282,35 +278,24 @@ class GeneralReranker:
 ALL_RERANKERS: Dict[str, GeneralReranker] = {}
 
 
-async def get_reranker(model_id="Qwen/Qwen3-Reranker-0.6B",
-                       drop_irrelevant_threshold: Optional[float] = 0.5,
-                       gpu_memory_utilization: Optional[float] = 0.2,
-                       max_model_len: Optional[int] = 16000,
-                       kv_cache_memory_bytes: Optional[int] = None,
-                       hf_overrides: Optional[Dict[str, Any]] = None,
-                       host: str = "0.0.0.0",
-                       port: Optional[int] = None,
-                       api_key: Optional[str] = None) -> GeneralReranker:
+async def get_reranker(config: Optional[RerankerConfig] = None,
+                       drop_irrelevant_threshold: Optional[float] = 0.5) -> GeneralReranker:
     """
     Get a reranker instance, creating if necessary and ensuring server is started.
     """
-    if model_id not in ALL_RERANKERS:
-        ALL_RERANKERS[model_id] = GeneralReranker(
-            config=RerankerConfig(
-                model_id=model_id,
-                gpu_memory_utilization=gpu_memory_utilization,
-                max_model_len=max_model_len,
-                kv_cache_memory_bytes=kv_cache_memory_bytes,
-                hf_overrides=hf_overrides,
-                host=host,
-                port=port,
-                api_key=api_key,
-            ),
+    if config is None:
+        config = RerankerConfig()
+    if not config.model_id:
+        raise ValueError("RerankerConfig must have a model_id specified")
+
+    if config.model_id not in ALL_RERANKERS:
+        ALL_RERANKERS[config.model_id] = GeneralReranker(
+            config=config,
             drop_irrelevant_threshold=drop_irrelevant_threshold,
         )
 
     # Ensure the server is started
-    reranker = ALL_RERANKERS[model_id]
+    reranker = ALL_RERANKERS[config.model_id]
     await reranker._get_server()
     return reranker
 
@@ -342,7 +327,7 @@ async def test_batch():
                 total_time=end_time - start_time)
 
     # rerank in parallel
-    reranker = await get_reranker(model_id=model_name, drop_irrelevant_threshold=0.3)
+    reranker = await get_reranker(config=RerankerConfig(model_id=model_name), drop_irrelevant_threshold=0.3)
 
     start_time = asyncio.get_event_loop().time()
     scores = await asyncio.gather(*[
@@ -386,8 +371,8 @@ async def test_single():
 
     # Get reranker instance
     reranker = await get_reranker(
-        model_id=model_name,
-        drop_irrelevant_threshold=0.3
+        config=RerankerConfig(model_id=model_name),
+        drop_irrelevant_threshold=0.5
     )
 
     logger.info("vLLM reranker server is running",
