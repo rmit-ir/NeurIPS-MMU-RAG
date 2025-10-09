@@ -187,10 +187,10 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
 
         question = user_messages[-1].content
         run_request = RunRequest(question=question)
+        chat_hash = generate_chat_hash(question, request.model)
 
         if request.stream:
             # Generate chat hash for caching
-            chat_hash = generate_chat_hash(question, request.model)
 
             # Streaming response
             run = await model.run_streaming(run_request)
