@@ -4,7 +4,7 @@ import signal
 import subprocess
 import sys
 import threading
-from typing import Callable, Optional, Dict, Tuple, Any
+from typing import Callable, NamedTuple, Optional, Dict, Tuple, Any
 
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.sglang_utils import wait_for_server
@@ -24,13 +24,17 @@ def terminate_process(process):
             process.wait()
 
 
-async def launch_server(model_id="Qwen/Qwen3-4B",
-                        reasoning_parser: Optional[str] = "qwen3",
-                        gpu_memory_utilization: Optional[float] = 0.6,
-                        max_model_len: Optional[int] = 20000,
-                        host: str = "0.0.0.0",
-                        port: Optional[int] = None,
-                        api_key: Optional[str] = None):
+class VllmConfig(NamedTuple):
+    model_id: str = "Qwen/Qwen3-4B"
+    reasoning_parser: Optional[str] = "qwen3"
+    gpu_memory_utilization: Optional[float] = 0.6
+    max_model_len: Optional[int] = 20000
+    host: str = "0.0.0.0"
+    port: Optional[int] = None
+    api_key: Optional[str] = None
+
+
+async def launch_server(config: VllmConfig):
     """
     Launch the vLLM server as a subprocess asynchronously.
     Args:
@@ -43,26 +47,27 @@ async def launch_server(model_id="Qwen/Qwen3-4B",
         api_key (Optional[str]): API key for authentication.
     """
     # Find an available port if not specified
-    if port is None:
+    if config.port is None:
         import socket
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(('', 0))
-            port = s.getsockname()[1]
+            config = config._replace(port=s.getsockname()[1])
 
     command = [
         "python", "-m", "vllm.entrypoints.openai.api_server",
-        "--model", model_id,
-        *(["--reasoning-parser", reasoning_parser] if reasoning_parser else []),
-        *(["--gpu-memory-utilization", str(gpu_memory_utilization)]
-          if gpu_memory_utilization else []),
-        *(["--max-model-len", str(max_model_len)] if max_model_len else []),
-        "--host", host,
-        "--port", str(port),
+        "--model", config.model_id,
+        *(["--reasoning-parser", config.reasoning_parser]
+          if config.reasoning_parser else []),
+        *(["--gpu-memory-utilization", str(config.gpu_memory_utilization)]
+          if config.gpu_memory_utilization else []),
+        *(["--max-model-len", str(config.max_model_len)]
+          if config.max_model_len else []),
+        "--host", config.host,
+        "--port", str(config.port),
     ]
 
-    if api_key:
-        command.extend(["--api-key", api_key])
-
+    if config.api_key:
+        command.extend(["--api-key", config.api_key])
     logger.info("Launching vLLM server", command=' '.join(command))
 
     # Run the server launch in a thread pool to avoid blocking the event loop
@@ -72,19 +77,19 @@ async def launch_server(model_id="Qwen/Qwen3-4B",
         lambda: subprocess.Popen(command)
     )
 
-    server_host = f"http://{host}:{port}"
+    server_host = f"http://{config.host}:{config.port}"
     api_base = f"{server_host}/v1"
 
     # Use async server health check
-    await wait_for_server(server_host, timeout=1800, api_key=api_key)
-    logger.info("vLLM server is running", port=port)
+    await wait_for_server(server_host, timeout=1800, api_key=config.api_key)
+    logger.info("vLLM server is running", port=config.port)
 
     def terminate():
         terminate_process(server_process)
-        
+
     atexit.register(terminate)
-    
-    return server_process, terminate, server_host, api_base, port
+
+    return server_process, terminate, server_host, api_base, config.port
 
 
 class VLLMServerManager:
@@ -105,14 +110,7 @@ class VLLMServerManager:
         # Use openai_client for requests
     """
 
-    def __init__(self,
-                 model_id: str = "Qwen/Qwen3-4B",
-                 reasoning_parser: Optional[str] = "qwen3",
-                 gpu_memory_utilization: Optional[float] = 0.6,
-                 max_model_len: Optional[int] = 20000,
-                 host: str = "0.0.0.0",
-                 port: Optional[int] = None,
-                 api_key: Optional[str] = None):
+    def __init__(self, config: VllmConfig):
         """
         Initialize vLLM server manager for a specific model configuration.
 
@@ -125,13 +123,7 @@ class VLLMServerManager:
             port (Optional[int]): Port to bind the server to.
             api_key (Optional[str]): API key for authentication.
         """
-        self.model_id = model_id
-        self.reasoning_parser = reasoning_parser
-        self.gpu_memory_utilization = gpu_memory_utilization
-        self.max_model_len = max_model_len
-        self.host = host
-        self.port = port
-        self.api_key = api_key
+        self.config = config or VllmConfig()
 
         # Instance-specific server state
         self._server_process = None
@@ -145,7 +137,7 @@ class VLLMServerManager:
 
         # Logger with model-specific context
         self._logger = get_logger(
-            f"vllm_server_{model_id.replace('/', '_')}")
+            f"vllm_server_{self.config.model_id.replace('/', '_')}")
 
     async def get_server(self) -> Tuple[str, int, str]:
         """
@@ -172,30 +164,22 @@ class VLLMServerManager:
             if (self._server_process and self._server_host and
                     self._api_base and self._port):
                 self._logger.info("Using existing vLLM server",
-                                  port=self._port, model_id=self.model_id)
+                                  port=self._port, model_id=self.config.model_id)
                 return self._api_base, self._port, self._server_host
 
             # Launch new server
             self._logger.info("Launching new vLLM server",
-                              model_id=self.model_id)
+                              model_id=self.config.model_id)
             (self._server_process, self._server_terminate_fn, self._server_host,
-             self._api_base, self._port) = await launch_server(
-                model_id=self.model_id,
-                reasoning_parser=self.reasoning_parser,
-                gpu_memory_utilization=self.gpu_memory_utilization,
-                max_model_len=self.max_model_len,
-                host=self.host,
-                port=self.port,
-                api_key=self.api_key
-            )
+             self._api_base, self._port) = await launch_server(self.config)
 
             if not (self._server_process and self._server_host and
                     self._api_base and self._port):
                 raise RuntimeError(
-                    f"Failed to launch vLLM server for model {self.model_id}")
+                    f"Failed to launch vLLM server for model {self.config.model_id}")
 
             self._logger.info("vLLM server ready",
-                              port=self._port, model_id=self.model_id)
+                              port=self._port, model_id=self.config.model_id)
             return self._api_base, self._port, self._server_host
 
     def _terminate_server(self):
@@ -204,7 +188,7 @@ class VLLMServerManager:
         """
         if self._server_process is not None:
             self._logger.info("Terminating vLLM server",
-                              port=self._port, model_id=self.model_id)
+                              port=self._port, model_id=self.config.model_id)
             if self._server_terminate_fn:
                 self._server_terminate_fn()
 
@@ -215,10 +199,10 @@ class VLLMServerManager:
             self._port = None
 
             self._logger.info("vLLM server terminated",
-                              model_id=self.model_id)
+                              model_id=self.config.model_id)
         else:
             self._logger.info("No vLLM server running to terminate",
-                              model_id=self.model_id)
+                              model_id=self.config.model_id)
 
     async def get_openai_client(self,
                                 max_tokens: int = 4096,
@@ -237,8 +221,8 @@ class VLLMServerManager:
 
         return GeneralOpenAIClient(
             api_base=api_base,
-            api_key=self.api_key,
-            model_id=self.model_id,
+            api_key=self.config.api_key,
+            model_id=self.config.model_id,
             temperature=temperature,
             max_tokens=max_tokens
         )
@@ -255,39 +239,25 @@ class VLLMServerManager:
     def server_info(self) -> Dict[str, Any]:
         """Get current server information."""
         return {
-            "model_id": self.model_id,
+            "model_id": self.config.model_id,
             "is_running": self.is_running,
             "port": self._port,
             "api_base": self._api_base,
             "server_host": self._server_host,
-            "reasoning_parser": self.reasoning_parser,
-            "gpu_memory_utilization": self.gpu_memory_utilization,
-            "max_model_len": self.max_model_len,
-            "host": self.host
+            "reasoning_parser": self.config.reasoning_parser,
+            "gpu_memory_utilization": self.config.gpu_memory_utilization,
+            "max_model_len": self.config.max_model_len,
+            "host": self.config.host
         }
 
 
 ALL_VLLM_SERVERS: Dict[str, VLLMServerManager] = {}
 
 
-def get_llm_mgr(model_id="Qwen/Qwen3-4B",
-                reasoning_parser: Optional[str] = "qwen3",
-                gpu_memory_utilization: Optional[float] = 0.6,
-                max_model_len: Optional[int] = 20000,
-                host: str = "0.0.0.0",
-                port: Optional[int] = None,
-                api_key: Optional[str] = None):
-    if model_id not in ALL_VLLM_SERVERS:
-        ALL_VLLM_SERVERS[model_id] = VLLMServerManager(
-            model_id=model_id,
-            reasoning_parser=reasoning_parser,
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_model_len=max_model_len,
-            host=host,
-            port=port,
-            api_key=api_key
-        )
-    return ALL_VLLM_SERVERS[model_id]
+def get_llm_mgr(config: VllmConfig):
+    if config.model_id not in ALL_VLLM_SERVERS:
+        ALL_VLLM_SERVERS[config.model_id] = VLLMServerManager(config=config)
+    return ALL_VLLM_SERVERS[config.model_id]
 
 
 async def main():
@@ -300,10 +270,7 @@ async def main():
 
     try:
         # Get server instance using the new async method
-        llm_server = get_llm_mgr(
-            model_id=model_id,
-            api_key=api_key
-        )
+        llm_server = get_llm_mgr(VllmConfig())
         api_base, port, server_host = await llm_server.get_server()
         logger.info("vLLM server is running", port=port, model_id=model_id)
 
