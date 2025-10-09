@@ -305,9 +305,13 @@ If there are any contradictions or gaps, note them clearly.
 
             # Extract citations and contexts
             citations = []
+            citations_set = set()
             contexts = []
             for doc in all_documents:
+                if not doc.get("url") or doc.get("url") in citations_set:
+                    continue  # Skip empty URLs and duplicates
                 if doc.get("url"):
+                    citations_set.add(doc["url"])
                     citations.append(doc["url"])
                 if doc.get("content") or doc.get("text"):
                     # Use content or text field from the document
@@ -317,8 +321,8 @@ If there are any contradictions or gaps, note them clearly.
 
             return EvaluateResponse(
                 query_id=request.iid,
-                citations=list(set(citations)),  # Remove duplicates
-                contexts=contexts,  # Actual document contexts used
+                citations=citations,
+                contexts=contexts,
                 generated_response=final_answer
             )
 

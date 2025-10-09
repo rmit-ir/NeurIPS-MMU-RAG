@@ -154,13 +154,16 @@ Search results knowledge cutoff: December 2024
             # Generate response using LLM
             generated_response, _ = await self.llm_client.complete_chat(messages)
 
-            # Extract contexts from search results
-            contexts = [doc.text for doc in docs if doc.text]
+            # Extract citations and contexts from search results
+            # Only include docs that have both URL and text to ensure consistency
+            valid_docs = [doc for doc in docs if doc.url and doc.text]
+            citations = [doc.url for doc in valid_docs]
+            contexts = [doc.text for doc in valid_docs]
 
             return EvaluateResponse(
                 query_id=request.iid,
-                citations=[r.url for r in docs],
-                contexts=contexts,  # Actual document contexts used
+                citations=citations,
+                contexts=contexts,
                 generated_response=generated_response or "Answer unavailable."
             )
 
