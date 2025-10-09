@@ -58,7 +58,7 @@ class LLMEvaluator(EvaluatorInterface):
     """
     def __init__(
         self,
-        model_id: str = "openai.gpt-oss-20b-1:0",
+        model_id: str = "qwen.qwen3-32b-v1:0",
         temperature: float = 0.0,
         max_tokens: int = 2048,
         use_gold_references: bool = True,

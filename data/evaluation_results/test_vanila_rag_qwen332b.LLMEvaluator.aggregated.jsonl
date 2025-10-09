@@ -1,0 +1,1 @@
+{"metrics": {"avg_relevance_score": 1.5555555555555556, "avg_faithfulness_score": 0.7777777777777778, "count": 9}, "evaluator_name": "LLM", "sample_count": 9, "timestamp": "2025-10-10T01:33:40.078766", "total_time_ms": 4220.011472702026}

@@ -230,7 +230,7 @@ class MMUCustomLLM(DeepEvalBaseLLM):
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
-                seed=self.seed,
+                # seed=self.seed,
                 stream=False
             )
             
