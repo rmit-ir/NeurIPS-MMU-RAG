@@ -1,10 +1,7 @@
 """VLLM-based reranker implementation using Qwen3-Reranker."""
 
 import asyncio
-import atexit
 import json
-import signal
-import sys
 from typing import List, Optional, Dict, Any, Tuple, NamedTuple
 import aiohttp
 
@@ -22,6 +19,7 @@ class RerankerConfig(NamedTuple):
     gpu_memory_utilization: Optional[float] = 0.2
     max_model_len: Optional[int] = 16000
     kv_cache_memory_bytes: Optional[int] = None
+    max_num_seqs: Optional[int] = None
     hf_overrides: Optional[Dict[str, Any]] = {
         "architectures": ["Qwen3ForSequenceClassification"],
         "classifier_from_token": ["no", "yes"],
@@ -62,6 +60,8 @@ def build_reranker_command(config: RerankerConfig) -> Tuple[List[str], str, str,
           if config.max_model_len else []),
         *(["--kv-cache-memory-bytes", str(kv_cache_memory_bytes)]
           if kv_cache_memory_bytes else []),
+        *(["--max-num-seqs", str(config.max_num_seqs)]
+            if config.max_num_seqs else []),
         *(["--hf-overrides", json.dumps(config.hf_overrides)]
           if config.hf_overrides else []),
         "--host", config.host,

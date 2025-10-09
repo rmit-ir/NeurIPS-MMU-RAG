@@ -28,6 +28,8 @@ class VllmConfig(NamedTuple):
     """Fraction of GPU memory to use, e.g., 0.75"""
     max_model_len: Optional[int] = 20000
     kv_cache_memory: Optional[int] = None  # In bytes
+    max_num_seqs: Optional[int] = None
+    """number of concurrent requests in a batch"""
     host: str = "0.0.0.0"
     port: Optional[int] = None
     api_key: Optional[str] = None
@@ -63,6 +65,8 @@ async def launch_server(config: VllmConfig):
           if config.max_model_len else []),
         *(["--kv-cache-memory-bytes", str(config.kv_cache_memory)]
           if config.kv_cache_memory else []),
+        *(["--max-num-seqs", str(config.max_num_seqs)]
+          if config.max_num_seqs else []),
         "--host", config.host,
         "--port", str(config.port),
     ]
