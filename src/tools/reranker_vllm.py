@@ -365,3 +365,71 @@ async def get_reranker(model_name="Qwen/Qwen3-Reranker-0.6B",
     reranker = ALL_RERANKERS[model_name]
     await reranker._get_server()
     return reranker
+
+
+async def main():
+    """
+    Test the vLLM reranker implementation.
+    """
+    model_name = "Qwen/Qwen3-Reranker-0.6B"
+    api_key = "abc"
+
+    def _search_result(sid: str, text: str) -> SearchResult:
+        return SearchResult(
+            url="https://example.com",
+            text=text,
+            score=None,
+            date=None,
+            dump=None,
+            file_path=None,
+            metadata={},
+            language=None,
+            language_score=None,
+            token_count=len(text.split()),
+            type="clue_web",
+            sid=sid,
+            id=sid,
+        )
+
+    # Create sample search results for testing
+    sample_results = [
+        _search_result(
+            "1", "This article discusses machine learning and artificial intelligence applications in modern technology."),
+        _search_result(
+            "2", "A comprehensive guide to cooking pasta with various Italian recipes and techniques."),
+        _search_result(
+            "3", "Deep learning neural networks are transforming how we approach complex AI problems."),
+    ]
+
+    # Get reranker instance
+    reranker = await get_reranker(
+        model_name=model_name,
+        api_key=api_key,
+        drop_irrelevant_threshold=0.3
+    )
+
+    logger.info("vLLM reranker server is running",
+                model_name=model_name,
+                server_info=reranker.server_info)
+
+    # Test reranking with a query about AI
+    query = "What are the latest developments in artificial intelligence and machine learning?"
+
+    reranked_results = await reranker.rerank(query, sample_results)
+
+    logger.info("Reranking completed successfully",
+                query=query,
+                num_original=len(sample_results),
+                num_reranked=len(reranked_results))
+
+    # Print results
+    for i, result in enumerate(reranked_results):
+        logger.info(f"Rank {i+1}",
+                    text=result.text[:100] +
+                    ("..." if len(result.text) > 100 else ""),
+                    score=result.score,
+                    url=result.url)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
