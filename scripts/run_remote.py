@@ -61,8 +61,12 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
     }
 
     async with session.get(url, headers=headers) as response:
+        result = await response.json()
+        if response.status != 200:
+            logger.error("Remote API error",
+                         status=response.status, response=result)
         response.raise_for_status()
-        return await response.json()
+        return result
 
 
 async def process_topic_remote(session: aiohttp.ClientSession, request: EvaluateRequest,
