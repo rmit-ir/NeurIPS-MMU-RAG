@@ -221,12 +221,14 @@ class GeneralReranker:
         ]
 
         # Get scores from vLLM via API
+        start_time = asyncio.get_event_loop().time()
         scores = await self._score_via_api(query_fmt, docs_fmt)
+        end_time = asyncio.get_event_loop().time()
 
         self.logger.info("Re-ranking completed",
                          num_results=len(search_results),
-                         query_length=len(query))
-
+                         query_length=len(query),
+                         duration=end_time - start_time)
         # Create ranked results
         ranked_results = [
             result._replace(score=score)

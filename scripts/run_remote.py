@@ -117,16 +117,46 @@ async def process_topic_remote(session: aiohttp.ClientSession, request: Evaluate
         )
 
 
+def get_output_path(output_dir: str, input_file: str, server_key: str) -> Path:
+    input_filename = f'output_remote_{server_key}_{Path(input_file).name}'
+    output_path = Path(output_dir)
+    if not output_path.exists():
+        output_path.mkdir(parents=True, exist_ok=True)
+    if output_path.is_dir():
+        output_path = output_path / input_filename
+
+    return output_path
+
+
+def append_result_to_file(result: EvaluateResponse, output_path: Path):
+    try:
+        with jsonlines.open(output_path, 'a') as writer:
+            writer.write({
+                'query_id': result.query_id,
+                'generated_response': result.generated_response,
+                'citations': result.citations,
+                'contexts': result.contexts
+            })
+    except Exception as e:
+        logger.error("Error appending result to file",
+                     output_path=output_path,
+                     query_id=result.query_id,
+                     error=str(e))
+        raise
+
+
 async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
-                              api_key: str, parallel: int) -> List[EvaluateResponse]:
+                              api_key: str, parallel: int, output_path: Path) -> List[EvaluateResponse]:
     """
     Run remote RAG system on topics with parallel processing using Queue.
+    Results are saved incrementally as each query completes.
 
     Args:
         topics: List of EvaluateRequest objects
         server_key: System key for the remote API
         api_key: Bearer token for authorization
         parallel: Number of parallel requests
+        output_path: Path to output file for incremental saving
 
     Returns:
         List of EvaluateResponse objects
@@ -135,13 +165,25 @@ async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
         "Starting parallel processing with remote API",
         topics_count=len(topics),
         parallel_workers=parallel,
-        server_key=server_key
+        server_key=server_key,
+        output_path=output_path
     )
+
+    # Clear/create target file at start
+    try:
+        with jsonlines.open(output_path, 'w') as writer:
+            pass  # Just create/clear the file
+        logger.info("Target file cleared/created", output_path=output_path)
+    except Exception as e:
+        logger.error("Error creating/clearing target file",
+                     output_path=output_path, error=str(e))
+        raise
 
     # Setup queues and results
     work_queue = asyncio.Queue()
     results = []
     total_num = len(topics)
+    results_lock = asyncio.Lock()
 
     # Add all work to queue
     for request in topics:
@@ -154,32 +196,38 @@ async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
 
         async def worker():
-            """Process requests from queue."""
+            """Process requests from queue and save results incrementally."""
             while True:
                 try:
                     request = await work_queue.get()
                     result = await process_topic_remote(session, request, server_key, api_key)
-                    results.append(result)
-                    logger.info(
-                        "Topic processed successfully",
-                        topic_id=request.iid,
-                        finished=len(results),
-                        total=total_num,
-                        progress=len(results)/total_num
-                    )
+
+                    # Append result immediately to file with lock protection
+                    async with results_lock:
+                        try:
+                            append_result_to_file(result, output_path)
+                            results.append(result)
+                            logger.info(
+                                "Topic processed and saved",
+                                topic_id=request.iid,
+                                finished=len(results),
+                                total=total_num,
+                                progress=len(results)/total_num
+                            )
+                        except Exception as save_error:
+                            logger.error("Error saving result to file",
+                                         topic_id=request.iid,
+                                         error=str(save_error))
+                            # Still add to memory for final count
+                            results.append(result)
+
                     work_queue.task_done()
+
                 except Exception as e:
                     logger.error("Worker error processing topic",
                                  topic_id=request.iid if 'request' in locals() else 'unknown',
                                  error=str(e))
-                    # Add error result to maintain count
-                    error_result = EvaluateResponse(
-                        query_id=request.iid if 'request' in locals() else 'unknown',
-                        generated_response=f"Error: {str(e)}",
-                        citations=[],
-                        contexts=[]
-                    )
-                    results.append(error_result)
+
                     work_queue.task_done()
 
         # Start workers
@@ -197,38 +245,6 @@ async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
             await asyncio.gather(*workers, return_exceptions=True)
 
     return results
-
-
-def save_results(results: List[EvaluateResponse], output_dir: str, input_file: str, server_key: str):
-    """
-    Save results to JSONL file using jsonlines library.
-    """
-    # Create output directory if needed
-    input_filename = f'output_remote_{server_key}_{Path(input_file).name}'
-    output_path = Path(output_dir)
-    if not output_path.exists():
-        output_path.mkdir(parents=True, exist_ok=True)
-    if output_path.is_dir():
-        output_path = output_path / input_filename
-
-    try:
-        # Write results using jsonlines
-        with jsonlines.open(output_path, 'w') as writer:
-            for result in results:
-                writer.write({
-                    'query_id': result.query_id,
-                    'generated_response': result.generated_response,
-                    'citations': result.citations,
-                    'contexts': result.contexts
-                })
-
-        logger.info("Results saved successfully",
-                    output_path=output_path, results_count=len(results))
-
-    except Exception as e:
-        logger.error("Error saving results",
-                     output_path=output_path, error=str(e))
-        sys.exit(1)
 
 
 def main():
@@ -291,22 +307,24 @@ Examples:
     # Load topics
     topics = load_topics(args.topics_file)
 
-    # Run remote system
+    # Get output path
+    output_path = get_output_path(
+        args.output_dir, args.topics_file, args.server_key)
+
+    # Run remote system with incremental saving
     try:
         results = asyncio.run(
             run_remote_parallel(topics, args.server_key,
-                                api_key, args.parallel)
+                                api_key, args.parallel, output_path)
         )
 
-        # Save results
-        save_results(results, args.output_dir,
-                     args.topics_file, args.server_key)
-
         logger.info("Processing completed successfully",
-                    results_count=len(results))
+                    results_count=len(results),
+                    output_path=output_path)
 
     except KeyboardInterrupt:
         logger.warning("Ctrl-C: Processing interrupted by user")
+        logger.info("Partial results saved to file", output_path=output_path)
         sys.exit(1)
     except Exception as e:
         logger.error("Error during execution", error=str(e))
