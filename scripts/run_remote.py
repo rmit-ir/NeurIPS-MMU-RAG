@@ -70,7 +70,7 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
 
 
 async def process_topic_remote(session: aiohttp.ClientSession, request: EvaluateRequest,
-                               server_key: str, api_key: str) -> EvaluateResponse:
+                               server_key: str, api_key: str) -> EvaluateResponse | None:
     """
     Process single topic through remote RAG API.
 
@@ -109,12 +109,6 @@ async def process_topic_remote(session: aiohttp.ClientSession, request: Evaluate
     except Exception as e:
         logger.error("Error processing topic via remote API",
                      topic_id=request.iid, error=str(e))
-        return EvaluateResponse(
-            query_id=request.iid,
-            generated_response=f"Error: {str(e)}",
-            citations=[],
-            contexts=[]
-        )
 
 
 def get_output_path(output_dir: str, input_file: str, server_key: str) -> Path:
@@ -201,6 +195,11 @@ async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
                 try:
                     request = await work_queue.get()
                     result = await process_topic_remote(session, request, server_key, api_key)
+                    if not result:
+                        logger.error("No result returned for topic",
+                                     topic_id=request.iid)
+                        work_queue.task_done()
+                        continue
 
                     # Append result immediately to file with lock protection
                     async with results_lock:
