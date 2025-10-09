@@ -7,7 +7,6 @@ import os
 import hashlib
 from typing import List, Dict, Optional, Union
 import uuid
-import asyncio
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import StreamingResponse
@@ -15,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
+from apis.warmup import warmup_models
 from systems.commercial.azure_o3_research import AzureO3ResearchRAG
 from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
@@ -23,9 +23,7 @@ from systems.rag_router.rag_router_llm import RAGRouterLLM
 # from systems.rag_router.rag_router_query_complexity import RAGRouterQueryComplexity
 from systems.vanilla_agent.vanilla_agent import VanillaAgent
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
-from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.logging_utils import get_logger
-from tools.reranker_vllm import RerankerConfig, get_reranker
 from tools.responses.openai_stream import to_openai_stream
 
 logger = get_logger('openai_router')
@@ -33,27 +31,7 @@ logger = get_logger('openai_router')
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Launch both services in parallel using separate threads
-    logger.info("Starting reranker_vllm reranker and LLM manager in parallel...")
-
-    vllm_config = VllmConfig(model_id="Qwen/Qwen3-4B",
-                                      reasoning_parser="qwen3",
-                                      max_model_len=20_000,
-                                      # model=7.56GB, arch=1.4+4.1+0.61=6.11GB, kv_cache=6GB
-                                      kv_cache_memory=6*1024**3)
-    reranker_config = RerankerConfig(model_id="Qwen/Qwen3-Reranker-0.6B",
-                                     max_model_len=16_000,
-                                     kv_cache_memory_bytes=4*1024**3,)
-
-    vllm_mgr = get_llm_mgr(vllm_config)
-    # Run both initialization tasks concurrently
-    await asyncio.gather(
-        # main model has to run first, otherwise it will OOM
-        vllm_mgr.get_server(),
-        get_reranker(reranker_config, drop_irrelevant_threshold=0.5),
-    )
-
-    logger.info("Reranker and LLM manager ready.")
+    await warmup_models()
     yield
 
 # Create app for standalone usage
