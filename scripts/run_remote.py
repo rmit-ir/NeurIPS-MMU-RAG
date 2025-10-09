@@ -211,7 +211,7 @@ async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
                                 topic_id=request.iid,
                                 finished=len(results),
                                 total=total_num,
-                                progress=len(results)/total_num
+                                progress=f"{len(results)/total_num:.2%}"
                             )
                         except Exception as save_error:
                             logger.error("Error saving result to file",

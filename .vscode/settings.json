@@ -24,6 +24,7 @@
     "FINEWEB",
     "flashinfer",
     "healthcheck",
+    "inhouse",
     "ipykernel",
     "joblib",
     "jsonlines",

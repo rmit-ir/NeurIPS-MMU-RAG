@@ -196,3 +196,5 @@ docker-compose.override.yaml
 data/raw_responses/
 
 .deepeval/
+
+data/past_topics/inhouse_outputs
