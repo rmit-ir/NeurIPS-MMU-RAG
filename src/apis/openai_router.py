@@ -3,6 +3,7 @@ OpenAI-compatible API router implementation.
 Implements /v1/models and /v1/chat/completions endpoints.
 """
 
+import json
 import os
 import hashlib
 from typing import Any, List, Dict, Optional, Union
@@ -105,6 +106,9 @@ class ChatMessage(BaseModel):
     """OpenAI chat message format."""
     role: str  # "system", "user", "assistant"
     content: str
+    # custom fields for citations and contexts
+    contexts: Optional[List[str]] = None
+    citations: Optional[List[str]] = None
 
 
 class ChatCompletionRequest(BaseModel):
@@ -212,20 +216,18 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
             eval_request = EvaluateRequest(query=question, iid="openai-chat")
             eval_response = await model.evaluate(eval_request)
 
-            chat_message: Any = {
-                "role": "assistant",
-                "content": eval_response.generated_response,
-                "citations": eval_response.citations,
-                "contexts": eval_response.contexts,
-            }
-
             return ChatCompletionResponse(
                 id=f"chatcmpl-{uuid.uuid4().hex}",
                 model=request.model,
                 choices=[
                     ChatCompletionChoice(
                         index=0,
-                        message=chat_message,
+                        message=ChatMessage(
+                            role="assistant",
+                            content=eval_response.generated_response,
+                            citations=eval_response.citations,
+                            contexts=eval_response.contexts,
+                        ),
                         finish_reason="stop"
                     )
                 ],

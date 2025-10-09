@@ -164,7 +164,7 @@ Search results knowledge cutoff: December 2024
                 query_id=request.iid,
                 citations=citations,
                 contexts=contexts,
-                generated_response=generated_response or "Answer unavailable."
+                generated_response=generated_response or ""
             )
 
         except Exception as e:
