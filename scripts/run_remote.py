@@ -94,18 +94,16 @@ async def process_topic_remote(session: aiohttp.ClientSession, request: Evaluate
         if choices and len(choices) > 0:
             message = choices[0].get('message', {})
             generated_response = message.get('content', '')
+            citations = message.get('citations', [])
+            contexts = message.get('contexts', [])
         else:
             generated_response = ''
-
-        # TODO: add citations and contexts
-        citations = []
-        contexts = []
 
         return EvaluateResponse(
             query_id=request.iid,
             generated_response=generated_response,
             citations=citations,
-            contexts=contexts
+            contexts=contexts,
         )
 
     except Exception as e:

@@ -5,7 +5,7 @@ Implements /v1/models and /v1/chat/completions endpoints.
 
 import os
 import hashlib
-from typing import List, Dict, Optional, Union
+from typing import Any, List, Dict, Optional, Union
 import uuid
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
 from fastapi.concurrency import asynccontextmanager
@@ -212,16 +212,20 @@ async def chat_completions(request: ChatCompletionRequest, authenticated: bool =
             eval_request = EvaluateRequest(query=question, iid="openai-chat")
             eval_response = await model.evaluate(eval_request)
 
+            chat_message: Any = {
+                "role": "assistant",
+                "content": eval_response.generated_response,
+                "citations": eval_response.citations,
+                "contexts": eval_response.contexts,
+            }
+
             return ChatCompletionResponse(
                 id=f"chatcmpl-{uuid.uuid4().hex}",
                 model=request.model,
                 choices=[
                     ChatCompletionChoice(
                         index=0,
-                        message=ChatMessage(
-                            role="assistant",
-                            content=eval_response.generated_response
-                        ),
+                        message=chat_message,
                         finish_reason="stop"
                     )
                 ],
