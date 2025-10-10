@@ -26,7 +26,7 @@ class GeneralOpenAIClient(LLMInterface):
         api_base: str,
         api_key: Optional[str] = None,
         max_retries: int = 5,
-        timeout: float = 60.0,
+        timeout: float = 600.0,
         model_id: str = "tiiuae/falcon3-10b-instruct",
         temperature: float = 0.0,
         max_tokens: int = 4096,
