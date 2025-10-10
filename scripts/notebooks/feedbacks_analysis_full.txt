@@ -157,229 +157,203 @@ topic: 7
 ============================================================
 FEEDBACK CLUSTERING FOR ACTIONABLE INSIGHTS (LLM-BASED)
 ============================================================
-2025-10-10 09:43:19 [info     ] Logger initialized             [logging_utils] log_level=INFO
+2025-10-10 09:52:47 [info     ] Logger initialized             [logging_utils] log_level=INFO
 Analyzing feedback themes using LLM...
 HTTP Request: POST https://mmu-proxy-server-llm-proxy.rankun.org/v1/chat/completions "HTTP/1.1 200 OK"
-2025-10-10 09:43:40 [info     ] API request completed          [general_openai_client] response_time=21.433
-2025-10-10 09:43:40 [info     ] Token usage                    [general_openai_client] completion_tokens=2623 prompt_tokens=2540 total_tokens=5163
+2025-10-10 09:53:05 [info     ] API request completed          [general_openai_client] response_time=17.387
+2025-10-10 09:53:05 [info     ] Token usage                    [general_openai_client] completion_tokens=2071 prompt_tokens=2540 total_tokens=4611
 
 === LLM FEEDBACK CATEGORIES ANALYSIS ===
 # **Structured Analysis of User Feedback on RAG Systems**
 
-After a comprehensive manual inspection of the 100 user feedback entries, we identify **10 distinct categories of issues** that users commonly report. These categories represent actionable areas for improvement in Retrieval-Augmented Generation (RAG) systems. While some align with known categories (e.g., citation problems, bias), others emerge as new or underappreciated concerns (e.g., structural clarity, query understanding).
+After a comprehensive manual inspection of the 100 user feedback entries, we identify **10 distinct categories of issues** that users commonly report. These categories represent actionable areas for improvement in Retrieval-Augmented Generation (RAG) systems. While some align with known categories (e.g., citation problems, bias), others emerge as new or underappreciated concerns (e.g., answer format clarity, retrieval routing).
 
 Each category includes:
 - A **name**
 - A **brief description**
 - **2–3 example quotes** from the feedback
 - A **suggested actionable improvement**
-- The **count of feedbacks** mentioning the issue
+- The **count** of feedbacks mentioning the issue
 
 ---
 
 ## **1. Relevance and Accuracy Problems**
-**Description:** The response fails to address the query correctly, contains factual errors, hallucinations, or misinterprets the user's intent.
+**Description**: The response fails to address the query correctly, contains factual errors, hallucinations, or misinterprets the user's intent.
 
-**Examples:**
-- *Feedback 1:* "This response is almost completely wrong"
-- *Feedback 18:* "Irrelevant. The query was misunderstood. Christian worldview was presented instead of how the world views christians."
-- *Feedback 69:* "Returned information is incorrect."
+**Examples**:
+- *Feedback 1*: "This response is almost completely wrong"
+- *Feedback 18*: "Irrelevant. The query was misunderstood. Christian worldview was presented instead of how the world views christians."
+- *Feedback 69*: "Returned information is incorrect."
 
-**Suggested Improvement:**
-Improve retrieval relevance through better query rewriting, semantic matching, and filtering mechanisms. Implement fact-checking layers or confidence scoring to flag potentially inaccurate generations.
+**Suggested Improvement**:
+Implement stronger query understanding via intent classification and semantic alignment between query and retrieved documents. Use fact-checking modules or confidence scoring to flag potentially inaccurate generations.
 
-**Count:** **18 feedbacks**
-(1, 12, 18, 19, 36, 37, 43, 67, 69, 72, 73, 76, 77, 80, 91, 92, 95, 96)
+**Count**: **18**
 
 ---
 
 ## **2. Citation and Referencing Problems**
-**Description:** In-text citations are missing, mismatched, duplicated, or improperly formatted. References may exist but are not clearly linked to claims.
+**Description**: In-text citations are missing, mismatched, improperly formatted, or references are listed without clear linkage to claims in the text.
 
-**Examples:**
-- *Feedback 2:* "citation missing for each answer/paragraph."
-- *Feedback 45:* "Good answer, but with problematic and I think known reference issues (i.e., 1,2,3,1,2,3)."
-- *Feedback 74:* "Multiple sources, but none of them are cited in the answer..."
+**Examples**:
+- *Feedback 2*: "citation missing for each answer/paragraph."
+- *Feedback 45*: "Good answer, but with problematic and I think known reference issues (i.e., 1,2,3,1,2,3)."
+- *Feedback 74*: "Multiple sources, but none of them are cited in the answer..."
 
-**Suggested Improvement:**
-Enforce consistent in-text citation linking during generation. Use citation alignment models to ensure each claim maps to a correct source. Validate citation numbering and avoid duplication.
+**Suggested Improvement**:
+Enforce consistent in-text citation formatting (e.g., numbered brackets linked to reference list). Develop a citation grounding mechanism that ensures every cited source is explicitly tied to a specific claim.
 
-**Count:** **14 feedbacks**
-(2, 3, 28, 38, 45, 55, 65, 68, 71, 74, 89, 90, 94, 100)
-
-> Note: Feedback 89 ("good sources and answer") is included due to contrastive implication in context of citation issues.
+**Count**: **15**
 
 ---
 
-## **3. Response Length and Verbosity Issues**
-**Description:** Responses are too long, contain unnecessary details, or fail to provide concise summaries when needed.
+## **3. Imbalanced Viewpoint / Bias Issues**
+**Description**: The response shows a skewed perspective, favors one side of a debate, or reflects systemic bias (e.g., political, cultural, brand).
 
-**Examples:**
-- *Feedback 6:* "It's good but too long, I think."
-- *Feedback 27:* "Length: Unnecessarily long to give nothing"
-- *Feedback 86:* "Info past the first sentence is extraneous"
+**Examples**:
+- *Feedback 8*: "the system is anti-abortion"
+- *Feedback 31*: "Biased and quite emotive presentation of information."
+- *Feedback 100*: "Biased in favor of Toyota"
 
-**Suggested Improvement:**
-Introduce length control mechanisms (e.g., summarization layers, user-configurable verbosity settings). Use heading-based navigation to allow skimming without reducing detail.
+**Suggested Improvement**:
+Introduce viewpoint diversity detection in retrieval and generation. Use bias mitigation techniques such as counterfactual augmentation, adversarial debiasing, or multi-perspective summarization pipelines.
 
-**Count:** **13 feedbacks**
-(6, 27, 33, 35, 70, 78, 81, 86, 94, 53, 57, 30, 50)
-
-> Includes both complaints about excessive length and praise for conciseness (indicating user preference).
+**Count**: **10**
 
 ---
 
-## **4. Imbalanced Viewpoint / Bias Issues**
-**Description:** The system presents a one-sided, polarized, or ideologically skewed perspective, especially on controversial topics.
+## **4. Response Length and Verbosity Issues**
+**Description**: Responses are too long, contain unnecessary details, or fail to provide concise summaries when needed.
 
-**Examples:**
-- *Feedback 8:* "means on the whole the system is anti-abortion"
-- *Feedback 31:* "Biased and quite emotive presentation of information."
-- *Feedback 58:* "presented a more polarised view"
+**Examples**:
+- *Feedback 6*: "It's good but too long, I think."
+- *Feedback 27*: "Unnecessarily long to give nothing"
+- *Feedback 81*: "Response is too long."
 
-**Suggested Improvement:**
-Implement viewpoint diversity detection in retrieval and generation. Actively balance pro/con arguments and flag potential bias. Use adversarial evaluation to audit responses across sensitive topics.
+**Suggested Improvement**:
+Enable dynamic response length control (e.g., “concise” vs “detailed” modes). Use summarization layers or extractive pre-processing to identify core answers before generation.
 
-**Count:** **9 feedbacks**
-(8, 26, 31, 42, 58, 61, 64, 71, 100)
-
----
-
-## **5. Speed / Performance Issues**
-**Description:** The system is slow to retrieve or generate responses, leading to poor user experience.
-
-**Examples:**
-- *Feedback 51:* "It took ages!"
-- *Feedback 78:* "but it took a long time to get the answer"
-- *Feedback 82:* "Decent output, but very slow"
-
-**Suggested Improvement:**
-Optimize retrieval pipeline latency (e.g., caching, indexing, model distillation). Provide progress indicators or streaming responses to improve perceived performance.
-
-**Count:** **10 feedbacks**
-(9, 47, 51, 78, 79, 80, 82, 83, 95, 96)
-
-> Note: Feedback 9 and 95 involve timing perception; 96 implies slowness due to failed retrieval.
+**Count**: **12**
 
 ---
 
-## **6. Source Quality Concerns**
-**Description:** Retrieved sources are low-quality, outdated, irrelevant, or lack authoritative representation.
+## **5. Source Quality and Relevance Concerns**
+**Description**: Retrieved sources are low-quality, outdated, irrelevant, or lack authoritative credibility (e.g., missing key academic or institutional sources).
 
-**Examples:**
-- *Feedback 4:* "the links are not to academic models (e.g. Marchionini, Kuhlthau)"
-- *Feedback 23:* "Sources are low quality but the answer is both correct and informative"
-- *Feedback 71:* "References are somewhat poor quality, and don't include obvious sources like planned parenthood, or webmd"
+**Examples**:
+- *Feedback 4*: "the links are not to academic models (e.g. Marchionini, Kuhlthau)"
+- *Feedback 23*: "Sources are low quality but the answer is both correct and informative"
+- *Feedback 71*: "References are somewhat poor quality, and don't include obvious sources like planned parenthood, or webmd"
 
-**Suggested Improvement:**
-Curate or rank sources by domain authority, recency, and relevance. Integrate trusted knowledge bases and filter out non-academic or unreliable domains.
+**Suggested Improvement**:
+Improve source ranking using domain authority signals (e.g., journal impact factor, institutional trustworthiness). Integrate source quality filters or allow users to set source preferences (e.g., peer-reviewed only).
 
-**Count:** **9 feedbacks**
-(4, 23, 39, 56, 71, 87, 89, 90, 100)
-
----
-
-## **7. Structural Clarity and Presentation Issues**
-**Description:** Poor formatting, lack of headings, or disorganized layout hinders readability and comprehension.
-
-**Examples:**
-- *Feedback 16:* "Answers are good. But not presented well."
-- *Feedback 30:* "the titles tell me the most information; meanwhile, the details fulfill my curiosity."
-- *Feedback 93:* "Format error can lead to confusion $$ \text{Recall} = \frac{TP}{TP + FN} $$"
-
-**Suggested Improvement:**
-Standardize response structure with clear headings, bullet points, and logical flow. Validate mathematical or code formatting. Allow user customization of presentation style.
-
-**Count:** **8 feedbacks**
-(13, 16, 30, 32, 33, 46, 52, 93)
+**Count**: **11**
 
 ---
 
-## **8. Query Understanding and Decomposition Limitations**
-**Description:** The system fails to parse complex, ambiguous, or multi-part queries, or does not decompose them effectively.
+## **6. Speed and Performance Issues**
+**Description**: Delays in response generation, retrieval, or interactivity; perceived slowness during model switching or query execution.
 
-**Examples:**
-- *Feedback 41:* "I think this question is hard question, should be classified into decompose."
-- *Feedback 73:* "Due to lack of context, it does not know the answer of what is clueweb 22"
-- *Feedback 76:* "My query is not perfect but I wanted to know about 'daylight saving time'"
+**Examples**:
+- *Feedback 51*: "It took ages!"
+- *Feedback 78*: "but it took a long time to get the answer"
+- *Feedback 82*: "Decent output, but very slow"
 
-**Suggested Improvement:**
-Implement query decomposition and clarification strategies. Use intent classification to route complex queries to specialized modules. Offer follow-up prompts for ambiguous inputs.
+**Suggested Improvement**:
+Optimize retrieval pipeline latency (e.g., caching, indexing, model distillation). Monitor and benchmark end-to-end response time across query types and implement performance alerts.
 
-**Count:** **7 feedbacks**
-(37, 41, 43, 73, 76, 80, 95)
-
----
-
-## **9. Missing Direct Answers**
-**Description:** The system avoids giving a clear, direct answer (e.g., yes/no, list, definition), burying it in context.
-
-**Examples:**
-- *Feedback 37:* "There is no direct answer to my question. For example, yes or No."
-- *Feedback 43:* "It does not provide yes or No question directly."
-- *Feedback 95:* "it just won't tell me what time is it"
-
-**Suggested Improvement:**
-Ensure top-of-response clarity with a direct answer summary before elaboration. Use answer extraction techniques to surface key facts upfront.
-
-**Count:** **6 feedbacks**
-(37, 43, 66, 75, 91, 95)
+**Count**: **10**
 
 ---
 
-## **10. Lack of Contextual or Background Information**
-**Description:** The response assumes prior knowledge or fails to explain key terms, making it hard to understand.
+## **7. Missing or Incomplete Answers**
+**Description**: The system fails to provide a direct answer (e.g., yes/no), omits key facts, or does not fully address all parts of a multi-faceted query.
 
-**Examples:**
-- *Feedback 41:* "‘per channel’ is not explained before."
-- *Feedback 44:* "a little light on contextual info"
-- *Feedback 59:* "very sparse info otherwise"
+**Examples**:
+- *Feedback 37*: "There is no direct answer to my question. For example, yes or No."
+- *Feedback 91*: "did not enumerate all wars"
+- *Feedback 36*: "it does not print the first two Fibonacci numbers"
 
-**Suggested Improvement:**
-Incorporate context-aware explanation modules. Detect and define domain-specific terms. Use layered responses: simple → detailed.
+**Suggested Improvement**:
+Implement answer completeness checks using query decomposition and checklist-based verification. Ensure binary or list-type queries receive explicit, structured responses.
 
-**Count:** **5 feedbacks**
-(41, 44, 59, 60, 63)
+**Count**: **9**
+
+---
+
+## **8. Retrieval and Routing Problems**
+**Description**: The system retrieves irrelevant documents, fails to find relevant data, or uses suboptimal routing strategies (e.g., wrong model or data source selected).
+
+**Examples**:
+- *Feedback 68*: "retrieval looks sub-optimal"
+- *Feedback 96*: "it didn't find documents that actually talks about RAG."
+- *Feedback 47*: "When I switch from one model to another it takes more time to process."
+
+**Suggested Improvement**:
+Enhance query routing logic with better intent detection and domain classification. Use feedback loops to retrain retrieval models based on user corrections.
+
+**Count**: **7**
+
+---
+
+## **9. Presentation and Formatting Issues**
+**Description**: Poor visual structure, confusing formatting (e.g., math errors), lack of headings, or unclear organization hinders readability.
+
+**Examples**:
+- *Feedback 93*: "Format error can lead to confusion $$ \text{Recall} = \frac{TP}{TP + FN} $$"
+- *Feedback 16*: "Answers are good. But not presented well."
+- *Feedback 30*: praises headings — implies their absence is a problem elsewhere
+
+**Suggested Improvement**:
+Standardize output formatting with semantic structure (headings, bullet points, code blocks). Validate mathematical or technical notation rendering. Allow user-customizable presentation styles.
+
+**Count**: **6**
+
+---
+
+## **10. Timeliness and Recency of Information**
+**Description**: The system lacks up-to-date content, fails to include recent events, or uses outdated examples.
+
+**Examples**:
+- *Feedback 75*: "The system does not have data for recent 2025 event..."
+- *Feedback 39*: "some seem a bit outdated (Emma Watson)"
+- *Feedback 87*: "lacks recent content, or names of songs"
+
+**Suggested Improvement**:
+Integrate real-time or frequently updated knowledge bases. Flag potentially outdated information and indicate the temporal scope of the knowledge source.
+
+**Count**: **5**
 
 ---
 
 # **Summary Table of Issue Categories**
 
-| **Category** | **Description** | **Count** | **Example Feedback IDs** |
-|-------------|------------------|----------|----------------------------|
-| 1. Relevance and Accuracy Problems | Factual errors, hallucinations, misunderstanding | 18 | 1, 18, 69 |
-| 2. Citation and Referencing Problems | Missing, mismatched, or malformed citations | 14 | 2, 45, 74 |
-| 3. Response Length and Verbosity | Too long, verbose, or overly detailed | 13 | 6, 27, 86 |
-| 4. Imbalanced Viewpoint / Bias | One-sided or ideologically skewed views | 9 | 8, 31, 58 |
-| 5. Speed / Performance Issues | Slow response or retrieval times | 10 | 51, 78, 82 |
-| 6. Source Quality Concerns | Low-quality, outdated, or non-authoritative sources | 9 | 4, 23, 71 |
-| 7. Structural Clarity and Presentation | Poor formatting, lack of headings, layout issues | 8 | 16, 30, 93 |
-| 8. Query Understanding Limitations | Misunderstands or fails to decompose queries | 7 | 41, 73, 80 |
-| 9. Missing Direct Answers | No clear yes/no or direct response | 6 | 37, 43, 95 |
-| 10. Lack of Contextual Information | Missing explanations or background | 5 | 41, 44, 59 |
+| **Category** | **Count** | **Example Keywords** |
+|-------------|----------|------------------------|
+| Relevance and Accuracy Problems | 18 | "wrong", "incorrect", "misunderstood" |
+| Citation and Referencing Problems | 15 | "citation missing", "not cited", "reference issues" |
+| Response Length and Verbosity | 12 | "too long", "unnecessarily long", "extraneous" |
+| Source Quality and Relevance | 11 | "low quality", "not academic", "poor sources" |
+| Imbalanced Viewpoint / Bias | 10 | "biased", "anti-abortion", "polarised" |
+| Speed and Performance Issues | 10 | "took ages", "slow", "delay" |
+| Missing or Incomplete Answers | 9 | "no direct answer", "did not enumerate", "partially work" |
+| Retrieval and Routing Problems | 7 | "retrieval sub-optimal", "didn't find", "switch model" |
+| Presentation and Formatting Issues | 6 | "format error", "not presented well", "confusing" |
+| Timeliness and Recency | 5 | "outdated", "lacks recent", "2025 event" |
 
 ---
 
-# **Key Observations**
+# **Conclusion**
 
-- **Top 3 Most Frequent Issues:**
-  1. Relevance/Accuracy (18)
-  2. Citation Problems (14)
-  3. Verbosity (13)
+The feedback reveals that while RAG systems are often perceived as informative and comprehensive, they suffer from **systemic weaknesses** in **accuracy, citation integrity, bias mitigation, and usability**. The most frequently cited issues are **relevance/accuracy**, **citation problems**, and **verbosity**, suggesting that users prioritize **correctness, transparency, and conciseness**.
 
-- **Emergent Themes:**
-  - Users value **directness** and **clarity** over comprehensiveness when it comes at the cost of usability.
-  - **Bias and viewpoint balance** are critical in sensitive domains.
-  - **Citation integrity** is a persistent pain point, even when answers are correct.
+### **Top 3 Actionable Priorities**:
+1. **Improve citation grounding and consistency** to build trust.
+2. **Enhance retrieval accuracy and source quality filtering** to reduce hallucinations and irrelevance.
+3. **Introduce adaptive response length and structure** to balance depth with clarity.
 
-- **Actionable Priorities:**
-  1. Improve retrieval accuracy and factuality.
-  2. Fix citation linking and formatting.
-  3. Add user controls for response length and structure.
-  4. Audit and mitigate bias in controversial topics.
-  5. Optimize system speed and responsiveness.
-
-This analysis provides a roadmap for enhancing RAG system reliability, usability, and trustworthiness.
+Additionally, addressing **bias, performance, and timeliness** will be critical for deployment in high-stakes or real-time applications. Continuous user feedback integration should be central to RAG system evolution.
 
 ============================================================
 RULE-BASED FEEDBACK CATEGORIZATION
