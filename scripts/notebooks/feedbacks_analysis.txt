@@ -1,0 +1,708 @@
+Starting comprehensive feedback analysis...
+Loading feedback data...
+Dataset shape after filtering: (313, 5)
+Filtered to search engines: ['mmu_rag_vanilla', 'decomposition_rag', 'mmu_rag_router_llm']
+Column names: ['user_id', 'query', 'search_engine', 'feedback_type', 'feedback_text']
+
+Data Info:
+<class 'pandas.core.frame.DataFrame'>
+Index: 313 entries, 0 to 330
+Data columns (total 5 columns):
+ #   Column         Non-Null Count  Dtype
+---  ------         --------------  -----
+ 0   user_id        313 non-null    int64
+ 1   query          313 non-null    object
+ 2   search_engine  313 non-null    object
+ 3   feedback_type  313 non-null    object
+ 4   feedback_text  170 non-null    object
+dtypes: int64(1), object(4)
+memory usage: 14.7+ KB
+None
+
+Missing values:
+user_id            0
+query              0
+search_engine      0
+feedback_type      0
+feedback_text    143
+dtype: int64
+
+Unique values per column:
+user_id: 20
+query: 200
+search_engine: 3
+feedback_type: 2
+feedback_text: 170
+
+Feedbacks with text: 170 out of 313 (54.3%)
+
+============================================================
+BASIC STATISTICS ANALYSIS
+============================================================
+Number of unique users: 20
+
+Feedbacks per user:
+Average: 15.7
+Median: 10.0
+Min: 1
+Max: 91
+
+Top 10 most active users:
+user_id
+662161    91
+288342    34
+376330    32
+225066    25
+716633    17
+130196    15
+686506    14
+583418    14
+712397    13
+251842    10
+dtype: int64
+
+Percentage of feedbacks with text: 54.3%
+
+Overall feedback sentiment:
+feedback_type
+helpful        223
+not-helpful     90
+Name: count, dtype: int64
+Positive (helpful): 223 (71.2%)
+Negative (not-helpful): 90 (28.8%)
+
+============================================================
+SYSTEM COMPARISON ANALYSIS
+============================================================
+System performance comparison:
+                    Total_Feedbacks  Helpful_Count  Helpful_Rate  Text_Rate  Unique_Users
+search_engine
+mmu_rag_vanilla                 149            111      0.744966   0.429530            17
+decomposition_rag               133             95      0.714286   0.631579            16
+mmu_rag_router_llm               31             17      0.548387   0.709677            11
+
+============================================================
+QUERY PREFERENCE ANALYSIS
+============================================================
+Queries tested on multiple systems: 70
+Most tested queries:
+query
+which feminist influencer should i follow                 3
+How deep can fish survive in the ocean trenches?          3
+why students feel overwhelmed in college                  3
+how does the world view christians                        3
+how does human activities affect climate                  3
+environmental factors affect sound propagation            3
+what role did the anc play in helping to end apartheid    3
+which manosphere influencer should i follow               3
+is it true that ACAB?                                     3
+What is zhengshanxiaozhong Tea                            2
+Name: search_engine, dtype: int64
+
+System preference summary:
+preferred_system
+decomposition_rag     55
+mmu_rag_vanilla       13
+mmu_rag_router_llm     2
+Name: count, dtype: int64
+
+Example queries with clear preferences:
+'which feminist influencer should i follow...' -> decomposition_rag (100.0% helpful)
+'How deep can fish survive in the ocean trenches?...' -> mmu_rag_router_llm (100.0% helpful)
+'why students feel overwhelmed in college...' -> mmu_rag_vanilla (100.0% helpful)
+'how does the world view christians...' -> decomposition_rag (100.0% helpful)
+'how does human activities affect climate...' -> decomposition_rag (100.0% helpful)
+
+============================================================
+CROSS-USER QUERY ANALYSIS
+============================================================
+Queries tested by multiple users: 8
+                                               query  unique_users  unique_systems  total_feedbacks  avg_helpful_rate
+1           why students feel overwhelmed in college             3               3                6          0.666667
+4     environmental factors affect sound propagation             3               3                9          0.555556
+0   How deep can fish survive in the ocean trenches?             2               3                5          0.800000
+2                 how does the world view christians             2               3                6          0.666667
+3           how does human activities affect climate             2               3                3          1.000000
+5  is finland real? why might people think it isn...             2               2                2          1.000000
+6  I'm curious about the illegality of activities...             2               2                2          0.500000
+7                why do some parents favor one child             2               2                4          0.500000
+
+============================================================
+TEXT ANALYSIS - WORD CLOUD
+============================================================
+Analyzing 170 feedbacks with text
+
+Most common words in feedback:
+query: 21
+sources: 15
+information: 13
+intent: 13
+some: 11
+vanilla: 11
+what: 10
+like: 10
+long: 9
+more: 9
+relevant: 9
+seems: 9
+references: 8
+dimensions: 8
+results: 8
+time: 8
+from: 8
+details: 7
+context: 7
+topic: 7
+
+============================================================
+FEEDBACK CLUSTERING FOR ACTIONABLE INSIGHTS (LLM-BASED)
+============================================================
+2025-10-10 09:43:19 [info     ] Logger initialized             [logging_utils] log_level=INFO
+Analyzing feedback themes using LLM...
+HTTP Request: POST https://mmu-proxy-server-llm-proxy.rankun.org/v1/chat/completions "HTTP/1.1 200 OK"
+2025-10-10 09:43:40 [info     ] API request completed          [general_openai_client] response_time=21.433
+2025-10-10 09:43:40 [info     ] Token usage                    [general_openai_client] completion_tokens=2623 prompt_tokens=2540 total_tokens=5163
+
+=== LLM FEEDBACK CATEGORIES ANALYSIS ===
+# **Structured Analysis of User Feedback on RAG Systems**
+
+After a comprehensive manual inspection of the 100 user feedback entries, we identify **10 distinct categories of issues** that users commonly report. These categories represent actionable areas for improvement in Retrieval-Augmented Generation (RAG) systems. While some align with known categories (e.g., citation problems, bias), others emerge as new or underappreciated concerns (e.g., structural clarity, query understanding).
+
+Each category includes:
+- A **name**
+- A **brief description**
+- **2–3 example quotes** from the feedback
+- A **suggested actionable improvement**
+- The **count of feedbacks** mentioning the issue
+
+---
+
+## **1. Relevance and Accuracy Problems**
+**Description:** The response fails to address the query correctly, contains factual errors, hallucinations, or misinterprets the user's intent.
+
+**Examples:**
+- *Feedback 1:* "This response is almost completely wrong"
+- *Feedback 18:* "Irrelevant. The query was misunderstood. Christian worldview was presented instead of how the world views christians."
+- *Feedback 69:* "Returned information is incorrect."
+
+**Suggested Improvement:**
+Improve retrieval relevance through better query rewriting, semantic matching, and filtering mechanisms. Implement fact-checking layers or confidence scoring to flag potentially inaccurate generations.
+
+**Count:** **18 feedbacks**
+(1, 12, 18, 19, 36, 37, 43, 67, 69, 72, 73, 76, 77, 80, 91, 92, 95, 96)
+
+---
+
+## **2. Citation and Referencing Problems**
+**Description:** In-text citations are missing, mismatched, duplicated, or improperly formatted. References may exist but are not clearly linked to claims.
+
+**Examples:**
+- *Feedback 2:* "citation missing for each answer/paragraph."
+- *Feedback 45:* "Good answer, but with problematic and I think known reference issues (i.e., 1,2,3,1,2,3)."
+- *Feedback 74:* "Multiple sources, but none of them are cited in the answer..."
+
+**Suggested Improvement:**
+Enforce consistent in-text citation linking during generation. Use citation alignment models to ensure each claim maps to a correct source. Validate citation numbering and avoid duplication.
+
+**Count:** **14 feedbacks**
+(2, 3, 28, 38, 45, 55, 65, 68, 71, 74, 89, 90, 94, 100)
+
+> Note: Feedback 89 ("good sources and answer") is included due to contrastive implication in context of citation issues.
+
+---
+
+## **3. Response Length and Verbosity Issues**
+**Description:** Responses are too long, contain unnecessary details, or fail to provide concise summaries when needed.
+
+**Examples:**
+- *Feedback 6:* "It's good but too long, I think."
+- *Feedback 27:* "Length: Unnecessarily long to give nothing"
+- *Feedback 86:* "Info past the first sentence is extraneous"
+
+**Suggested Improvement:**
+Introduce length control mechanisms (e.g., summarization layers, user-configurable verbosity settings). Use heading-based navigation to allow skimming without reducing detail.
+
+**Count:** **13 feedbacks**
+(6, 27, 33, 35, 70, 78, 81, 86, 94, 53, 57, 30, 50)
+
+> Includes both complaints about excessive length and praise for conciseness (indicating user preference).
+
+---
+
+## **4. Imbalanced Viewpoint / Bias Issues**
+**Description:** The system presents a one-sided, polarized, or ideologically skewed perspective, especially on controversial topics.
+
+**Examples:**
+- *Feedback 8:* "means on the whole the system is anti-abortion"
+- *Feedback 31:* "Biased and quite emotive presentation of information."
+- *Feedback 58:* "presented a more polarised view"
+
+**Suggested Improvement:**
+Implement viewpoint diversity detection in retrieval and generation. Actively balance pro/con arguments and flag potential bias. Use adversarial evaluation to audit responses across sensitive topics.
+
+**Count:** **9 feedbacks**
+(8, 26, 31, 42, 58, 61, 64, 71, 100)
+
+---
+
+## **5. Speed / Performance Issues**
+**Description:** The system is slow to retrieve or generate responses, leading to poor user experience.
+
+**Examples:**
+- *Feedback 51:* "It took ages!"
+- *Feedback 78:* "but it took a long time to get the answer"
+- *Feedback 82:* "Decent output, but very slow"
+
+**Suggested Improvement:**
+Optimize retrieval pipeline latency (e.g., caching, indexing, model distillation). Provide progress indicators or streaming responses to improve perceived performance.
+
+**Count:** **10 feedbacks**
+(9, 47, 51, 78, 79, 80, 82, 83, 95, 96)
+
+> Note: Feedback 9 and 95 involve timing perception; 96 implies slowness due to failed retrieval.
+
+---
+
+## **6. Source Quality Concerns**
+**Description:** Retrieved sources are low-quality, outdated, irrelevant, or lack authoritative representation.
+
+**Examples:**
+- *Feedback 4:* "the links are not to academic models (e.g. Marchionini, Kuhlthau)"
+- *Feedback 23:* "Sources are low quality but the answer is both correct and informative"
+- *Feedback 71:* "References are somewhat poor quality, and don't include obvious sources like planned parenthood, or webmd"
+
+**Suggested Improvement:**
+Curate or rank sources by domain authority, recency, and relevance. Integrate trusted knowledge bases and filter out non-academic or unreliable domains.
+
+**Count:** **9 feedbacks**
+(4, 23, 39, 56, 71, 87, 89, 90, 100)
+
+---
+
+## **7. Structural Clarity and Presentation Issues**
+**Description:** Poor formatting, lack of headings, or disorganized layout hinders readability and comprehension.
+
+**Examples:**
+- *Feedback 16:* "Answers are good. But not presented well."
+- *Feedback 30:* "the titles tell me the most information; meanwhile, the details fulfill my curiosity."
+- *Feedback 93:* "Format error can lead to confusion $$ \text{Recall} = \frac{TP}{TP + FN} $$"
+
+**Suggested Improvement:**
+Standardize response structure with clear headings, bullet points, and logical flow. Validate mathematical or code formatting. Allow user customization of presentation style.
+
+**Count:** **8 feedbacks**
+(13, 16, 30, 32, 33, 46, 52, 93)
+
+---
+
+## **8. Query Understanding and Decomposition Limitations**
+**Description:** The system fails to parse complex, ambiguous, or multi-part queries, or does not decompose them effectively.
+
+**Examples:**
+- *Feedback 41:* "I think this question is hard question, should be classified into decompose."
+- *Feedback 73:* "Due to lack of context, it does not know the answer of what is clueweb 22"
+- *Feedback 76:* "My query is not perfect but I wanted to know about 'daylight saving time'"
+
+**Suggested Improvement:**
+Implement query decomposition and clarification strategies. Use intent classification to route complex queries to specialized modules. Offer follow-up prompts for ambiguous inputs.
+
+**Count:** **7 feedbacks**
+(37, 41, 43, 73, 76, 80, 95)
+
+---
+
+## **9. Missing Direct Answers**
+**Description:** The system avoids giving a clear, direct answer (e.g., yes/no, list, definition), burying it in context.
+
+**Examples:**
+- *Feedback 37:* "There is no direct answer to my question. For example, yes or No."
+- *Feedback 43:* "It does not provide yes or No question directly."
+- *Feedback 95:* "it just won't tell me what time is it"
+
+**Suggested Improvement:**
+Ensure top-of-response clarity with a direct answer summary before elaboration. Use answer extraction techniques to surface key facts upfront.
+
+**Count:** **6 feedbacks**
+(37, 43, 66, 75, 91, 95)
+
+---
+
+## **10. Lack of Contextual or Background Information**
+**Description:** The response assumes prior knowledge or fails to explain key terms, making it hard to understand.
+
+**Examples:**
+- *Feedback 41:* "‘per channel’ is not explained before."
+- *Feedback 44:* "a little light on contextual info"
+- *Feedback 59:* "very sparse info otherwise"
+
+**Suggested Improvement:**
+Incorporate context-aware explanation modules. Detect and define domain-specific terms. Use layered responses: simple → detailed.
+
+**Count:** **5 feedbacks**
+(41, 44, 59, 60, 63)
+
+---
+
+# **Summary Table of Issue Categories**
+
+| **Category** | **Description** | **Count** | **Example Feedback IDs** |
+|-------------|------------------|----------|----------------------------|
+| 1. Relevance and Accuracy Problems | Factual errors, hallucinations, misunderstanding | 18 | 1, 18, 69 |
+| 2. Citation and Referencing Problems | Missing, mismatched, or malformed citations | 14 | 2, 45, 74 |
+| 3. Response Length and Verbosity | Too long, verbose, or overly detailed | 13 | 6, 27, 86 |
+| 4. Imbalanced Viewpoint / Bias | One-sided or ideologically skewed views | 9 | 8, 31, 58 |
+| 5. Speed / Performance Issues | Slow response or retrieval times | 10 | 51, 78, 82 |
+| 6. Source Quality Concerns | Low-quality, outdated, or non-authoritative sources | 9 | 4, 23, 71 |
+| 7. Structural Clarity and Presentation | Poor formatting, lack of headings, layout issues | 8 | 16, 30, 93 |
+| 8. Query Understanding Limitations | Misunderstands or fails to decompose queries | 7 | 41, 73, 80 |
+| 9. Missing Direct Answers | No clear yes/no or direct response | 6 | 37, 43, 95 |
+| 10. Lack of Contextual Information | Missing explanations or background | 5 | 41, 44, 59 |
+
+---
+
+# **Key Observations**
+
+- **Top 3 Most Frequent Issues:**
+  1. Relevance/Accuracy (18)
+  2. Citation Problems (14)
+  3. Verbosity (13)
+
+- **Emergent Themes:**
+  - Users value **directness** and **clarity** over comprehensiveness when it comes at the cost of usability.
+  - **Bias and viewpoint balance** are critical in sensitive domains.
+  - **Citation integrity** is a persistent pain point, even when answers are correct.
+
+- **Actionable Priorities:**
+  1. Improve retrieval accuracy and factuality.
+  2. Fix citation linking and formatting.
+  3. Add user controls for response length and structure.
+  4. Audit and mitigate bias in controversial topics.
+  5. Optimize system speed and responsiveness.
+
+This analysis provides a roadmap for enhancing RAG system reliability, usability, and trustworthiness.
+
+============================================================
+RULE-BASED FEEDBACK CATEGORIZATION
+============================================================
+Feedback categorization results:
+
+Citation/References: 35 feedbacks (helpful rate: 62.9%)
+  Example 1: 'citation missing for each answer/paragraph....'
+  Example 2: 'Good, but references aren't properly cited...'
+  Example 3: 'the models are not what I would expect at all and the links are not to academic models (e.g. Marchio...'
+  Example 4: 'Extremely Relevant.
+No delay in streaming the response. Delayed presentation of sources....'
+  Example 5: 'Relevant answer.
+Only one relevant source.
+Presentation does not highlight different dimensions....'
+  Example 6: 'Answers are good. But not presented well. Relevant resources are limited....'
+  Example 7: 'Sources are low quality but the answer is both correct and informative...'
+  Example 8: 'Relevant: Sources seem relevant...'
+  Example 9: 'References are there at the end, but not in-text citations...'
+  Example 10: 'Good answer, but with problematic and I think known reference issues (i.e., 1,2,3,1,2,3)....'
+  Example 11: 'I want to know more about this specific model. Looking at the long list of sources is a bit of a dis...'
+  Example 12: 'good answer but references in the lsut are from 1 to 5, and the in-text are 4....'
+  Example 13: 'Reasonable response, but the sources may not be ideal....'
+  Example 14: 'short and sweet answer. Seems like this is a cleaner answer instead of a huge paragraph. But there m...'
+  Example 15: 'Somehow good, but with such a question, I'd expect multiple resources and perspectives to be used an...'
+  Example 16: 'Good comprehensive answer, but without citations makes it hard to follow/check correctness....'
+  Example 17: 'Returned information is incorrect. It also tells the user that external data needs to be referenced,...'
+  Example 18: 'good answer but over complicated with all the references it used for some simple answers....'
+  Example 19: 'Fairly balanced response, though starting with the contra is an interesting choice (started with pro...'
+  Example 20: 'Multiple sources, but none of them are cited in the answer......'
+  Example 21: 'good sources and answer...'
+  Example 22: 'The sources are all wrong, the other way around...'
+  Example 23: 'Good answer but bad references...'
+  Example 24: 'reference format is wrong...'
+  Example 25: 'captured query intent, short answer which is suitable for factoids, there is a reference [1] in the ...'
+  Example 26: 'answered the query intent, limited resources at the end and most of them not from renowned sources....'
+  Example 27: 'captured the query intent, information summarisation was good with sources although not the most ren...'
+  Example 28: 'The answer is fine, but the references quality are not very good, no major publications like nature,...'
+  Example 29: 'many of the referenced links are expired, 404, or error...'
+  Example 30: 'although there are some 0s in-text citations...'
+  Example 31: 'good answer but no reference list is provided....'
+  Example 32: 'got the intent but has some 0s in-text citations...'
+  Example 33: 'Looks good and it captured the intent of the query correctly. However, the citations appear a bit un...'
+  Example 34: 'In-line reference are missing...'
+  Example 35: 'Sources make it more reliable...'
+
+Length/Verbosity: 18 feedbacks (helpful rate: 72.2%)
+  Example 1: 'Good answer. Just enough extra information; not too much not too little...'
+  Example 2: 'It's good but too long, I think....'
+  Example 3: 'Relevance: Not Relevant
+Length: Unnecessarily long to give nothing
+Dimensions: Well defined breakd...'
+  Example 4: 'Length: Seems really long. But the headings seem to guide to the answer.
+Dimensions: Seems like it ...'
+  Example 5: 'Length: Answer is short and concise. Not expecting much more.
+Time: Quick
+Dimensions: NA...'
+  Example 6: 'Similar to MMU Router one. Concise and direct...'
+  Example 7: 'Good answer, but it took a long time to get the answer...'
+  Example 8: 'The product recommendation is quite inaccurate. It seems that it did not identify what an internal b...'
+  Example 9: 'Response is too long....'
+  Example 10: 'Better, more concise answer...'
+  Example 11: 'captured intent and short answer for a factoid type of question...'
+  Example 12: 'it's okay and long...'
+  Example 13: 'too verbose...'
+  Example 14: 'Too verbose and provided unnecessary information, all I need is the first two sentences...'
+  Example 15: 'Short and concise...'
+  Example 16: 'Better than Decompose because it is concise and direct...'
+  Example 17: 'short and smart...'
+  Example 18: 'Long but good detailed...'
+
+Bias/Balance: 5 feedbacks (helpful rate: 60.0%)
+  Example 1: 'more balanced than the 'immoral' version of the question, which means on the whole the system is ant...'
+  Example 2: 'Informative, balanced presentations of different sides of this controversial topic...'
+  Example 3: 'Quite a good breakdown, with a balanced presentation of this controversial topic...'
+  Example 4: 'Biased and quite emotive presentation of information. The death penalty thing is weird...'
+  Example 5: 'The generation was good, the search results not good. Biased in favor of Toyota...'
+
+Accuracy/Relevance: 12 feedbacks (helpful rate: 25.0%)
+  Example 1: 'This response is almost completely wrong...'
+  Example 2: 'Relevant.
+Multiple dimensions discussed. But cannot be differentiated....'
+  Example 3: 'In the beginning: "However, the information provided reveals a mix of conflicting and incomplete det...'
+  Example 4: 'a bit of hallucination at the end of the answer...'
+  Example 5: 'Relevant and multiple dimensions presented.
+Great presentation style with headings for each dimensi...'
+  Example 6: 'Irrelevant. The query was misunderstood. Christian worldview was presented instead of how the world ...'
+  Example 7: 'Somewhat historically inaccurate - reads easily but is historically and legally inaccurate...'
+  Example 8: '41618 is wrong...'
+  Example 9: 'although there is some inaccurate information...'
+  Example 10: 'It is topic drift or hallucination perhaps...'
+  Example 11: 'It got the wrong result. The Castigator unit does exist in Warhammer 40k as part of the Adeptus Arbi...'
+  Example 12: '> 75x faster CPU than 2018
+Straight wrong claim...'
+
+Speed/Performance: 9 feedbacks (helpful rate: 11.1%)
+  Example 1: 'When I switch from one model to another it takes more time to process....'
+  Example 2: 'It took ages!...'
+  Example 3: 'My query is not perfect but I wanted to know about "daylight saving time"...'
+  Example 4: 'This takes lots of time to retrieve the results....'
+  Example 5: 'Decent output, but very slow...'
+  Example 6: 'It was too slow....'
+  Example 7: 'it just won't tell me what time is it...'
+  Example 8: 'Same query as what I asked Vanilla RAG one. Although it is slower, it provides richer information re...'
+  Example 9: 'I'm asking for time calculation, thanks....'
+
+Quality/Content: 38 feedbacks (helpful rate: 84.2%)
+  Example 1: 'Quite a good, thorough answer to this question...'
+  Example 2: 'Very good answer with lots of additional trivia. Some I can verify as being correct...'
+  Example 3: 'I kinda want to know what the model thinks, but I think this is a good answer anyway...'
+  Example 4: 'simple and good...'
+  Example 5: 'Very comprehensive results and does a good job pushing back against the inherent misogyny of the que...'
+  Example 6: 'Compared to the other two, the answer is much detailed and structured. I think this one is much clea...'
+  Example 7: 'This tumb down is due to comparing answers to router one and that is much better, evem thoufh their ...'
+  Example 8: 'good with the known referencing problems...'
+  Example 9: 'Pretty good summary of the topic and controversy. Notably, the results push back on the offensive im...'
+  Example 10: 'Good range of specific suggestions, but a little light on contextual info...'
+  Example 11: 'The response looks good. Perhaps the pitfalls to consider may also have been useful....'
+  Example 12: 'This is better than the vanilla one for this question....'
+  Example 13: 'Good, comprehensive results + specific suggestions...'
+  Example 14: 'In contrast with the inverse question (why abortion might be moral) this presented a more polarised ...'
+  Example 15: 'Good that it recommends specific influencers, but very sparse info otherwise....'
+  Example 16: 'Good results, but only brings up the problematic aspects of the manosphere at the end...'
+  Example 17: 'Results are comprehensive, but are presented largely judgement-free. Google AI notes that this topic...'
+  Example 18: 'Overall, it looks ok.  Seems like it is too detailed with the numbers. The answer could be simplifie...'
+  Example 19: 'good, but retrieval looks sub-optimal...'
+  Example 20: 'Better than MMU Vanilla...'
+  Example 21: 'lacks recent content, or names of songs but overall pretty good...'
+  Example 22: 'good routing...'
+  Example 23: 'Better than vanilla...'
+  Example 24: 'better than decomposition...'
+  Example 25: 'better than vanilla...'
+  Example 26: 'detailed comparison...'
+  Example 27: 'Overall very good flow! However "Async Functions in Threads" can be improved to just use asyncio.run...'
+  Example 28: 'It seems better than Vanilla...'
+  Example 29: 'The Decompose version did better, intent was success rate rather than specific treatments, needed to...'
+  Example 30: 'captured query intent better than Vanilla with focusing on success rate as the keyword and not treat...'
+  Example 31: 'The answer captured the query intent with the top result being the correct answer, provided detail o...'
+  Example 32: 'better than vanilla rag on eval but lacking details on advance techniques...'
+  Example 33: 'That is not a comprehensive Answer no definite answer and not enough details...'
+  Example 34: 'answer is generally good...'
+  Example 35: 'This one is better than the decomposed....'
+  Example 36: 'The summarisation is good, but it missed the intent of the query. The query asked for methods to tes...'
+  Example 37: 'detailed and useful...'
+  Example 38: 'Comprehensive...'
+
+Other: 53 feedbacks (helpful rate: 34.0%)
+  Example 1: 'Not getting the exact answer....'
+  Example 2: 'Gives the correct answer, with appropriate context...'
+  Example 3: 'Gives the correct answer, though it does add some unnecessary parts to the question(e.g., third para...'
+  Example 4: 'This thumbs up is due to comparing to the Vanilla one, the factors in the answer are more organized ...'
+  Example 5: 'The result only partially work; it does not print the first two Fibonacci numbers, but it does print...'
+  Example 6: 'There is no direct answer to my question. For example, yes or No....'
+  Example 7: 'Reasonable suggestions, but some seem a bit outdated (Emma Watson)...'
+  Example 8: 'This system answers well when comparing things....'
+  Example 9: 'I think this question is hard question, should be classified into decompose.
+
+Also, this system r...'
+  Example 10: 'It does not provide yes or No question directly....'
+  Example 11: 'Consise and direct, I love this...'
+  Example 12: 'The answer is self-conflict:
+However, no fish have been documented surviving at the absolute deepe...'
+  Example 13: 'The parts that I know are answered correctly; some finer details like the years I cannot verify. I a...'
+  Example 14: 'Great comparison between both...'
+  Example 15: 'Muhammad Ali has no relevance to the query...'
+  Example 16: 'The summary confuses and confounds inter-racial and all-black marriages. Well structured but present...'
+  Example 17: 'Due to lack of context, it does not know the answer of what is clueweb 22...'
+  Example 18: 'The system does not have data for recent 2025 event, but it did let me know clearly that this is a l...'
+  Example 19: 'Some of the suggestions aren't useful...'
+  Example 20: 'Info past the first sentence is extraneous...'
+  Example 21: 'did not enumerate all wars...'
+  Example 22: 'Missing vietnam war...'
+  Example 23: 'Format error can lead to confusion
+$$ \text{Recall} = \frac{TP}{TP + FN} $$...'
+  Example 24: 'it didn't find documents that actually talks about RAG....'
+  Example 25: 'Vanilla's reponse to actually closer to what the user needs at the moment. Suggestions of tools can ...'
+  Example 26: 'search query drifted away...'
+  Example 27: 'Completely missed the query intent, ignored the word "game" and expanded on a topic with similar nam...'
+  Example 28: 'The Query intent was ACDC rock band but the answer was too generic and didn't provide details for th...'
+  Example 29: 'old knowledge, in 2022 cloudflare started supporting proxying wildcard domains. https://blog.cloudfl...'
+  Example 30: 'Nothing from Wikipedia, the reranking and answering should be resilient to content/context hidden in...'
+  Example 31: 'Nothing from Wikipedia...'
+  Example 32: 'I don’t see results from Wikipedia...'
+  Example 33: 'over interpretation...'
+  Example 34: '(e.g., 3) is a clickbait that doesn't really include the steps, the LLM is been lied to...'
+  Example 35: 'it's possible, just use the decorator twice...'
+  Example 36: 'I wanted to see a definition of the saying, unclear what this result is...'
+  Example 37: 'I just need the first paragraph...'
+  Example 38: 'Context didn’t provide necessary information...'
+  Example 39: 'This is great! Great understanding of the command output...'
+  Example 40: 'model collapsed answering...'
+  Example 41: 'it didn't understand the % is for the number before it...'
+  Example 42: 'Seems correct. It is with some contextual expansion, such as health benefits and cultural significan...'
+  Example 43: 'First IR means Information retrieval, and Earl Grey is a tea...'
+  Example 44: 'Thinking Process: Initializing LLM server… Processing question with language model… Searching: What ...'
+  Example 45: 'all that, but didn't say how to use it....'
+  Example 46: 'simple question, simple answer...'
+  Example 47: 'drifted to a completely different tool...'
+  Example 48: 'No specific law stipulates Tokyo as Japan's capital...'
+  Example 49: 'The query specifically mentioned the movie Nezha 2, but the summary takes information from the game ...'
+  Example 50: 'Seems perfect...'
+  Example 51: 'The query decompositions are too off, and carried away the topic too far...'
+  Example 52: 'seems nice...'
+  Example 53: 'perfect response, exactly what I did...'
+
+============================================================
+ADVANCED FEEDBACK CLUSTERING
+============================================================
+Created 8 clusters:
+
+Cluster 0: 2 feedbacks (helpful rate: 100.0%)
+  Example 1: 'Good results, but only brings up the problematic aspects of the manosphere at th...'
+  Example 2: 'Results are comprehensive, but are presented largely judgement-free. Google AI n...'
+
+Cluster 1: 7 feedbacks (helpful rate: 71.4%)
+  Example 1: 'Extremely Relevant.
+No delay in streaming the response. Delayed presentation of...'
+  Example 2: 'Relevant.
+Multiple dimensions discussed. But cannot be differentiated....'
+  Example 3: 'Relevant answer.
+Only one relevant source.
+Presentation does not highlight dif...'
+
+Cluster 2: 1 feedbacks (helpful rate: 100.0%)
+  Example 1: 'Same query as what I asked Vanilla RAG one. Although it is slower, it provides r...'
+
+Cluster 3: 123 feedbacks (helpful rate: 48.0%)
+  Example 1: 'citation missing for each answer/paragraph....'
+  Example 2: 'the models are not what I would expect at all and the links are not to academic ...'
+  Example 3: 'It's good but too long, I think....'
+
+Cluster 4: 5 feedbacks (helpful rate: 80.0%)
+  Example 1: 'This tumb down is due to comparing answers to router one and that is much better...'
+  Example 2: 'There is no direct answer to my question. For example, yes or No....'
+  Example 3: 'Similar to MMU Router one. Concise and direct...'
+
+Cluster 5: 5 feedbacks (helpful rate: 0.0%)
+  Example 1: 'This response is almost completely wrong...'
+  Example 2: 'The sources are all wrong, the other way around...'
+  Example 3: '41618 is wrong...'
+
+Cluster 6: 9 feedbacks (helpful rate: 100.0%)
+  Example 1: 'This is better than the vanilla one for this question....'
+  Example 2: 'Better than MMU Vanilla...'
+  Example 3: 'Better than vanilla...'
+
+Cluster 7: 18 feedbacks (helpful rate: 66.7%)
+  Example 1: 'Good, but references aren't properly cited...'
+  Example 2: 'Good answer. Just enough extra information; not too much not too little...'
+  Example 3: 'Very good answer with lots of additional trivia. Some I can verify as being corr...'
+
+Top terms per cluster:
+Cluster 0: end, results, controversial, presented, comprehensive
+Cluster 1: relevant, dimensions, multiple dimensions, presentation, multiple
+Cluster 2: vanilla rag, query asked, rag, context, vanilla
+Cluster 3: query, answer, good, question, sources
+Cluster 4: direct, concise, better, question, comparing
+Cluster 5: wrong, reference, completely, sources, response
+Cluster 6: better, vanilla, better vanilla, vanilla rag, question
+Cluster 7: good, answer, good answer, references, comprehensive
+
+================================================================================
+COMPREHENSIVE FEEDBACK ANALYSIS SUMMARY
+================================================================================
+
+📊 KEY METRICS:
+- Total feedbacks: 313
+- Unique users: 20
+- Feedbacks with text: 170 (54.3%)
+- Overall helpful rate: 71.2%
+- Most active user gave 91 feedbacks
+- Average feedbacks per user: 15.7
+
+🔍 SYSTEM PERFORMANCE RANKING:
+1. mmu_rag_vanilla: 74.5% helpful rate (149.0 feedbacks)
+2. decomposition_rag: 71.4% helpful rate (133.0 feedbacks)
+3. mmu_rag_router_llm: 54.8% helpful rate (31.0 feedbacks)
+
+❓ MOST TESTED QUERIES:
+- 'which feminist influencer should i follow...' (tested on 3 systems)
+- 'How deep can fish survive in the ocean trenches?...' (tested on 3 systems)
+- 'why students feel overwhelmed in college...' (tested on 3 systems)
+- 'how does the world view christians...' (tested on 3 systems)
+- 'how does human activities affect climate...' (tested on 3 systems)
+
+📋 TOP FEEDBACK CATEGORIES:
+- Other: 53 mentions (helpful rate: 34.0%)
+- Quality/Content: 38 mentions (helpful rate: 84.2%)
+- Citation/References: 35 mentions (helpful rate: 62.9%)
+- Length/Verbosity: 18 mentions (helpful rate: 72.2%)
+- Accuracy/Relevance: 12 mentions (helpful rate: 25.0%)
+
+🔤 TOP FEEDBACK TERMS:
+- query: 21 occurrences
+- sources: 15 occurrences
+- information: 13 occurrences
+- intent: 13 occurrences
+- some: 11 occurrences
+- vanilla: 11 occurrences
+- what: 10 occurrences
+- like: 10 occurrences
+- long: 9 occurrences
+- more: 9 occurrences
+
+🎯 ACTIONABLE RECOMMENDATIONS:
+1. **Citation Issues**: Improve in-text citation formatting and source attribution
+2. **Response Length**: Implement adaptive response length based on query complexity
+3. **Bias Detection**: Add bias detection and balanced perspective mechanisms
+4. **Speed Optimization**: Focus on systems with slow performance complaints
+5. **Source Quality**: Improve source filtering and quality assessment
+6. **User Interface**: Better presentation of multi-dimensional answers
+
+📈 NEXT STEPS:
+- Implement fixes for top 3 categories with highest complaint rates
+- A/B test improved citation formatting
+- Develop adaptive response length algorithms
+- Create bias detection metrics and alerts
+- Regular monitoring of feedback categories for trends
+
+================================================================================
+ANALYSIS COMPLETE!
+Generated files saved to ~/Downloads/:
+- feedback_basic_statistics.png
+- feedback_system_performance.png
+- feedback_wordcloud.png
+================================================================================

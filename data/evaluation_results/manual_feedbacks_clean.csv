@@ -1,0 +1,443 @@
+﻿user_id,query,search_engine,feedback_type,feedback_text
+716633,is it true that ACAB?,mmu_rag_vanilla,not-helpful,This response is almost completely wrong
+225066,why do some parents favor one child,decomposition_rag,not-helpful,citation missing for each answer/paragraph.
+716633,should ilsa have gotten on the plane in casablanca,decomposition_rag,helpful,"Good, but references aren't properly cited"
+632223,how can major information seeking models be applied in the context of controversial topics,decomposition_rag,not-helpful,"the models are not what I would expect at all and the links are not to academic models (e.g. Marchionini, Kuhlthau"
+251842,"There are two sieges of Osaka at the end of the Edo period, which one is the final one?",decomposition_rag,helpful,Good answer. Just enough extra information; not too much not too little
+455041,What is robots.txt in search engines,decomposition_rag,helpful,"It's good but too long, I think."
+716633,should ilsa have gotten on the plane in casablanca,decomposition_rag,helpful,"Quite a good, thorough answer to this question"
+632223,give me some arguments why abortion may be moral,decomposition_rag,not-helpful,"more balanced than the 'immoral' version of the question, which means on the whole the system is anti-abortion"
+225066,why do some parents favor one child,decomposition_rag,helpful,"Extremely Relevant.
+No delay in streaming the response. Delayed presentation of sources."
+225066,why do some parents favor one child,mmu_rag_vanilla,helpful,"Relevant.
+Multiple dimensions discussed. But cannot be differentiated."
+583418,what plants contain rubber from periplocaceae family,decomposition_rag,not-helpful,"In the beginning: ""However, the information provided reveals a mix of conflicting and incomplete details, which must be carefully synthesized to address the query accurately.""
+
+I just feel like: do we have to let LLMs comment on the context, if we can not control for them anyway?"
+376330,what makes a good answer for a RAG system?,decomposition_rag,not-helpful,a bit of hallucination at the end of the answer
+225066,why students feel overwhelmed in college,mmu_rag_router_llm,not-helpful,"Relevant answer.
+Only one relevant source.
+Presentation does not highlight different dimensions."
+716633,is it true that ACAB?,mmu_rag_router_llm,helpful,"Informative, balanced presentations of different sides of this controversial topic"
+225066,why students feel overwhelmed in college,decomposition_rag,helpful,"Relevant and multiple dimensions presented.
+Great presentation style with headings for each dimension."
+225066,why students feel overwhelmed in college,mmu_rag_vanilla,helpful,Answers are good. But not presented well. Relevant resources are limited.
+251842,What is inside the briefcase in Pulp Fiction?,decomposition_rag,helpful,Very good answer with lots of additional trivia. Some I can verify as being correct
+225066,how does the world view christians,mmu_rag_vanilla,not-helpful,Irrelevant. The query was misunderstood. Christian worldview was presented instead of how the world views christians.
+662161,is finland real? why might people think it isn't real,mmu_rag_vanilla,helpful,
+712397,Did the people get escape from dont breath movie?,decomposition_rag,not-helpful,Not getting the exact answer.
+716633,who wins the cricket match in lagaan,decomposition_rag,helpful,"Gives the correct answer, with appropriate context"
+225066,how does the world view christians,decomposition_rag,helpful,
+225066,how does the world view christians,mmu_rag_router_llm,helpful,
+251842,Do you think that the spinning top stops at the end of Inception?,decomposition_rag,helpful,"I kinda want to know what the model thinks, but I think this is a good answer anyway"
+225066,what role did the anc play in helping to end apartheid,mmu_rag_router_llm,helpful,
+225066,what role did the anc play in helping to end apartheid,decomposition_rag,helpful,
+225066,what role did the anc play in helping to end apartheid,mmu_rag_vanilla,helpful,
+251842,What are the real names of V from Cyberpunk 2077?,decomposition_rag,helpful,"Gives the correct answer, though it does add some unnecessary parts to the question(e.g., third paragraph)"
+632223,is finland real? why might people think it isn't real,decomposition_rag,helpful,Sources are low quality but the answer is both correct and informative
+225066,how can informal networks be utilized in the context of managerial interviewing?,decomposition_rag,helpful,Relevant: Sources seem relevant
+712397,what movie ShahRukh khan was a spy in it?,decomposition_rag,helpful,
+225066,"I remember this thrilling sports event that really stuck with me, though it's been years and details are a bit fuzzy. It was some kind of big showdown, almost a clash of titans feeling, involving two top-notch teams from a European country known for its chilly climate. The game happened sometime early in the year, possibly around the time when folks are still shaking off winter blues. I recall it took place in a charming coastal town, which wasn't usually known for hosting such major matches, adding an air of novelty. One thing that stands out is the green field in a stadium that seemed to echo the local passion on that grayish dayit might have been cloudy or almost drizzling, typical of that region. There were two sides, both wearing iconic colors that seemed to reflect their prestigious history. I remember the 'heroes' of the day being led by a skilled player from another continent, whose nimble moves and strategic play led to memorable goals. This event also boasted quite the media coverage, shared by a channel that often covers niche sports. The ref, as I recall, was no stranger to the spotlight, having overseen similar thrillers before. The memory is like a favorite movie scene you revisit in your thoughts. Can anyone fill in the gaps here or share similar experiences that ring a bell?",mmu_rag_router_llm,not-helpful,
+662161,I'm thinking of going on holiday next easter with friends. I'm thinking of going to Scotland. We have a car and a couple of weeks. What would be a good itenerary?,mmu_rag_vanilla,helpful,simple and good
+716633,why are women always so woke,decomposition_rag,helpful,Very comprehensive results and does a good job pushing back against the inherent misogyny of the question
+225066,"I remember this thrilling sports event that really stuck with me, though it's been years and details are a bit fuzzy. It was some kind of big showdown, almost a clash of titans feeling, involving two top-notch teams from a European country known for its chilly climate. The game happened sometime early in the year, possibly around the time when folks are still shaking off winter blues. I recall it took place in a charming coastal town, which wasn't usually known for hosting such major matches, adding an air of novelty. One thing that stands out is the green field in a stadium that seemed to echo the local passion on that grayish dayit might have been cloudy or almost drizzling, typical of that region. There were two sides, both wearing iconic colors that seemed to reflect their prestigious history. I remember the 'heroes' of the day being led by a skilled player from another continent, whose nimble moves and strategic play led to memorable goals. This event also boasted quite the media coverage, shared by a channel that often covers niche sports. The ref, as I recall, was no stranger to the spotlight, having overseen similar thrillers before. The memory is like a favorite movie scene you revisit in your thoughts. Can anyone fill in the gaps here or share similar experiences that ring a bell?",decomposition_rag,not-helpful,"Relevance: Not Relevant
+Length: Unnecessarily long to give nothing
+Dimensions: Well defined breakdown of different dimensions."
+455041,How to be a good academic in USA,decomposition_rag,not-helpful,"References are there at the end, but not in-text citations"
+716633,is it true that ACAB?,decomposition_rag,helpful,"Quite a good breakdown, with a balanced presentation of this controversial topic"
+583418,environmental factors affect sound propagation,decomposition_rag,helpful,"Compared to the other two, the answer is much detailed and structured. I think this one is much clearer on getting answers. If I don't want to look at the details, the titles tell me the most information; meanwhile, the details fulfill my curiosity."
+712397,Do know about ABCD dataset?,decomposition_rag,helpful,
+632223,give me some arguments for why abortion may be immoral,mmu_rag_router_llm,not-helpful,Biased and quite emotive presentation of information. The death penalty thing is weird
+583418,environmental factors affect sound propagation,decomposition_rag,not-helpful,
+583418,environmental factors affect sound propagation,mmu_rag_router_llm,helpful,"This thumbs up is due to comparing to the Vanilla one, the factors in the answer are more organized into categories."
+225066,environmental factors affect sound propagation,decomposition_rag,helpful,"Length: Seems really long. But the headings seem to guide to the answer.
+Dimensions: Seems like it provides multiple dimensions here."
+583418,environmental factors affect sound propagation,mmu_rag_vanilla,not-helpful,"This tumb down is due to comparing answers to router one and that is much better, evem thoufh their styles are the same - consise and direct"
+225066,environmental factors affect sound propagation,mmu_rag_router_llm,helpful,"Length: Answer is short and concise. Not expecting much more.
+Time: Quick
+Dimensions: NA"
+251842,Write me a short Python code to get the first n-digits in a fibonacci sequence,mmu_rag_router_llm,not-helpful,"The result only partially work; it does not print the first two Fibonacci numbers, but it does print the rest correctly"
+712397,Do all people have social adaptability?,decomposition_rag,helpful,"There is no direct answer to my question. For example, yes or No."
+376330,Why does the Moon look different from the Northern Hemisphere compared to the Southern Hemisphere?,decomposition_rag,helpful,good with the known referencing problems
+716633,which feminist influencer should i follow,mmu_rag_vanilla,helpful,"Reasonable suggestions, but some seem a bit outdated (Emma Watson)"
+583418,what are differences between real time display and real time recording for surveillance DVR units,decomposition_rag,helpful,This system answers well when comparing things.
+583418,what are differences between real time display and real time recording for surveillance DVR units,mmu_rag_router_llm,not-helpful,"I think this question is hard question, should be classified into decompose. 
+
+Also, this system returns with less context on this question, so that some things are not clear. For example: ""Requires the DVR to record video at 30 FPS per channel simultaneously,"" ""per channel"" is not explained before."
+716633,why are women always so woke,mmu_rag_router_llm,helpful,"Pretty good summary of the topic and controversy. Notably, the results push back on the offensive implications of the question"
+376330,is the world ending tomorrow?,mmu_rag_vanilla,helpful,
+662161,"I'm curious about the illegality of activities like prostitution, organ selling, and insider trading. How do these laws connect to broader issues such as human and drug trafficking? Specifically, could you explain human trafficking's contributing factors, its societal impact, and how law enforcement and policy address it, globally and in the US?",mmu_rag_vanilla,helpful,
+712397,does beauty products influence the beauty standards?,decomposition_rag,not-helpful,It does not provide yes or No question directly.
+716633,which feminist influencer should i follow,mmu_rag_router_llm,helpful,"Good range of specific suggestions, but a little light on contextual info"
+712397,does beauty products influence the beauty standards?,decomposition_rag,helpful,
+376330,is the world ending tomorrow?,decomposition_rag,not-helpful,"Good answer, but with problematic and I think known reference issues (i.e., 1,2,3,1,2,3)."
+225066,Could you kindly tell me what are the main aplications of IoT water level sensors in agriculture and irigaton systems?,decomposition_rag,helpful,The response looks good. Perhaps the pitfalls to consider may also have been useful.
+712397,what are the west beauty standards?,decomposition_rag,not-helpful,When I switch from one model to another it takes more time to process.
+251842,Introduce yourself to me,decomposition_rag,not-helpful,I want to know more about this specific model. Looking at the long list of sources is a bit of a discouraging answer.
+376330,"When responding to reviewers, can you be rude and cruel?",decomposition_rag,helpful,This is better than the vanilla one for this question.
+662161,"I'm curious about the illegality of activities like prostitution, organ selling, and insider trading. How do these laws connect to broader issues such as human and drug trafficking? Specifically, could you explain human trafficking's contributing factors, its societal impact, and how law enforcement and policy address it, globally and in the US?",google-search,helpful,
+583418,How deep can fish survive in the ocean trenches?,mmu_rag_vanilla,helpful,Similar to MMU Router one. Concise and direct
+712397,How deep can fish survive in the ocean trenches?,mmu_rag_vanilla,helpful,
+662161,I'm a sports scientist focused on athletic performance. Could you kindly tell me what are the three essential preconditions necessary for a performence brand to have its placebo enhancment effect on athletes?,brave-search,helpful,
+434006,Where is the next World Cup?,mmu_rag_router_llm,not-helpful,It took ages!
+662161,I'm a sports scientist focused on athletic performance. Could you kindly tell me what are the three essential preconditions necessary for a performence brand to have its placebo enhancment effect on athletes?,google-search,helpful,
+716633,which feminist influencer should i follow,decomposition_rag,helpful,"Good, comprehensive results + specific suggestions"
+662161,I'm a sports scientist focused on athletic performance. Could you kindly tell me what are the three essential preconditions necessary for a performence brand to have its placebo enhancment effect on athletes?,google-ai-overview,helpful,Is it normal that google search results only return an AI overview?
+583418,How deep can fish survive in the ocean trenches?,mmu_rag_router_llm,helpful,"Consise and direct, I love this"
+918961,what was the reason for European imperialism,mmu_rag_router_llm,helpful,
+583418,How deep can fish survive in the ocean trenches?,decomposition_rag,not-helpful,"The answer is self-conflict: 
+However, no fish have been documented surviving at the absolute deepest points of these trenches. The Mariana snailfish (Pseudoliparis swirei) is the deepest known fish, thriving at depths of approximately 8,000 meters (26,200 feet)
+These two sentences are logically against each other in my opinion"
+662161,I'm a sports scientist focused on athletic performance. Could you kindly tell me what are the three essential preconditions necessary for a performence brand to have its placebo enhancment effect on athletes?,google-search,helpful,
+712397,How deep can fish survive in the ocean trenches?,mmu_rag_vanilla,helpful,
+662161,I'm a sports scientist focused on athletic performance. Could you kindly tell me what are the three essential preconditions necessary for a performence brand to have its placebo enhancment effect on athletes?,brave-search,helpful,
+376330,"When responding to reviewers, can you be rude and cruel?",mmu_rag_vanilla,helpful,"good answer but references in the lsut are from 1 to 5, and the in-text are 4."
+662161,I'm a sports scientist focused on athletic performance. Could you kindly tell me what are the three essential preconditions necessary for a performence brand to have its placebo enhancment effect on athletes?,decomposition_rag,helpful,
+899002,Was there an ethnic conflict in Sri Lanka?,decomposition_rag,helpful,"Reasonable response, but the sources may not be ideal."
+225066,What is considered a normal body temperature for dogs?,mmu_rag_router_llm,helpful,short and sweet answer. Seems like this is a cleaner answer instead of a huge paragraph. But there may have been multiple sources that have different ranges.
+682491,"I'm curious about how women's roles, rights, and experiences have changed globally through history, particularly during 1914-1918 and 1939-1945 and social movements. What factors influenced these shifts, what challenges did women face, and how do leadership, education, and intersectionality still shape their lives?",mmu_rag_router_llm,helpful,
+632223,give me some arguments why abortion may be immoral,decomposition_rag,not-helpful,"In contrast with the inverse question (why abortion might be moral) this presented a more polarised view. Overall, the rerferences were better in this one though!"
+716633,which manosphere influencer should i follow,mmu_rag_vanilla,not-helpful,"Good that it recommends specific influencers, but very sparse info otherwise."
+251842,What are the three kingdoms and who are their kings during China's Three Kingdoms period?,decomposition_rag,helpful,The parts that I know are answered correctly; some finer details like the years I cannot verify. I also like how the result also mentioned potential confusion between China's and Korea's three kingdoms.
+899002,Who is Arjuna Ranathunga,mmu_rag_vanilla,helpful,
+716633,which manosphere influencer should i follow,mmu_rag_router_llm,helpful,"Good results, but only brings up the problematic aspects of the manosphere at the end"
+434006,"I'm exploring the key factors for job satisfaction and career growth, especially within hospitality and restaurant settings. Could you explain how work environment, atmosphere, and fulfillment impact career advancement, and what makes certain workplaces, like Nucor, uniquely successful?",mmu_rag_vanilla,helpful,
+712397,why family daycare is better than others,decomposition_rag,helpful,Great comparison between both
+376330,Why do people do PhDs when they can find rewarding jobs without?,mmu_rag_vanilla,helpful,"Somehow good, but with such a question, I'd expect multiple resources and perspectives to be used and summarised."
+716633,which manosphere influencer should i follow,decomposition_rag,helpful,"Results are comprehensive, but are presented largely judgement-free. Google AI notes that this topic is controversial at the start, while this only mentions it at the end."
+918961,"I'm curious about the illegality of activities like prostitution, organ selling, and insider trading. How do these laws connect to broader issues such as human and drug trafficking? Specifically, could you explain human trafficking's contributing factors, its societal impact, and how law enforcement and policy address it, globally and in the US?",mmu_rag_router_llm,not-helpful,"Good comprehensive answer, but without citations makes it hard to follow/check correctness."
+225066,What is considered a normal body temperature for dogs?,decomposition_rag,helpful,"Overall, it looks ok.  Seems like it is too detailed with the numbers. The answer could be simplified."
+899002,Who is Arjuna Ranathunga,decomposition_rag,not-helpful,Muhammad Ali has no relevance to the query
+918961,how many seasons of prison break are on netflix,decomposition_rag,helpful,"good, but retrieval looks sub-optimal"
+251842,Can you show me a list of Dota 2 TI winning players from 2010 to 2021?,decomposition_rag,not-helpful,"Returned information is incorrect. It also tells the user that external data needs to be referenced, but it does not do that for me"
+899002,When does daylight time start in australia,decomposition_rag,helpful,
+376330,what's up?,mmu_rag_vanilla,helpful,good answer but over complicated with all the references it used for some simple answers.
+632223,give me some arguments why abortion may be moral,decomposition_rag,helpful,"Fairly balanced response, though starting with the contra is an interesting choice (started with pro life). References are somewhat poor quality, and don't include obvious sources like planned parenthood, or webmd"
+563414,why did former slaves seek to have their marriages legally recognized?,mmu_rag_router_llm,not-helpful,The summary confuses and confounds inter-racial and all-black marriages. Well structured but presents the facts in language that is internally and externally incoherent.
+583418,What is clueweb22,mmu_rag_router_llm,not-helpful,"Due to lack of context, it does not know the answer of what is clueweb 22"
+712397,"I'm curious about how religion and spirituality shape individuals and society, from personal growth and health to identity and responses to suffering. I also want to learn how faith relates to reason, and explore specific religious concepts, groups, and well-known spiritual books.",mmu_rag_router_llm,helpful,
+918961,why students feel overwhelmed in college,decomposition_rag,not-helpful,"Multiple sources, but none of them are cited in the answer..."
+251842,Can you give me a summary of the Valorant Champions 2025 grand finals?,decomposition_rag,helpful,"The system does not have data for recent 2025 event, but it did let me know clearly that this is a limitation."
+899002,When does summer time start in australia,decomposition_rag,not-helpful,"My query is not perfect but I wanted to know about ""daylight saving time"""
+563414,why did former slaves seek to have their marriages legally recognized?,mmu_rag_vanilla,not-helpful,Somewhat historically inaccurate - reads easily but is historically and legally inaccurate
+434006,who played the original wonder woman on tv,mmu_rag_router_llm,not-helpful,"Good answer, but it took a long time to get the answer"
+434006,why do some parents favor one child,mmu_rag_vanilla,not-helpful,This takes lots of time to retrieve the results.
+251842,Recommend me an internal bezel watch under 1000 AUD,mmu_rag_router_llm,not-helpful,"The product recommendation is quite inaccurate. It seems that it did not identify what an internal bezel is. Furthermore, the query takes a long time to execute; about 2 minutes."
+899002,how does human activities affect climate,decomposition_rag,helpful,Response is too long.
+716633,environmental factors affect sound propagation,mmu_rag_router_llm,not-helpful,"Decent output, but very slow"
+455041,Where is RMIT located,mmu_rag_vanilla,helpful,
+712397,who played the girl in silence of the lambs,mmu_rag_router_llm,not-helpful,It was too slow.
+662161,how to win at league of legends,mmu_rag_router_llm,not-helpful,Some of the suggestions aren't useful
+632223,tell me about Florence and the Machine,decomposition_rag,helpful,Better than MMU Vanilla
+716633,environmental factors affect sound propagation,decomposition_rag,helpful,
+662161,how to win at league of legends,mmu_rag_router_llm,helpful,
+918961,why students feel overwhelmed in college,mmu_rag_vanilla,helpful,
+434006,What is an RMIT University,mmu_rag_vanilla,helpful,
+712397,how does human activities affect climate,mmu_rag_router_llm,helpful,
+716633,environmental factors affect sound propagation,mmu_rag_vanilla,not-helpful,Info past the first sentence is extraneous
+899002,how does human activities affect climate,mmu_rag_vanilla,helpful,
+434006,why students feel overwhelmed in college,mmu_rag_vanilla,helpful,
+632223,tell me about Florence and the Machine,mmu_rag_vanilla,helpful,"lacks recent content, or names of songs but overall pretty good"
+662161,how does the world view christians,mmu_rag_router_llm,helpful,good routing
+662161,how does the world view christians,decomposition_rag,helpful,good sources and answer
+662161,how does the world view christians,mmu_rag_vanilla,not-helpful,"The sources are all wrong, the other way around"
+662161,what was the impact of the war on domestic america?,mmu_rag_vanilla,not-helpful,did not enumerate all wars
+662161,what was the impact of the war on domestic america?,decomposition_rag,not-helpful,Missing vietnam war
+662161,what was the impact of the war on domestic america?,mmu_rag_vanilla,helpful,
+662161,photosynthesis cellular respiration energy conversion compare,mmu_rag_router_llm,helpful,
+686506,confusion matrix,decomposition_rag,not-helpful,"Format error can lead to confusion
+$$ \text{Recall} = \frac{TP}{TP + FN} $$"
+686506,confusion matrix,mmu_rag_vanilla,helpful,"Better, more concise answer"
+662161,list all python object keys,mmu_rag_vanilla,not-helpful,
+662161,melbourne time now,mmu_rag_vanilla,not-helpful,it just won't tell me what time is it
+662161,uv add blis stuck at build,mmu_rag_vanilla,not-helpful,
+288342,17 inch to cm,decomposition_rag,helpful,
+288342,17 inch to cm,mmu_rag_vanilla,helpful,
+288342,14 inch to cm,mmu_rag_vanilla,helpful,
+662161,How big is Xero and what do they do?,mmu_rag_vanilla,helpful,
+662161,"Create a plan to build a competitive RAG system for a challenge that can deal with different types of user queries, from simple to complex tasks.",mmu_rag_vanilla,not-helpful,it didn't find documents that actually talks about RAG.
+662161,"limit javascript function call speed to some smart browser speed, like current system speed, reduced motion stuff, if phone is in power saving mode, it should call slower",mmu_rag_vanilla,helpful,
+288342,Thyroid Disorders and glucose,decomposition_rag,helpful,Better than vanilla
+288342,thyroid gland problems,decomposition_rag,helpful,
+288342,which religions include wine drinking,mmu_rag_vanilla,helpful,better than decomposition
+288342,which religions include wine drinking,decomposition_rag,helpful,
+288342,who invented wine?,mmu_rag_vanilla,not-helpful,
+288342,who invented wine?,decomposition_rag,helpful,better than vanilla
+288342,Home loan formula,mmu_rag_vanilla,not-helpful,
+288342,What is Golden gaytime,decomposition_rag,helpful,
+288342,What is Golden gaytime,mmu_rag_vanilla,helpful,
+288342,Compare between Subaru Forester to Rav 4,decomposition_rag,helpful,"The generation was good, the search results not good. Biased in favor of Toyota"
+288342,Compare between Subaru Forester to Rav 4,mmu_rag_vanilla,not-helpful,
+288342,Which country invented the disk on key,mmu_rag_vanilla,helpful,
+288342,Which country invented the disk on key,decomposition_rag,helpful,
+288342,Why is the Eiffel tower famous?,decomposition_rag,helpful,
+288342,Why is the Eiffel tower famous?,mmu_rag_vanilla,helpful,
+288342,Wikipedia,mmu_rag_vanilla,helpful,Good answer but bad references
+288342,Wikipedia,decomposition_rag,helpful,
+288342,What airplane is it in true lies?,decomposition_rag,helpful,
+288342,What airplane is it in true lies?,mmu_rag_vanilla,helpful,
+662161,where does most absorption of nutrients occur pancreas stomach small intestine esophagus,decomposition_rag,helpful,
+662161,how to load en_core_web_sm using spacy,mmu_rag_vanilla,helpful,
+662161,v5e-1 TPU vs A100 80G and H100,decomposition_rag,helpful,detailed comparison
+662161,Save trained from sklearn.linear_model import LogisticRegression to File for production ready deployment,mmu_rag_vanilla,helpful,
+662161,how to launch a simple http server with ui files listing and upload feature? can I do it by just a pypi package and python -m?,brave-search,helpful,
+662161,tailscale use a different port other than 41641,decomposition_rag,not-helpful,41618 is wrong
+662161,tailscale use a different port other than 41641,mmu_rag_vanilla,helpful,
+662161,can I pass an async function to asyncio.to_thread()?,mmu_rag_vanilla,helpful,"Overall very good flow! However ""Async Functions in Threads"" can be improved to just use asyncio.run"
+662161,asyncio run in separate thread,mmu_rag_vanilla,helpful,
+288342,what is wine,mmu_rag_vanilla,helpful,
+288342,what is wine,decomposition_rag,helpful,It seems better than Vanilla
+686506,approximate to symbol in latex,mmu_rag_vanilla,helpful,Vanilla's reponse to actually closer to what the user needs at the moment. Suggestions of tools can be useful.
+686506,approximate to symbol in latex,decomposition_rag,helpful,
+288342,what is wine,mmu_rag_vanilla,helpful,
+662161,awscli pypi,decomposition_rag,not-helpful,search query drifted away
+662161,awscli pypi,mmu_rag_vanilla,not-helpful,reference format is wrong
+662161,hello,mmu_rag_vanilla,helpful,
+686506,krogan,decomposition_rag,helpful,
+555713,what is rag?,decomposition_rag,not-helpful,
+555713,what is rag?,google-search,not-helpful,The thumbs down for this item was wrong!
+376330,how to enjoy visiting NZ?,decomposition_rag,helpful,
+815136,What are the success rate of treatment for Large diffuse B-Cell lymphoma,mmu_rag_vanilla,not-helpful,"The Decompose version did better, intent was success rate rather than specific treatments, needed to search quite a bit for the answer in the text produced."
+815136,What are the success rate of treatment for Large diffuse B-Cell lymphoma,decomposition_rag,helpful,captured query intent better than Vanilla with focusing on success rate as the keyword and not treatment
+815136,When was Donald Trump's first appearance in reality TV,decomposition_rag,helpful,
+815136,When was Donald Trump's first appearance in reality TV,mmu_rag_vanilla,helpful,captured intent and short answer for a factoid type of question
+815136,what production company produced stray game,decomposition_rag,not-helpful,"Completely missed the query intent, ignored the word ""game"" and expanded on a topic with similar name"
+815136,what production company produced stray game,mmu_rag_vanilla,helpful,"captured query intent, short answer which is suitable for factoids, there is a reference [1] in the answer which I am assuming it might be the first link the sources?"
+815136,What are the most differentiating symptoms between endometriosis vs PCOS,mmu_rag_vanilla,helpful,"answered the query intent, limited resources at the end and most of them not from renowned sources."
+815136,What are the most differentiating symptoms between endometriosis vs PCOS,decomposition_rag,helpful,"captured the query intent, information summarisation was good with sources although not the most renowned sources for this type of query"
+815136,who are the members of ACDC,decomposition_rag,helpful,"The answer captured the query intent with the top result being the correct answer, provided detail on the band members better than the Vanilla version."
+815136,who are the members of ACDC,mmu_rag_vanilla,not-helpful,The Query intent was ACDC rock band but the answer was too generic and didn't provide details for the query intent.
+662161,how humanity unleashed a flood of new diseases,decomposition_rag,helpful,it's okay and long
+662161,how humanity unleashed a flood of new diseases,mmu_rag_vanilla,helpful,"The answer is fine, but the references quality are not very good, no major publications like nature, science, etc"
+662161,how humanity unleashed a flood of new diseases,mmu_rag_vanilla,helpful,
+662161,"I use this command to launch a Traefik server
+
+docker run -d   --name=traefik   --network=public   --restart=always   -p 80:80   -p 443:443   -v /var/run/docker.sock:/var/run/docker.sock   -v $PWD/acme.json:/acme.json   traefik   --providers.docker   --providers.docker.exposedbydefault=false   --providers.docker.network=public   --entrypoints.web.address=:80   --entrypoints.websecure.address=:443   --certificatesresolvers.myresolver.acme.email=spsacme@rankun.net   --certificatesresolvers.myresolver.acme.storage=/acme.json   --certificatesresolvers.myresolver.acme.tlschallenge=true   --accesslog=true
+
+How do I launch a traefik server that only listens on port 80, not 443?",mmu_rag_vanilla,helpful,
+662161,"when using cloudflare proxy record, can I proxy for wildcard domains like *.sub?",mmu_rag_vanilla,not-helpful,"old knowledge, in 2022 cloudflare started supporting proxying wildcard domains. https://blog.cloudflare.com/wildcard-proxy-for-everyone/"
+225066,how can teachers advocate for children,mmu_rag_azure_o3_deep_research,helpful,
+225066,how can teachers advocate for children,mmu_rag_vanilla,not-helpful,
+225066,how can teachers advocate for children,decomposition_rag,helpful,
+225066,if neurodivergence is the deviation from normal. Aren't neurodiverse humans at the risk of being left out in a democratic system where the majority in society decides the fate of any policies ?,mmu_rag_azure_o3_deep_research,helpful,
+225066,if neurodivergence is the deviation from normal. Aren't neurodiverse humans at the risk of being left out in a democratic system where the majority in society decides the fate of any policies ?,decomposition_rag,helpful,
+225066,why is there a labor crisis,mmu_rag_azure_o3_deep_research,helpful,
+225066,why is there a labor crisis,decomposition_rag,helpful,
+225066,who has struck out the most in baseball history,mmu_rag_azure_o3_deep_research,helpful,
+225066,who has struck out the most in baseball history,decomposition_rag,helpful,
+662161,The big issue and communist,mmu_rag_vanilla,helpful,
+686506,how to make a list using latex?,mmu_rag_vanilla,helpful,
+130196,how to get accurate retrieval with RAG using advance RAG techniques?,decomposition_rag,helpful,better than vanilla rag on eval but lacking details on advance techniques
+130196,how to get accurate retrieval with RAG using advance RAG techniques?,mmu_rag_vanilla,helpful,
+662161,Curse,mmu_rag_vanilla,helpful,
+662161,Wikipedia curry puff,mmu_rag_vanilla,not-helpful,"Nothing from Wikipedia, the reranking and answering should be resilient to content/context hidden instructions and follow user instructions."
+662161,Wikipedia curry puff,decomposition_rag,not-helpful,Nothing from Wikipedia
+662161,Wikipedia curry puff,mmu_rag_vanilla,not-helpful,I don’t see results from Wikipedia
+662161,Wikipedia curry puff,brave-search,helpful,
+662161,Is there a Alexa Rank database that we can download to check domain rankings?,mmu_rag_vanilla,helpful,
+662161,how to check world domain rank and their legit?,mmu_rag_vanilla,not-helpful,"many of the referenced links are expired, 404, or error"
+662161,iPad Pro 2020 vs 2018,mmu_rag_vanilla,helpful,
+288342,"""Disgusting"" is a generally accepted, formal term for something extremely unpleasant, while ""gross"" is a more informal, slangy alternative that also conveys disgust, particularly among younger speakers. While both can be used for the same situations, such as a very unpleasant smell or habit, ""disgusting"" has a broader and more universally understood meaning, whereas ""gross"" can also refer to a large, total amount, as in ""gross income"" or ""gross weight",decomposition_rag,helpful,
+288342,"""Disgusting"" is a generally accepted, formal term for something extremely unpleasant, while ""gross"" is a more informal, slangy alternative that also conveys disgust, particularly among younger speakers. While both can be used for the same situations, such as a very unpleasant smell or habit, ""disgusting"" has a broader and more universally understood meaning, whereas ""gross"" can also refer to a large, total amount, as in ""gross income"" or ""gross weight",mmu_rag_vanilla,helpful,
+662161,hello,mmu_rag_vanilla,helpful,
+662161,hello,decomposition_rag,not-helpful,over interpretation
+662161,Can we update params to from langchain_aws import ChatBedrock to parse <reasoning> to a separate field so it won't affect our final execution?,mmu_rag_vanilla,not-helpful,"(e.g., 3) is a clickbait that doesn't really include the steps, the LLM is been lied to"
+583418,why my SSH -o ProxyCommand=None is not working,mmu_rag_vanilla,helpful,
+130196,what is wsl and why do people need to use it?,decomposition_rag,helpful,
+130196,what is wsl and why do people need to use it?,mmu_rag_perplexity_sonar_pro,helpful,
+662161,"What foods other than mango, pomegranate, and kiwi should I avoid?",mmu_rag_vanilla,helpful,
+130196,Why in sport they are separated by gender?,mmu_rag_vanilla,helpful,
+130196,Why in sport they are separated by gender?,decomposition_rag,helpful,
+130196,Why in sport they are separated by gender?,mmu_rag_perplexity_sonar_pro,helpful,
+130196,does men experience more shoulder pain than women?,mmu_rag_perplexity_sonar_pro,helpful,
+130196,does men experience more shoulder pain than women?,decomposition_rag,not-helpful,That is not a comprehensive Answer no definite answer and not enough details
+662161,hello,decomposition_rag,not-helpful,too verbose
+662161,hello,mmu_rag_vanilla,helpful,
+130196,does men experience more back pain than women?,decomposition_rag,helpful,
+130196,does men experience more back pain than women?,google-ai-overview,helpful,
+288342,Palantir,mmu_rag_vanilla,helpful,
+662161,does fastapi @app.get support multiple paths for the same function?,mmu_rag_vanilla,not-helpful,"it's possible, just use the decorator twice"
+662161,"in python, I don't care about random access on list, I don't want it to expand size all the time, when I use it I always read from the first item to the last, what data structure should I use?",mmu_rag_vanilla,helpful,answer is generally good
+288342,I’ll be an apology today,decomposition_rag,not-helpful,"I wanted to see a definition of the saying, unclear what this result is"
+288342,ridicules meaning,mmu_rag_vanilla,helpful,
+288342,Who is Lavrentiy Beria?,mmu_rag_vanilla,helpful,This one is better than the decomposed.
+288342,Who is Lavrentiy Beria?,decomposition_rag,helpful,
+662161,How many people not touching on in public transport in Melbourne?,decomposition_rag,not-helpful,I just need the first paragraph
+662161,Simplified Chinese characters in Malaysia,decomposition_rag,not-helpful,
+130196,how is rice cracker being made?,decomposition_rag,helpful,
+662161,When did Chinese Malaysian transitioned from traditional Chinese to simplified Chinese?,decomposition_rag,not-helpful,"Too verbose and provided unnecessary information, all I need is the first two sentences"
+662161,When did Chinese Malaysian transitioned from traditional Chinese to simplified Chinese?,mmu_rag_vanilla,not-helpful,Context didn’t provide necessary information
+376330,who invented cameras? track this back to ancient times,mmu_rag_vanilla,helpful,
+376330,who invented cameras? track this back to ancient times,decomposition_rag,helpful,
+662161,boho pants,mmu_rag_vanilla,helpful,Short and concise
+662161,boho pants,decomposition_rag,helpful,
+662161,boho pants,mmu_rag_vanilla,helpful,
+376330,Why ants can not fly?,mmu_rag_vanilla,helpful,
+376330,Why ants can not fly?,decomposition_rag,helpful,
+376330,Is the Yarra the largest river in melbourne the capital of Australia?,decomposition_rag,helpful,
+376330,Is the Yarra the largest river in melbourne the capital of Australia?,mmu_rag_vanilla,helpful,
+376330,Can you list some modern world's wonders?,mmu_rag_vanilla,helpful,
+376330,Can you list some modern world's wonders?,decomposition_rag,helpful,
+376330,how to say Hi in arabic and chinese?,mmu_rag_vanilla,helpful,although there are some 0s in-text citations
+376330,What are the traditional dishes of Saudi?,mmu_rag_vanilla,not-helpful,good answer but no reference list is provided.
+376330,What are the traditional dishes of Saudi?,decomposition_rag,helpful,although there is some inaccurate information
+376330,what's up?,decomposition_rag,not-helpful,It is topic drift or hallucination perhaps
+662161,honest review async-lru vs buildgrid,mmu_rag_vanilla,helpful,
+376330,what's up?,mmu_rag_vanilla,helpful,got the intent but has some 0s in-text citations
+376330,Academia or industry?,mmu_rag_vanilla,helpful,
+376330,Academia or industry?,decomposition_rag,helpful,
+662161,How to use async_lru_cache in my python to cache my dict?,mmu_rag_vanilla,helpful,
+376330,what is my address?,decomposition_rag,not-helpful,
+376330,what is my address?,mmu_rag_vanilla,helpful,
+662161,"How to use async_lru_cache in my python async function that returns AsyncGenerator[RunStreamingResponse, None]?",mmu_rag_vanilla,helpful,
+376330,how to connect my phone to my tv,mmu_rag_vanilla,helpful,
+376330,how to connect my phone to my tv,decomposition_rag,helpful,
+662161,is buildgrid async_lru_cache considered best practice for python in memory cache?,mmu_rag_vanilla,helpful,
+376330,what is the purpose of life?,decomposition_rag,helpful,
+376330,what is the purpose of life?,mmu_rag_vanilla,helpful,
+662161,"explain nfsstat output
+
+[e128356@segsresap03 stable-ir]$ nfsstat -v
+Client packet stats:
+packets    udp        tcp        tcpconn
+0          0          0          0
+
+Client rpc stats:
+calls      retrans    authrefrsh
+444841     0          444849
+
+Client nfs v3:
+null         getattr      setattr      lookup       access       readlink
+0         0% 183725   41% 5409      1% 10410     2% 134068   30% 44        0%
+read         write        create       mkdir        symlink      mknod
+6358      1% 69408    15% 3010      0% 483       0% 45        0% 0         0%
+remove       rmdir        rename       link         readdir      readdirplus
+218       0% 22        0% 92        0% 2323      0% 0         0% 515       0%
+fsstat       fsinfo       pathconf     commit
+28427     6% 6         0% 3         0% 280       0%
+
+[e128356@segsresap03 stable-ir]$",mmu_rag_vanilla,helpful,
+662161,"explain nfsstat output
+
+[e128356@segsresap03 stable-ir]$ nfsstat -v
+Client packet stats:
+packets    udp        tcp        tcpconn
+0          0          0          0
+
+Client rpc stats:
+calls      retrans    authrefrsh
+444841     0          444849
+
+Client nfs v3:
+null         getattr      setattr      lookup       access       readlink
+0         0% 183725   41% 5409      1% 10410     2% 134068   30% 44        0%
+read         write        create       mkdir        symlink      mknod
+6358      1% 69408    15% 3010      0% 483       0% 45        0% 0         0%
+remove       rmdir        rename       link         readdir      readdirplus
+218       0% 22        0% 92        0% 2323      0% 0         0% 515       0%
+fsstat       fsinfo       pathconf     commit
+28427     6% 6         0% 3         0% 280       0%
+
+[e128356@segsresap03 stable-ir]$",mmu_rag_vanilla,helpful,This is great! Great understanding of the command output
+662161,"explain nfsstat output
+
+[e128356@segsresap03 stable-ir]$ nfsstat -v
+Client packet stats:
+packets    udp        tcp        tcpconn
+0          0          0          0
+
+Client rpc stats:
+calls      retrans    authrefrsh
+444841     0          444849
+
+Client nfs v3:
+null         getattr      setattr      lookup       access       readlink
+0         0% 183725   41% 5409      1% 10410     2% 134068   30% 44        0%
+read         write        create       mkdir        symlink      mknod
+6358      1% 69408    15% 3010      0% 483       0% 45        0% 0         0%
+remove       rmdir        rename       link         readdir      readdirplus
+218       0% 22        0% 92        0% 2323      0% 0         0% 515       0%
+fsstat       fsinfo       pathconf     commit
+28427     6% 6         0% 3         0% 280       0%
+
+[e128356@segsresap03 stable-ir]$",mmu_rag_vanilla,not-helpful,model collapsed answering
+662161,"explain nfsstat output
+
+[e128356@segsresap03 stable-ir]$ nfsstat -v
+Client packet stats:
+packets    udp        tcp        tcpconn
+0          0          0          0
+
+Client rpc stats:
+calls      retrans    authrefrsh
+444841     0          444849
+
+Client nfs v3:
+null         getattr      setattr      lookup       access       readlink
+0         0% 183725   41% 5409      1% 10410     2% 134068   30% 44        0%
+read         write        create       mkdir        symlink      mknod
+6358      1% 69408    15% 3010      0% 483       0% 45        0% 0         0%
+remove       rmdir        rename       link         readdir      readdirplus
+218       0% 22        0% 92        0% 2323      0% 0         0% 515       0%
+fsstat       fsinfo       pathconf     commit
+28427     6% 6         0% 3         0% 280       0%
+
+[e128356@segsresap03 stable-ir]$",mmu_rag_vanilla,not-helpful,it didn't understand the % is for the number before it
+376330,how to test a search engine?,decomposition_rag,helpful,"Looks good and it captured the intent of the query correctly. However, the citations appear a bit unusual, as only references 1, 2, and 3 are cited in the text, while 12 pages were used to produce the answer."
+376330,how to test a search engine?,mmu_rag_vanilla,not-helpful,"The summarisation is good, but it missed the intent of the query. The query asked for methods to test a search engine, whereas the response focused on testing how well a website is accessible through a search engine (essentially website optimisation). It looks like the problem lies in retrieval."
+662161,python print current time in ISO format,mmu_rag_vanilla,helpful,
+662161,what time is it now in melbourne?,mmu_rag_vanilla,helpful,
+583418,What is zhengshanxiaozhong Tea,decomposition_rag,helpful,"Same query as what I asked Vanilla RAG one. Although it is slower, it provides richer information regarding any point. With more context and aspects, I much prefer this answer."
+583418,What is zhengshanxiaozhong Tea,mmu_rag_vanilla,helpful,"Seems correct. It is with some contextual expansion, such as health benefits and cultural significance. Although I did not ask for it but I would like to see it."
+662161,why is my user mode podman terminating my containers after I logged out? This is a log message from the container 2025/09/23 06:08:18 INFO : Signal received: terminated,mmu_rag_vanilla,helpful,
+686506,ne zha 2,decomposition_rag,helpful,
+662161,how to setup a token on Github that I can use as password when cloning github repos?,mmu_rag_vanilla,helpful,detailed and useful
+662161,how to check my active ssh public key on windows built in ssh command,mmu_rag_vanilla,helpful,
+662161,how to check my active ssh public key on windows,mmu_rag_vanilla,helpful,
+130196,who experience more backpain men or women?,decomposition_rag,not-helpful,
+686506,adjacency list,mmu_rag_vanilla,helpful,
+686506,what is Earl Gray tea means,mmu_rag_vanilla,helpful,Better than Decompose because it is concise and direct
+686506,what is Earl Gray tea means,decomposition_rag,helpful,In-line reference are missing
+686506,"I am a IR research, what is Earl Gray means",mmu_rag_vanilla,not-helpful,"First IR means Information retrieval, and Earl Grey is a tea"
+686506,What is RMIT University,decomposition_rag,helpful,Sources make it more reliable
+686506,What is RMIT University,mmu_rag_vanilla,not-helpful,"Thinking Process: Initializing LLM server… Processing question with language model… Searching: What is RMIT University
+
+Response:
+Error processing question:"
+662161,How does Startpage work? How do they get their index? How do they crawl the internet? Are they just crawling google search?,mmu_rag_vanilla,helpful,
+130196,is it true that vegetable oil is bad for you and animal fat in moderate amount is good for you?,decomposition_rag,helpful,
+130196,how can I ease backpain?,decomposition_rag,helpful,
+288342,How to remove a tree stump?,mmu_rag_vanilla,helpful,
+662161,time calculation 3:14:24-43:24,mmu_rag_vanilla,helpful,short and smart
+662161,3:14:24-43:24,mmu_rag_vanilla,not-helpful,"I'm asking for time calculation, thanks."
+662161,"I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building.",mmu_rag_perplexity_sonar_reasoning_pro,helpful,the response steps are worth learning
+662161,what's --fgColor-accent: Highlight;?,decomposition_rag,helpful,
+662161,how to use ragas to evaluate my RAG system?,decomposition_rag,helpful,"all that, but didn't say how to use it."
+662161,"when doing docker compose up --pull always, can I also specify it to clean all existing images?",mmu_rag_vanilla,helpful,
+662161,how to delete an EC2InstanceProfile?,mmu_rag_vanilla,helpful,"simple question, simple answer"
+662161,how to use ragas the rag evaluation platform?,decomposition_rag,not-helpful,drifted to a completely different tool
+288342,How and why?,mmu_rag_vanilla,helpful,
+662161,how to use ragas the rag evaluation platform?,mmu_rag_vanilla,helpful,
+264309,Where is the capital of Japan?,mmu_rag_vanilla,not-helpful,No specific law stipulates Tokyo as Japan's capital
+264309,Which law stipulates that Japan's capital is Tokyo?,mmu_rag_vanilla,helpful,
+662161,xerotic eczema,mmu_rag_vanilla,helpful,
+686506,Ao Bing from Nezha2,mmu_rag_vanilla,not-helpful,"The query specifically mentioned the movie Nezha 2, but the summary takes information from the game Shin Megami Tensei V."
+130196,How are proton pump inhibitors and H2 blockers compared?,decomposition_rag,helpful,
+130196,How are proton pump inhibitors and H2 blockers compared?,mmu_rag_vanilla,helpful,
+264309,Who is the current Superman actor?,mmu_rag_vanilla,helpful,
+264309,Adeptus Arbites castigator in Warhammer40k,mmu_rag_vanilla,not-helpful,"It got the wrong result. The Castigator unit does exist in Warhammer 40k as part of the Adeptus Arbites faction in the Soul Killer box. This information was from 2023. Also interesting that it looked for Castigator in e-commerce pages instead of wiki pages. 
+
+https://wh40k.lexicanum.com/wiki/Arbites_Castigator"
+264309,Kruskal's algorithm with adjacency matrix,mmu_rag_vanilla,helpful,
+662161,iPad Pro 2020 vs 2018,decomposition_rag,helpful,Comprehensive
+662161,iPad Pro 2020 vs 2018,mmu_rag_vanilla,not-helpful,"> 75x faster CPU than 2018
+Straight wrong claim"
+662161,"Can I downgrade my iPad to previous version? I don’t care data loss, I just want to downgrade anyhow",decomposition_rag,helpful,Long but good detailed
+662161,"Can I downgrade my iPad to previous version? I don’t care data loss, I just want to downgrade anyhow",mmu_rag_vanilla,helpful,Seems perfect
+662161,launtel network coverage,decomposition_rag,not-helpful,"The query decompositions are too off, and carried away the topic too far"
+662161,launtel network coverage,mmu_rag_vanilla,helpful,
+662161,how to use ragas the rag evaluation platform?,mmu_rag_vanilla,helpful,seems nice
+130196,How does the Grenache wine taste?,mmu_rag_vanilla,helpful,
+130196,hollow knight story?,mmu_rag_vanilla,helpful,
+662161,how to convert my ec2 public ip (not elastic ip) to elastic ip?,mmu_rag_vanilla,helpful,"perfect response, exactly what I did"
+662161,which role to use in openai chat completion api for rag context,mmu_rag_vanilla,helpful,
