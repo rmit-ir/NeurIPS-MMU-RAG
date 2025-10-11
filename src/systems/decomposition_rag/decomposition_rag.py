@@ -158,11 +158,12 @@ Only output the numbered list, nothing else.
             return "No relevant documents found."
 
         context_parts = []
-        for i, doc in enumerate(documents, 1):
+        for doc in documents:
+            sid = doc.get("sid", "unknown")
             content = doc.get("content", "")
             url = doc.get("url", "")
 
-            context_part = f"[{i}]\n{content}"
+            context_part = f"[{sid}]\n{content}"
             if url:
                 context_part += f"\nSource: {url}"
             context_parts.append(context_part)
@@ -177,7 +178,7 @@ Only output the numbered list, nothing else.
             system_message = (
                 "You are a helpful AI assistant. Answer the question using only the provided context. "
                 "Be concise but comprehensive. If the context doesn't contain relevant information, "
-                "say so clearly. Cite sources using document numbers [1], [2], etc. when possible."
+                "say so clearly. Cite sources using [sid] when possible."
                 "/nothink"
             )
 
@@ -210,6 +211,7 @@ Sub-questions and their answers:
 Based on the above sub-question answers, provide a comprehensive and well-structured final answer to the original query.
 Synthesize the information coherently, avoid redundancy, and ensure the answer is complete.
 If there are any contradictions or gaps, note them clearly.
+Cite sources using [sid] when possible.
 """
 
         return [
@@ -303,21 +305,17 @@ If there are any contradictions or gaps, note them clearly.
             # Step 3: Synthesize final answer
             final_answer = await self._synthesize_answers(request.query, sub_queries, sub_answers)
 
-            # Extract citations and contexts
-            citations = []
-            citations_set = set()
-            contexts = []
+            # Deduplicate documents by sid
+            global_docs = {}
             for doc in all_documents:
-                if not doc.get("url") or doc.get("url") in citations_set:
-                    continue  # Skip empty URLs and duplicates
-                if doc.get("url"):
-                    citations_set.add(doc["url"])
-                    citations.append(doc["url"])
-                if doc.get("content") or doc.get("text"):
-                    # Use content or text field from the document
-                    doc_content = doc.get("content") or doc.get("text", "")
-                    if doc_content:
-                        contexts.append(doc_content)
+                sid = doc.get('sid')
+                if sid and sid not in global_docs:
+                    global_docs[sid] = doc
+
+            # Extract citations and contexts
+            valid_docs = [doc for doc in global_docs.values() if doc.get("url") and doc.get("text")]
+            citations = [doc["url"] for doc in valid_docs]
+            contexts = [doc["text"] for doc in valid_docs]
 
             return EvaluateResponse(
                 query_id=request.iid,
@@ -429,19 +427,26 @@ If there are any contradictions or gaps, note them clearly.
                         )
                     # otherwise ignore empty deltas
 
+                # Deduplicate documents by sid
+                global_docs = {}
+                for doc in all_documents:
+                    sid = doc.get('sid')
+                    if sid and sid not in global_docs:
+                        global_docs[sid] = doc
+
                 # Extract citations
                 citations = []
                 unique_urls = set()
-                for doc in all_documents:
-                    if doc.get("url") and doc["url"] not in unique_urls:
+                for doc in global_docs.values():
+                    if doc.get("url") and doc.get("text") and doc["url"] not in unique_urls:
                         unique_urls.add(doc["url"])
                         citations.append(CitationItem(
-                            url=doc.get("url", ""),
-                            icon_url=to_icon_url(doc.get("url", "")),
+                            url=doc["url"],
+                            icon_url=to_icon_url(doc["url"]),
                             date=None,
                             title=None,
-                            sid=doc.get("sid", None),
-                            text=doc.get("text", None),
+                            sid=doc.get("sid"),
+                            text=doc["text"],
                         ))
 
                 # Final response
