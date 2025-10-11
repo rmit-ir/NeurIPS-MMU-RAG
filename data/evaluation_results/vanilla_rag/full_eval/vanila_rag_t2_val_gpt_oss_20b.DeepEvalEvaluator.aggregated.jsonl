@@ -1,0 +1,1 @@
+{"metrics": {"faithfulness": 0.8155779586845764, "answer_relevancy": 0.8085139906057088, "contextual_relevancy": 0.551914477712363, "overall": 0.7253354756675495}, "evaluator_name": "DeepEval", "sample_count": 296, "timestamp": "2025-10-10T14:38:15.454252", "total_time_ms": 2747033.064365387}

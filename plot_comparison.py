@@ -17,10 +17,10 @@ def plot_model_comparison():
     """Plot comparison of three models' evaluation scores."""
 
     # Load data for all three models
-    gpt_120b_df = load_evaluation_rows('data/evaluation_results/test_vanila_rag_no_context_gpt_oss_120b.rows.jsonl')
-    gpt_20b_df = load_evaluation_rows('data/evaluation_results/test_vanila_rag_no_context_gpt_oss_20b.rows.jsonl')
-    qwen_df = load_evaluation_rows('data/evaluation_results/test_vanila_rag_qwen3_32b.DeepEvalEvaluator.rows.jsonl')
-    claude_sonnet_4_df = load_evaluation_rows('data/evaluation_results/test_vanila_rag_claude_sonnet_4.DeepEvalEvaluator.rows.jsonl')
+    gpt_120b_df = load_evaluation_rows('data/evaluation_results/vanilla_rag/n100/vanila_rag_n100_gpt_oss_120b.DeepEvalEvaluator.rows.jsonl')
+    gpt_20b_df = load_evaluation_rows('data/evaluation_results/vanilla_rag/n100/vanila_rag_n100_gpt_oss_20b.DeepEvalEvaluator.rows.jsonl')
+    qwen_df = load_evaluation_rows('data/evaluation_results/vanilla_rag/n100/vanila_rag_n100_qwen332b.DeepEvalEvaluator.rows.jsonl')
+    claude_sonnet_4_df = load_evaluation_rows('data/evaluation_results/vanilla_rag/n100/vanila_rag_n100_claude_4_sonnet.DeepEvalEvaluator.rows.jsonl')
 
     # Set style
     sns.set_style("whitegrid")
