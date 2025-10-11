@@ -64,9 +64,45 @@ class MMUCustomLLM(DeepEvalBaseLLM):
         """Load the model (returns the client)."""
         return self.client
     
+    def _fix_invalid_escapes(self, json_str: str) -> str:
+        """
+        Attempt to fix invalid escape sequences in JSON string.
+        
+        Args:
+            json_str: JSON string with potential invalid escapes
+            
+        Returns:
+            Fixed JSON string
+        """
+        import re
+        
+        # Common invalid escapes: replace \ followed by non-standard chars
+        # But be careful not to break valid ones
+        # For example, replace \" with ", but \" is valid.
+        # Invalid like \t in wrong places, but hard to detect.
+        
+        # Simple: remove backslashes before non-escape chars
+        # But this might break valid escapes.
+        
+        # Replace invalid \ followed by letters not in ["n","t","r","b","f","u","/","\\","\""]
+        # But complicated.
+        
+        # For now, try to replace common issues: if there's \ followed by a letter not in valid escapes, remove the \
+        valid_escapes = ['n', 't', 'r', 'b', 'f', 'u', '/', '\\', '"']
+        def fix_escape(match):
+            char = match.group(1)
+            if char in valid_escapes:
+                return match.group(0)
+            else:
+                return char  # remove the \
+        
+        json_str = re.sub(r'\\(.)', fix_escape, json_str)
+        
+        return json_str
+    
     def _fix_truncated_json(self, json_str: str) -> str:
         """
-        Attempt to fix truncated JSON by closing unclosed structures.
+        Attempt to fix truncated JSON by closing unterminated strings and structures.
         
         Args:
             json_str: Potentially truncated JSON string
@@ -74,32 +110,38 @@ class MMUCustomLLM(DeepEvalBaseLLM):
         Returns:
             Fixed JSON string
         """
-        # Count opening and closing braces/brackets
-        open_braces = json_str.count('{')
-        close_braces = json_str.count('}')
-        open_brackets = json_str.count('[')
-        close_brackets = json_str.count(']')
+        # Remove trailing commas before closing brackets/braces
+        json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
         
-        # Check for unclosed strings
+        # Handle unterminated strings: if we have an odd number of quotes, 
+        # and the last quote is not closed, close it
+        # But this is tricky because we might be inside a string.
+        # Simple approach: if the string ends with a quote followed by comma or bracket, it's probably ok
+        # If it ends with text without closing quote, add quote
+        
+        # Check if we're inside a string at the end
         in_string = False
         escape_next = False
-        for char in json_str:
+        for i in range(len(json_str)):
+            char = json_str[i]
             if escape_next:
                 escape_next = False
                 continue
             if char == '\\':
                 escape_next = True
                 continue
-            if char == '"':
+            if char == '"' and not escape_next:
                 in_string = not in_string
         
-        # Close unclosed string
         if in_string:
             json_str += '"'
         
-        # Close missing brackets and braces
-        json_str += ']' * (open_brackets - close_brackets)
-        json_str += '}' * (open_braces - close_braces)
+        # Try to close unterminated objects/arrays
+        open_braces = json_str.count('{') - json_str.count('}')
+        open_brackets = json_str.count('[') - json_str.count(']')
+        
+        json_str += '}' * open_braces
+        json_str += ']' * open_brackets
         
         return json_str
     
@@ -241,12 +283,26 @@ class MMUCustomLLM(DeepEvalBaseLLM):
                 json_str = self._extract_json_from_response(content)
                 try:
                     json_obj = json.loads(json_str)
+                    # Fix common field name mismatches for DeepEval schemas
+                    if isinstance(json_obj, dict) and "verdicts" in json_obj:
+                        for verdict in json_obj["verdicts"]:
+                            if "reason" in verdict and "statement" not in verdict:
+                                verdict["statement"] = verdict.pop("reason")
                     return schema(**json_obj)
                 except (json.JSONDecodeError, ValueError) as e:
                     # Try to fix common JSON truncation issues
                     if "Unterminated string" in str(e) or "Expecting" in str(e):
                         # Try to close the JSON properly
                         fixed_json = self._fix_truncated_json(json_str)
+                        try:
+                            json_obj = json.loads(fixed_json)
+                            return schema(**json_obj)
+                        except:
+                            pass
+                    
+                    # Try to fix invalid escapes
+                    if "Invalid \\escape" in str(e):
+                        fixed_json = self._fix_invalid_escapes(json_str)
                         try:
                             json_obj = json.loads(fixed_json)
                             return schema(**json_obj)
