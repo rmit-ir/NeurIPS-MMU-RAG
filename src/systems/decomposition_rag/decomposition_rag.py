@@ -7,6 +7,8 @@ from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_clueweb
 from tools.logging_utils import get_logger
+from tools.reranker_vllm import GeneralReranker, get_reranker
+from tools.docs_utils import truncate_docs, update_docs_sids
 
 
 class DecompositionRAG(RAGInterface):
@@ -23,6 +25,8 @@ class DecompositionRAG(RAGInterface):
         max_context_length: int = 3000,
         max_sub_queries: int = 5,
         cw22_a: bool = True,
+        k_docs: int = 10,
+        retrieval_words_threshold: int = 5000,
     ):
         """
         Initialize DecompositionRAG with vLLM server and FineWeb search.
@@ -35,9 +39,12 @@ class DecompositionRAG(RAGInterface):
             api_key: API key for the server (optional)
             temperature: Generation temperature
             max_tokens: Maximum tokens to generate
-            search_results_k: Number of search results to retrieve per sub-query
+            search_results_k: Number of search results to retrieve per sub-query after reranking
             max_context_length: Maximum length of context per sub-query
             max_sub_queries: Maximum number of sub-queries to generate
+            cw22_a: Whether to use CW22-A collection
+            k_docs: Number of documents to initially search for per sub-query
+            retrieval_words_threshold: Maximum words for retrieved documents
         """
         self.model_id = model_id
         self.reasoning_parser = reasoning_parser
@@ -50,11 +57,14 @@ class DecompositionRAG(RAGInterface):
         self.max_context_length = max_context_length
         self.max_sub_queries = max_sub_queries
         self.cw22_a = cw22_a
+        self.k_docs = k_docs
+        self.retrieval_words_threshold = retrieval_words_threshold
 
         self.logger = get_logger("decomposition_rag")
         self.llm_client = None
+        self.reranker: Optional[GeneralReranker] = None
 
-    async def _ensure_llm_client(self):
+    async def _ensure_llms(self):
         if not self.llm_client:
             llm_mgr = get_llm_mgr(VllmConfig(model_id=self.model_id,
                                              reasoning_parser=self.reasoning_parser,
@@ -65,12 +75,14 @@ class DecompositionRAG(RAGInterface):
                 max_tokens=self.max_tokens,
                 temperature=self.temperature
             )
+        if not self.reranker:
+            self.reranker = await get_reranker()
 
     async def _decompose_query(self, query: str) -> List[str]:
         """Decompose a complex query into simpler sub-queries."""
         try:
             self.logger.info("Decomposing query", query=query)
-            await self._ensure_llm_client()
+            await self._ensure_llms()
             if not self.llm_client:
                 raise RuntimeError("LLM client is not initialized.")
 
@@ -129,13 +141,16 @@ Only output the numbered list, nothing else.
         """Retrieve relevant documents using ClueWeb search."""
         try:
             self.logger.info("Searching ClueWeb", query=query,
-                             k=self.search_results_k)
-            search_results = await search_clueweb(query=query, k=self.search_results_k, cw22_a=self.cw22_a)
-            search_results = [
-                res for res in search_results if isinstance(res, SearchResult)]
+                             k=self.k_docs)
+            search_results = await search_clueweb(query=query, k=self.k_docs, cw22_a=self.cw22_a)
+            docs = [r for r in search_results if isinstance(r, SearchResult)]
+            docs = await self.reranker.rerank(query, docs)
+            docs = truncate_docs(docs, self.retrieval_words_threshold)
+            docs = update_docs_sids(docs)
+            docs = docs[:self.search_results_k]  # take top search_results_k
 
             documents = []
-            for result in search_results:
+            for result in docs:
                 content = result.text
                 if content:
                     documents.append({
@@ -266,9 +281,9 @@ Cite sources using [sid] when possible.
         """
         self._is_processing = True
         try:
-            await self._ensure_llm_client()
-            if not self.llm_client:
-                raise RuntimeError("LLM client is not initialized.")
+            await self._ensure_llms()
+            if not self.llm_client or not self.reranker:
+                raise RuntimeError("LLM or Reranker are not initialized.")
 
             # Step 1: Decompose the query
             sub_queries = await self._decompose_query(request.query)
@@ -358,9 +373,9 @@ Cite sources using [sid] when possible.
             self._is_processing = True
             try:
                 yield self._inter_resp("Preparing to answer...\n\n")
-                await self._ensure_llm_client()
-                if not self.llm_client:
-                    raise RuntimeError("LLM server failed to launch")
+                await self._ensure_llms()
+                if not self.llm_client or not self.reranker:
+                    raise RuntimeError("LLM or Reranker failed to launch")
 
                 yield self._inter_resp("Decomposing complex query into sub-questions...\n\n")
 
