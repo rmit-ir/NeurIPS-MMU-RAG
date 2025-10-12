@@ -54,7 +54,32 @@ LLM-powered evaluation using Claude Sonnet 3.5 through the MMU PROXY Router serv
 - `api_key`: API key for authentication (or use `MMU_OPENAI_API_KEY` env var)
 - `combined_prompt`: Use combined evaluation prompt (default: True)
 
-### 📈 RAGASEvaluator
+### � CitationQualityEvaluator
+**Path:** `src.evaluators.citation_quality_evaluator.evaluator.CitationQualityEvaluator`
+
+LLM-based evaluation of citation quality in RAG responses:
+- **Citation Relevance**: How relevant citations are to the claims made (0-5 scale)
+- **Citation Accuracy**: Whether citations accurately support the claims (0-5 scale)
+- **Citation Completeness**: Whether all factual claims are properly cited (0-5 scale)
+- **Citation Attribution**: Whether citations are properly attributed and formatted (0-5 scale)
+- **Overall Citation Quality**: Average of all citation quality dimensions
+
+**Special Features:**
+- Comprehensive citation assessment using LLM-as-a-Judge
+- Multi-dimensional evaluation of citation usage
+- Concurrent processing for efficient evaluation
+- JSON-structured evaluation responses
+
+**Parameters:**
+- `model_id`: Model ID for evaluation (default: "qwen.qwen3-32b-v1:0")
+- `temperature`: LLM temperature setting (default: 0.0)
+- `max_tokens`: Maximum tokens to generate (default: 1024)
+- `silent_errors`: Log errors and continue (default: True)
+- `num_threads`: Number of concurrent threads (default: 1)
+- `api_base`: MMU proxy server URL (default: "https://mmu-proxy-server-llm-proxy.rankun.org")
+- `api_key`: API key for authentication
+
+### �📈 RAGASEvaluator
 **Path:** `src.evaluators.ragas_evaluator.evaluator.RAGASEvaluator`
 
 Semantic evaluation using the RAGAS framework with LiteLLM integration:
@@ -75,14 +100,17 @@ Semantic evaluation using the RAGAS framework with LiteLLM integration:
 ### 📊 NLPMetricsEvaluator
 **Path:** `src.evaluators.nlp_metrics.evaluator.NLPMetricsEvaluator`
 
-Traditional NLP metrics for surface-level text similarity:
+Traditional NLP metrics for surface-level and semantic text similarity:
 - **ROUGE-L**: Longest common subsequence overlap with reference
 - **BLEU**: N-gram precision similarity with reference
+- **BERTScore**: Semantic similarity using BERT embeddings
 
 **Parameters:**
 - `include_rouge_l`: Enable ROUGE-L calculation (default: True)
 - `include_bleu`: Enable BLEU calculation (default: True)
+- `include_bertscore`: Enable BERTScore calculation (default: True)
 - `use_stemmer`: Use stemming for ROUGE-L (default: True)
+- `bertscore_model`: BERT model for BERTScore (default: "microsoft/DialoGPT-medium")
 
 ## Quick Start
 
@@ -118,6 +146,14 @@ python scripts/evaluate.py \\
     --evaluator NLPMetricsEvaluator \\
     --results data/system_outputs.jsonl \\
     --reference data/references.jsonl
+
+# Citation quality evaluation
+python scripts/evaluate.py \\
+    --evaluator CitationQualityEvaluator \\
+    --results data/system_outputs.jsonl \\
+    --reference data/references.jsonl \\
+    --output-dir data/evaluation_results \\
+    --output-prefix citation_eval
 ```
 
 ### Advanced Usage

@@ -4,6 +4,7 @@ NLP Metrics Evaluator for traditional text similarity evaluation.
 This evaluator computes surface-level text similarity metrics:
 - ROUGE-L: Longest common subsequence overlap with reference
 - BLEU: N-gram precision similarity with reference
+- BERTScore: Semantic similarity using BERT embeddings
 """
 
 import time
@@ -15,16 +16,18 @@ from src.evaluators.evaluator_interface import EvaluatorInterface, EvaluationRes
 
 class NLPMetricsEvaluator(EvaluatorInterface):
     """
-    Evaluator for traditional NLP metrics (ROUGE-L and BLEU).
+    Evaluator for traditional NLP metrics (ROUGE-L, BLEU, and BERTScore).
     
-    Measures surface-level text similarity between generated responses and references.
+    Measures surface-level and semantic text similarity between generated responses and references.
     """
     
     def __init__(
         self,
         include_rouge_l: bool = True,
         include_bleu: bool = True,
-        use_stemmer: bool = True
+        include_bertscore: bool = True,
+        use_stemmer: bool = True,
+        bertscore_model: str = "microsoft/DialoGPT-medium"
     ):
         """
         Initialize NLP metrics evaluator.
@@ -32,13 +35,17 @@ class NLPMetricsEvaluator(EvaluatorInterface):
         Args:
             include_rouge_l: Whether to compute ROUGE-L scores
             include_bleu: Whether to compute BLEU scores
+            include_bertscore: Whether to compute BERTScore
             use_stemmer: Whether to use stemming for ROUGE-L calculation
+            bertscore_model: BERT model to use for BERTScore (default: RoBERTa-large)
         """
         self.include_rouge_l = include_rouge_l
         self.include_bleu = include_bleu
+        self.include_bertscore = include_bertscore
         self.use_stemmer = use_stemmer
+        self.bertscore_model = bertscore_model
         
-        if not (include_rouge_l or include_bleu):
+        if not (include_rouge_l or include_bleu or include_bertscore):
             raise ValueError("At least one metric must be enabled")
     
     @property
@@ -54,6 +61,8 @@ class NLPMetricsEvaluator(EvaluatorInterface):
             metrics.append("ROUGE-L")
         if self.include_bleu:
             metrics.append("BLEU")
+        if self.include_bertscore:
+            metrics.append("BERTScore")
         return f"Traditional NLP metrics: {', '.join(metrics)}"
     
     def evaluate(
@@ -138,7 +147,7 @@ class NLPMetricsEvaluator(EvaluatorInterface):
         self,
         merged_data: List[Dict[str, Any]]
     ) -> tuple[Dict[str, float], List[Dict[str, Any]]]:
-        """Compute ROUGE-L and BLEU scores."""
+        """Compute ROUGE-L, BLEU, and BERTScore."""
         try:
             if self.include_rouge_l:
                 from rouge_score import rouge_scorer
@@ -152,8 +161,12 @@ class NLPMetricsEvaluator(EvaluatorInterface):
                 except LookupError:
                     nltk.download('punkt', quiet=True)
             
+            if self.include_bertscore:
+                from bert_score import score
+            
             rouge_l_scores = []
             bleu_scores = []
+            bertscore_f1_scores = []
             row_results = []
             
             # Initialize ROUGE scorer if needed
@@ -195,6 +208,14 @@ class NLPMetricsEvaluator(EvaluatorInterface):
                     bleu_scores.append(bleu_score)
                     row_result['bleu'] = bleu_score
                 
+                # Calculate BERTScore
+                if self.include_bertscore:
+                    # BERTScore expects lists of strings
+                    P, R, F1 = score([generated], [reference], model_type=self.bertscore_model, verbose=False)
+                    bertscore_f1 = float(F1[0])
+                    bertscore_f1_scores.append(bertscore_f1)
+                    row_result['bertscore_f1'] = bertscore_f1
+                
                 row_results.append(row_result)
             
             # Aggregate metrics
@@ -213,6 +234,13 @@ class NLPMetricsEvaluator(EvaluatorInterface):
                 aggregated_metrics['std_bleu'] = float(bleu_series.std())
                 aggregated_metrics['min_bleu'] = float(bleu_series.min())
                 aggregated_metrics['max_bleu'] = float(bleu_series.max())
+            
+            if self.include_bertscore and bertscore_f1_scores:
+                bertscore_series = pd.Series(bertscore_f1_scores)
+                aggregated_metrics['mean_bertscore_f1'] = float(bertscore_series.mean())
+                aggregated_metrics['std_bertscore_f1'] = float(bertscore_series.std())
+                aggregated_metrics['min_bertscore_f1'] = float(bertscore_series.min())
+                aggregated_metrics['max_bertscore_f1'] = float(bertscore_series.max())
             
             return aggregated_metrics, row_results
             

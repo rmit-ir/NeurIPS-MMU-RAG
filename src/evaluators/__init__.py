@@ -13,8 +13,14 @@ try:
 except ImportError:
     DeepEvalEvaluator = None
 
+try:
+    from .citation_quality_evaluator import CitationQualityEvaluator
+except ImportError:
+    CitationQualityEvaluator = None
+
 __all__ = [
     'EvaluatorInterface',
     'EvaluationResult',
-    'DeepEvalEvaluator'
+    'DeepEvalEvaluator',
+    'CitationQualityEvaluator'
 ]
