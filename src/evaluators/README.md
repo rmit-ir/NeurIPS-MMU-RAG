@@ -54,7 +54,7 @@ LLM-powered evaluation using Claude Sonnet 3.5 through the MMU PROXY Router serv
 - `api_key`: API key for authentication (or use `MMU_OPENAI_API_KEY` env var)
 - `combined_prompt`: Use combined evaluation prompt (default: True)
 
-### � CitationQualityEvaluator
+### CitationQualityEvaluator
 **Path:** `src.evaluators.citation_quality_evaluator.evaluator.CitationQualityEvaluator`
 
 LLM-based evaluation of citation quality in RAG responses:
@@ -79,23 +79,6 @@ LLM-based evaluation of citation quality in RAG responses:
 - `api_base`: MMU proxy server URL (default: "https://mmu-proxy-server-llm-proxy.rankun.org")
 - `api_key`: API key for authentication
 
-### �📈 RAGASEvaluator
-**Path:** `src.evaluators.ragas_evaluator.evaluator.RAGASEvaluator`
-
-Semantic evaluation using the RAGAS framework with LiteLLM integration:
-- **Faithfulness**: How factually consistent the answer is with context
-- **Answer Relevancy**: How relevant the answer is to the original question
-- **Answer Correctness**: How accurate the answer is compared to the reference
-
-**Parameters:**
-- `model_name`: LiteLLM model name (default: "openai.gpt-oss-20b-1:0")
-- `api_key`: API key for LiteLLM proxy
-- `base_url`: Base URL for LiteLLM proxy (default: "https://mmu-proxy-server-llm-proxy.rankun.org/v1")
-- `embedding_model`: HuggingFace embedding model (default: "sentence-transformers/all-MiniLM-L6-v2")
-- `include_faithfulness`: Enable faithfulness metric (default: True)
-- `include_answer_relevancy`: Enable answer relevancy metric (default: True)
-- `include_answer_correctness`: Enable answer correctness metric (default: True)
-- `cache_dir`: Directory for caching results (default: "/tmp/ragas_cache")
 
 ### 📊 NLPMetricsEvaluator
 **Path:** `src.evaluators.nlp_metrics.evaluator.NLPMetricsEvaluator`
@@ -110,7 +93,7 @@ Traditional NLP metrics for surface-level and semantic text similarity:
 - `include_bleu`: Enable BLEU calculation (default: True)
 - `include_bertscore`: Enable BERTScore calculation (default: True)
 - `use_stemmer`: Use stemming for ROUGE-L (default: True)
-- `bertscore_model`: BERT model for BERTScore (default: "microsoft/DialoGPT-medium")
+- `bertscore_model`: BERT model for BERTScore (default: "roberta-large")
 
 ## Quick Start
 

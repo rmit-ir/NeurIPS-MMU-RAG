@@ -27,7 +27,7 @@ class NLPMetricsEvaluator(EvaluatorInterface):
         include_bleu: bool = True,
         include_bertscore: bool = True,
         use_stemmer: bool = True,
-        bertscore_model: str = "microsoft/DialoGPT-medium"
+        bertscore_model: str = "microsoft/deberta-xlarge-mnli"
     ):
         """
         Initialize NLP metrics evaluator.

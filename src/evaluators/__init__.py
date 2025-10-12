@@ -18,9 +18,15 @@ try:
 except ImportError:
     CitationQualityEvaluator = None
 
+try:
+    from .nlp_metrics.evaluator import NLPMetricsEvaluator
+except ImportError:
+    NLPMetricsEvaluator = None
+
 __all__ = [
     'EvaluatorInterface',
     'EvaluationResult',
     'DeepEvalEvaluator',
-    'CitationQualityEvaluator'
+    'CitationQualityEvaluator',
+    'NLPMetricsEvaluator'
 ]
