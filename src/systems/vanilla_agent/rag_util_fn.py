@@ -74,7 +74,7 @@ def inter_resp(desc: str, silent: bool, logger: BoundLogger) -> RunStreamingResp
 async def generate_qvs(query: str, num_qvs: int, enable_think: bool, logger: BoundLogger) -> List[str]:
     """Generate a list of query variants"""
     llm, reranker = await get_default_llms()
-    system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
+    system_prompt = f"""You will receive a question from a user and you need interpret what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
 
 Try express the same question in different ways, use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to reach different aspects.
 
@@ -96,7 +96,7 @@ Put each query in a line, do not add any prefix on each query, only provide the 
     ]
     response, _ = await llm.complete_chat(messages)
     if response:
-        queries_str = extract_tag_val(response.strip(), "queries")
+        queries_str = extract_tag_val(response.strip(), "queries", True)
         if queries_str:
             variants = [line.strip("- ").strip()
                         for line in queries_str.split("\n") if line.strip()]
