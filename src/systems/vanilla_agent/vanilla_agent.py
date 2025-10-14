@@ -10,7 +10,7 @@ from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.reranker_vllm import GeneralReranker
 from tools.str_utils import extract_tag_val
-from tools.web_search import SearchResult, search_clueweb
+from tools.web_search import SearchResult
 from tools.docs_utils import atruncate_docs, calc_tokens, calc_tokens_str, update_docs_sids
 
 

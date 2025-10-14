@@ -13,8 +13,12 @@ async def test_server(base_url: str, api_key: Optional[str] = None, session: Opt
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
 
     async def _request_server(session: aiohttp.ClientSession):
-        async with session.get(f"{base_url}/v1/models", headers=headers) as response:
-            return response.status == 200
+        try:
+            async with session.get(f"{base_url}/v1/models", headers=headers) as response:
+                return response.status == 200
+        except Exception as e:
+            logger.debug("Client error when testing server.", error=str(e), url=base_url)
+            return False
 
     if session:
         return await _request_server(session)
