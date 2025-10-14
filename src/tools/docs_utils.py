@@ -10,12 +10,16 @@ logger = get_logger("doc_truncation")
 global_qwen3_tokenizer = None
 
 
-def calc_tokens(doc: SearchResult) -> int:
+def calc_tokens_str(text: str) -> int:
     global global_qwen3_tokenizer
     if not global_qwen3_tokenizer:
         global_qwen3_tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
-    tokens = global_qwen3_tokenizer.encode(doc.text)
+    tokens = global_qwen3_tokenizer.encode(text)
     return len(tokens)
+
+
+def calc_tokens(doc: SearchResult) -> int:
+    return calc_tokens_str(doc.text)
 
 
 def truncate_docs(docs: List[SearchResult], tokens_threshold: int) -> List[SearchResult]:

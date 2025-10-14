@@ -209,7 +209,7 @@ class GeneralOpenAIClient(LLMInterface):
             self.logger.error(f"Unexpected error: {str(e)}")
             raise
 
-    async def complete_chat_streaming(self, messages: List[ChatCompletionMessageParam]) -> AsyncGenerator[CustomChatCompletionChunk, None]:
+    async def complete_chat_streaming(self, messages: List[ChatCompletionMessageParam], max_tokens: Optional[int] = None) -> AsyncGenerator[CustomChatCompletionChunk, None]:
         """
         Generate a streaming response for a chat conversation using AsyncOpenAI.
 
@@ -226,7 +226,7 @@ class GeneralOpenAIClient(LLMInterface):
                 model=self.model_id,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens,
+                max_tokens=max_tokens or self.max_tokens,
                 stream=True
             )
 
