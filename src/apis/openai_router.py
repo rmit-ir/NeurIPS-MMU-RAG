@@ -22,6 +22,7 @@ from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.rag_router.rag_router_llm import RAGRouterLLM
 # from systems.rag_router.rag_router_query_complexity import RAGRouterQueryComplexity
+from systems.vanilla_agent.lang_graph_agent import LangGraphAgent
 from systems.vanilla_agent.vanilla_agent import VanillaAgent
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.logging_utils import get_logger
@@ -90,6 +91,7 @@ rag_systems: Dict[str, RAGInterface] = {
     "vanilla-rag": VanillaRAG(),
     "vanilla-agent": VanillaAgent(),
     "decomposition-rag": DecompositionRAG(),
+    "langgraph-agent": LangGraphAgent(),
     # "rag-router-qc": RAGRouterQueryComplexity(),
     "rag-router-llm": RAGRouterLLM(),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),

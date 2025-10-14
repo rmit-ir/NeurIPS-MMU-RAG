@@ -1,350 +1,196 @@
 import asyncio
-from typing import AsyncGenerator, Callable, List, Literal, Optional
-from pydantic import BaseModel, Field
-
-from langgraph.graph import StateGraph, MessagesState, START, END
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.tools import tool
 from openai.types.chat import ChatCompletionMessageParam
-
-# Import existing components
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
-from systems.vanilla_agent.agent_tools import MSG_TYPE, pub_msg, to_any
-from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp
+from typing import AsyncGenerator, Callable, List, Optional, Tuple
+from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query
+from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
+from tools.path_utils import to_icon_url
+from tools.reranker_vllm import GeneralReranker
+from tools.str_utils import extract_tag_val
 from tools.web_search import SearchResult, search_clueweb
-from tools.docs_utils import truncate_docs, update_docs_sids
-
-
-class GradeDocuments(BaseModel):
-    """Grade documents using a binary score for relevance check."""
-    binary_score: str = Field(
-        description="Relevance score: 'yes' if relevant, or 'no' if not relevant"
-    )
+from tools.docs_utils import atruncate_docs, calc_tokens, update_docs_sids
 
 
 class VanillaAgent(RAGInterface):
-    """
-    Agentic RAG system using LangGraph for retrieval decisions.
-
-    This agent uses a state graph to decide when to retrieve documents,
-    how to rewrite queries, and when to generate final answers.
-    """
-
     def __init__(
         self,
-        model_id: str = "Qwen/Qwen3-4B",
-        reasoning_parser: Optional[str] = "qwen3",
-        gpu_memory_utilization: Optional[float] = 0.6,
-        max_model_len: Optional[int] = 20000,
-        api_key: Optional[str] = None,
-        temperature: float = 0.0,
+        context_tokens: int = 15_904,
         max_tokens: int = 4096,
-        retrieval_words_threshold: int = 5000,
-        enable_think: bool = True,
-        k_docs: int = 20,
         cw22_a: bool = True,
     ):
-        """Initialize VanillaAgent with agentic capabilities using Qwen3 4B."""
-        self.temperature = temperature
+        """
+        Initialize VanillaAgent with LLM server.
+
+        Args:
+            model_id: The model ID to use for LLM server
+            reasoning_parser: Parser for reasoning models
+            mem_fraction_static: Memory fraction for static allocation
+            max_running_requests: Maximum concurrent requests
+            api_key: API key for the server (optional)
+            temperature: Generation temperature
+            max_tokens: Maximum tokens to generate
+        """
+        self.context_tokens = context_tokens
         self.max_tokens = max_tokens
-        self.model_id = model_id
-        self.reasoning_parser = reasoning_parser
-        self.gpu_memory_utilization = gpu_memory_utilization
-        self.max_model_len = max_model_len
-        self.api_key = api_key
-        self.retrieval_words_threshold = retrieval_words_threshold
-        self.enable_think = enable_think
-        self.k_docs = k_docs
         self.cw22_a = cw22_a
 
         self.logger = get_logger("vanilla_agent")
-
-        # Initialize LLM client directly with Qwen3 4B
-        self.llm_client = None
-        self.reranker = None
-
-        # Build the agentic workflow
-        self.workflow = None
-        self.graph = None
+        self.llm_client: Optional[GeneralOpenAIClient] = None
+        self.reranker: Optional[GeneralReranker] = None
 
     @property
     def name(self) -> str:
         return "vanilla-agent"
 
-    async def _create_retriever_tool(self):
-        """Create a retriever tool that uses the agent's search capabilities."""
-        @tool
-        async def retrieve_documents(query: str) -> str:
-            """Search and return relevant documents for the given query."""
-            llm, reranker = await get_default_llms()
-            try:
-                self.logger.info(f"Search: {query}")
-                # Use existing search capabilities
-                docs = await search_clueweb(query, k=self.k_docs, cw22_a=self.cw22_a)
-                docs = [r for r in docs if isinstance(r, SearchResult)]
-                docs = await reranker.rerank(query, docs)
-                docs = truncate_docs(docs, self.retrieval_words_threshold)
-                docs = update_docs_sids(docs)
+    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
+        return EvaluateResponse(
+            query_id=request.iid,
+            citations=[],
+            contexts=[],
+            generated_response=f"Not implemented, update RAGInterface to use run_streaming()"
+        )
 
-                # Format results for the agent
-                if not docs:
-                    return "No relevant documents found."
-
-                context = "\n\n".join([
-                    f"Webpage ID=[{r.sid}] URL=[{r.url}] Date=[{r.date}]:\n{r.text}"
-                    for r in docs
-                ])
-                return context
-            except Exception as e:
-                self.logger.error(f"Error in retrieve_documents: {e}")
-                return f"Error retrieving documents: {str(e)}"
-
-        return retrieve_documents
-
-    async def _build_workflow(self):
-        """Build the agentic workflow using LangGraph with Qwen3 4B."""
-
-        async def retrieve_step(state: MessagesState):
-            """Retrieve documents for the query."""
-            self.logger.info("[retrieve_step] START")
-            retriever_tool = await self._create_retriever_tool()
-            query = state["messages"][0].content
-            context = await retriever_tool.ainvoke({"query": query})
-            self.logger.info("[retrieve_step] END")
-            return {"messages": state["messages"] + [HumanMessage(content=context)]}
-
-        async def grade_context(state: MessagesState) -> Literal["generate_answer", "rewrite_question"]:
-            """Determine whether retrieved documents are relevant using Qwen3 4B."""
-            self.logger.info("[grade_documents] START")
-            llm, reranker = await get_default_llms()
-            GRADE_PROMPT = """You are an expert in the field of answering questions like "{question}".
+    async def review_documents(self, question: str, next_query: str, docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult]]:
+        llm, reranker = await get_default_llms()
+        docs = update_docs_sids(docs)
+        GRADE_PROMPT = """You are an expert in answering question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
 
 Review the search results and see if they are sufficient for answering the user question. Please consider:
 
 1. Does the user want a simple answer or a comprehensive explanation?
 2. Does the search results fully addresses the user's query and any subcomponents?
 3. When you answer 'yes', we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using a different query to search, and let you review again.
-4. If information is missing or uncertain, always return 'no' for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed.
-5. Have you ran out of turns? If there is no turn left, you must say 'yes'.
+4. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed.
+5. Identify which documents are important for answering the question, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality.
 
 Response format:
 
-- You must give a binary score 'yes' or 'no' to indicate whether the search results are sufficient to the question.
-- Only respond with 'yes' or 'no'.
+- <is-sufficient>yes or no</is-sufficient>
+- <new-query>your new query</new-query> (only if is-sufficient is 'no')
+- <useful-docs>1,2,3</useful-docs> (list of document IDs that are useful for answering the question, separated by commas)
 
-Turn left: {turn_left} / {turn_total}.
-
-Here is the user question: {question}
+Here is the current question: "{next_query}"
 
 Here is the search results:
 
 {context}
 """
-            # "You are a grader assessing relevance of a retrieved document to a user question. "
-            # "Here is the retrieved document:\n\n{context}\n\n"
-            # "Here is the user question: {question}\n"
-            # "If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. "
-            # "Give a binary score 'yes' or 'no' to indicate whether the document is relevant to the question. "
-            # "Only respond with 'yes' or 'no'."
-            # )
+        context = build_to_context(docs)
+        prompt = GRADE_PROMPT.format(
+            question=question,
+            next_query=next_query,
+            context=context)
+        messages: List[ChatCompletionMessageParam] = [
+            {"role": "user", "content": prompt}
+        ]
+        resp_text = ""
+        async for chunk in llm.complete_chat_streaming(messages):
+            if chunk.choices[0].finish_reason is not None:
+                break
+            delta = chunk.choices[0].delta
+            if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                print(delta.reasoning_content, end="", flush=True)
+            elif hasattr(delta, 'content') and delta.content:
+                print(delta.content, end="", flush=True)
+                resp_text += delta.content
 
-            question = state["messages"][0].content
-            context = state["messages"][-1].content
+        resp_text = resp_text.strip().lower() if resp_text else ""
+        is_sufficient = extract_tag_val(resp_text, "is-sufficient") == "yes"
+        new_query = extract_tag_val(resp_text, "new-query")
+        useful_doc_ids_str = extract_tag_val(resp_text, "useful-docs")
+        useful_docs = []
+        if useful_doc_ids_str:
+            useful_doc_ids = [id_.strip() for id_
+                              in useful_doc_ids_str.split(",") if id_.strip().isdigit()]
+            useful_docs = [doc for doc in docs if doc.sid in useful_doc_ids]
 
-            prompt = GRADE_PROMPT.format(question=question, context=context)
-            messages: List[ChatCompletionMessageParam] = [
-                {"role": "user", "content": prompt}
-            ]
+        if not is_sufficient and not new_query:
+            is_sufficient = True  # force to yes if no new query
 
-            response, cpl = await llm.complete_chat(messages)
-            print('cpl trying to get reasoning', cpl)
-            reasoning_content = cpl.choices[0].message.reasoning_content.strip() \
-                if 'reasoning_content' in cpl.choices[0].message else ''
-            score = response.strip().lower() if response else "no"
-            self.logger.info(
-                "grade_documents", question=question, score=score, reasoning=reasoning_content)
-
-            self.logger.info("[grade_documents] END")
-            return "generate_answer" if score == "yes" else "rewrite_question"
-
-        async def rewrite_question(state: MessagesState):
-            """Rewrite the original user question for better retrieval"""
-            self.logger.info("[rewrite_question] START")
-            llm, reranker = await get_default_llms()
-            REWRITE_PROMPT = (
-                "Look at the input and try to reason about the underlying semantic intent / meaning.\n"
-                "Here is the initial question:\n"
-                "-------\n"
-                "{question}\n"
-                "-------\n"
-                "Formulate an improved question that would be better for search:"
-            )
-
-            messages = state["messages"]
-            question = messages[0].content
-            prompt = REWRITE_PROMPT.format(question=question)
-
-            llm_messages: List[ChatCompletionMessageParam] = [
-                {"role": "user", "content": prompt}
-            ]
-
-            response, cpl = await llm.complete_chat(llm_messages)
-            reasoning_content = cpl.choices[0].message.reasoning_content.strip() \
-                if 'reasoning_content' in cpl.choices[0].message else ''
-            self.logger.info(
-                "rewrite_question", original_question=question,
-                rewritten_question=response or "", reasoning=reasoning_content)
-            self.logger.info("[rewrite_question] END")
-            return {"messages": [HumanMessage(content=response or question)]}
-
-        async def generate_answer(state: MessagesState):
-            """Generate final answer based on retrieved context using Qwen3 4B."""
-            self.logger.info("[generate_answer] START")
-            final_content = ""
-            question: str = to_any(state["messages"][0].content)
-            context: str = to_any(state["messages"][-1].content)
-            llm_client, reranker = await get_default_llms()
-            messages = build_llm_messages(context, question, self.enable_think)
-            pub_msg("custom_intermediate_step",
-                    inter_resp("Starting final answer\n\n", silent=False, logger=self.logger))
-            async for chunk in llm_client.complete_chat_streaming(messages):
-                if chunk.choices[0].finish_reason is not None:
-                    # Stream finished
-                    break
-                delta = chunk.choices[0].delta
-                if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
-                    # still intermediate steps
-                    pub_msg("custom_intermediate_step",
-                            inter_resp(delta.reasoning_content, silent=True, logger=self.logger))
-                elif hasattr(delta, 'content') and delta.content:
-                    # final report
-                    final_content += delta.content
-                    pub_msg("custom_final_answer", RunStreamingResponse(
-                        final_report=delta.content,
-                        is_intermediate=False,
-                        complete=False
-                    ))
-                # otherwise ignore empty deltas
-
-            citations = [
-                # CitationItem(
-                #     url=r.url,
-                #     icon_url=to_icon_url(r.url),
-                #     date=str(r.date) if r.date else None,
-                #     sid=r.sid,
-                #     title=None,
-                #     text=r.text
-                # )
-                # for r in docs if isinstance(r, SearchResult)
-            ]
-            # Final response
-            pub_msg("custom_final_answer", RunStreamingResponse(
-                citations=citations,
-                is_intermediate=False,
-                complete=False
-            ))
-            self.logger.info("[generate_answer] END")
-            return {"messages": [AIMessage(content=final_content)]}
-
-        # Build the workflow
-        workflow = StateGraph(MessagesState)
-
-        # Add nodes
-        workflow.add_node("retrieve", retrieve_step)
-        workflow.add_node("rewrite_question", rewrite_question)
-        workflow.add_node("generate_answer", generate_answer)
-
-        # Add edges
-        workflow.add_edge(START, "retrieve")
-        workflow.add_conditional_edges("retrieve", grade_context)
-        workflow.add_edge("generate_answer", END)
-        workflow.add_edge("rewrite_question", "retrieve")
-
-        return workflow
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """Process an evaluation request using the agentic workflow."""
-        try:
-            if not self.graph:
-                self.workflow = await self._build_workflow()
-                self.graph = self.workflow.compile()
-
-            # Run the agentic workflow
-            final_state = await self.graph.ainvoke({
-                "messages": [HumanMessage(content=request.query)]
-            })
-
-            # Extract the final response
-            final_message = final_state["messages"][-1]
-            if hasattr(final_message, 'content'):
-                generated_response = final_message.content
-            else:
-                generated_response = str(final_message)
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],  # TODO: Extract citations from workflow
-                contexts=[],   # TODO: Extract contexts from workflow
-                generated_response=generated_response or "No response generated."
-            )
-
-        except Exception as e:
-            self.logger.error("Error in agentic evaluation",
-                              query_id=request.iid, error=str(e))
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                contexts=[],
-                generated_response=f"Agent error: {str(e)}"
-            )
-
-    def _inter_resp(self, desc: str, silent: bool = False) -> RunStreamingResponse:
-        if not silent:
-            self.logger.info(f"Intermediate step | {desc}")
-        return RunStreamingResponse(
-            intermediate_steps=desc,
-            is_intermediate=True,
-            complete=False
-        )
+        return is_sufficient, new_query, useful_docs
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
-        """Process a streaming request using the agentic workflow."""
         async def stream():
             try:
-                self.logger.info(
-                    f"Processing agentic request: {request.question}")
+                llm, reranker = await get_default_llms()
+                context_documents: List[SearchResult] = []
+                next_query = request.question
+                while sum(calc_tokens(d) for d in context_documents) < self.context_tokens:
+                    # step 1: search
+                    docs = await search_clueweb(next_query, k=10, cw22_a=self.cw22_a)
+                    docs = [r for r in docs if isinstance(r, SearchResult)]
+                    if not docs:
+                        # query has issue, reformulate and continue
+                        next_query = await reformulate_query(next_query)
+                        continue
 
-                yield inter_resp("Vanilla Agent starting agentic workflow...\n\n", silent=False, logger=self.logger)
+                    # step 2: rerank
+                    docs_reranked = await reranker.rerank(next_query, docs)
+                    docs_truncated = await atruncate_docs(docs_reranked, self.context_tokens)
 
-                if not self.graph:
-                    yield inter_resp("Building agentic workflow graph...\n\n", silent=False, logger=self.logger)
-                    self.workflow = await self._build_workflow()
-                    self.graph = self.workflow.compile()
+                    # step 3: LLM to review
+                    is_enough, _next_query, useful_docs = await self.review_documents(request.question, next_query, docs_truncated)
+                    context_documents.extend(useful_docs)
 
-                yield inter_resp("Running agentic workflow...\n\n", silent=False, logger=self.logger)
+                    if is_enough:
+                        sum_tokens = sum(calc_tokens(d)
+                                         for d in context_documents)
+                        if sum_tokens >= self.context_tokens:
+                            context_documents = await atruncate_docs(context_documents, self.context_tokens)
+                        break
+                    else:
+                        if not _next_query:
+                            break
+                        next_query = _next_query
 
-                # Stream through the workflow
-                final_response = ""
-                async for (_msg_type, _chunk) in self.graph.astream({
-                    "messages": [HumanMessage(content=request.question)]
-                }, stream_mode="custom"):
-                    # TODO: msg_type might be useful
-                    msg_type: MSG_TYPE = to_any(_msg_type)
-                    chunk: RunStreamingResponse = to_any(_chunk)
-                    yield chunk
+                # truncate before answering
+                context_documents = await atruncate_docs(context_documents, self.context_tokens)
+                context_documents = update_docs_sids(context_documents)
 
+                yield inter_resp("Starting final answer\n\n", silent=False, logger=self.logger)
+                messages = build_llm_messages(
+                    context_documents, request.question, True)
+                async for chunk in llm.complete_chat_streaming(messages):
+                    if chunk.choices[0].finish_reason is not None:
+                        # Stream finished
+                        break
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                        # still intermediate steps
+                        yield inter_resp(delta.reasoning_content, silent=True, logger=self.logger)
+                    elif hasattr(delta, 'content') and delta.content:
+                        # final report
+                        yield RunStreamingResponse(
+                            final_report=delta.content,
+                            is_intermediate=False,
+                            complete=False
+                        )
+                    # otherwise ignore empty deltas
+
+                citations = [
+                    CitationItem(
+                        url=r.url,
+                        icon_url=to_icon_url(r.url),
+                        date=str(r.date) if r.date else None,
+                        sid=r.sid,
+                        title=None,
+                        text=r.text
+                    )
+                    for r in docs if isinstance(r, SearchResult)
+                ]
                 # Final response
                 yield RunStreamingResponse(
-                    final_report=final_response,
+                    citations=citations,
                     is_intermediate=False,
                     complete=True
                 )
 
             except Exception as e:
-                self.logger.exception("Error in agentic streaming")
+                self.logger.exception("Error in run_streaming")
                 yield RunStreamingResponse(
-                    final_report=f"Agent error: {str(e)}",
+                    final_report=f"Error processing question: {str(e)}",
+                    citations=[],
                     is_intermediate=False,
                     complete=True,
                     error=str(e)
@@ -353,58 +199,60 @@ Here is the search results:
         return stream
 
 
-# Test and example usage
 if __name__ == "__main__":
+    import asyncio
+
     async def main():
         """Simple test execution for VanillaAgent."""
-        print("Testing VanillaAgent with Qwen3 4B LLM...")
+        print("Testing VanillaAgent with LLM server...")
 
         # Initialize VanillaAgent
-        agent = VanillaAgent(temperature=0.0, max_tokens=4096)
-        question = "I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building."
+        rag = VanillaAgent(max_tokens=4096)
 
         try:
-            async def test_eval():
-                # Test evaluation method
-                print("\n=== Testing VanillaAgent Agentic Evaluation ===")
-                eval_request = EvaluateRequest(
-                    query=question, iid="agent-test-001")
+            # Test 1: Evaluate method
+            print("\n=== Testing Evaluate Method ===")
+            eval_request = EvaluateRequest(
+                query="What is artificial intelligence?",
+                iid="test-001"
+            )
 
-                eval_response = await agent.evaluate(eval_request)
-                print(f"Query ID: {eval_response.query_id}")
-                print(f"Response: {eval_response.generated_response}")
+            eval_response = await rag.evaluate(eval_request)
+            print(f"Query ID: {eval_response.query_id}")
+            print(f"Response: {eval_response.generated_response}")
+            print(f"Citations: {eval_response.citations}")
 
-            async def test_streaming():
-                # Test streaming method
-                print("\n=== Testing VanillaAgent Agentic Streaming ===")
-                print(f"Question: {question}")
-                run_request = RunRequest(question=question)
+            # Test 2: Streaming method
+            print("\n=== Testing Streaming Method ===")
+            run_request = RunRequest(
+                question="Explain the concept of machine learning in simple terms."
+            )
 
-                stream_func = await agent.run_streaming(run_request)
-                print("Agentic streaming response:")
+            stream_func = await rag.run_streaming(run_request)
+            print("Streaming response:")
 
-                current_step = ''
-
-                async for response in stream_func():
+            print_type = 'intermediate'
+            async for response in stream_func():
+                if response.is_intermediate:
+                    if response.intermediate_steps:
+                        if print_type != 'intermediate':
+                            print_type = 'intermediate'
+                            print(
+                                f"\n[THINK] {response.intermediate_steps}\n\n")
+                        print(response.intermediate_steps, end="", flush=True)
+                else:
+                    if print_type != 'final':
+                        print_type = 'final'
+                        print(f"\n[FINAL] {response.final_report}\n\n")
+                    if response.final_report:
+                        print(response.final_report, end="", flush=True)
+                    if response.citations:
+                        print(f"\n\nCitations: {len(response.citations)}")
                     if response.error:
-                        print(f"[ERROR] {response.error}")
-                    elif response.complete:
-                        print("\n[STREAM COMPLETE]")
-                    elif response.is_intermediate and response.intermediate_steps:
-                        if current_step != 'intermediate':
-                            print("\n"+"-"*30 + " Intermediate Steps " + "-"*30)
-                            current_step = 'intermediate'
-                        print(response.intermediate_steps, end='', flush=True)
-                    elif response.final_report:
-                        if current_step != 'final':
-                            print("\n"+"="*30 + " Final Answer " + "="*30)
-                            current_step = 'final'
-                        print(response.final_report, end='', flush=True)
+                        print(f"\n\nError: {response.error}")
 
-            # await test_eval()
-            await test_streaming()
         except Exception as e:
-            print(f"Error during agentic testing: {str(e)}")
+            print(f"Error during testing: {str(e)}")
 
     # Run the async main function
     asyncio.run(main())

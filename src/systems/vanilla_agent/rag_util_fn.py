@@ -95,6 +95,21 @@ Put each query in a line, do not add any prefix on each query, only provide the 
     return [query]
 
 
+async def reformulate_query(query: str) -> str:
+    """Reformulate the query to improve search results"""
+    llm, reranker = await get_default_llms()
+    system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with a better Google search query to answer that question. Only provide the reformulated query, do not add any prefix or suffix.
+/nothink"""
+    messages: List[ChatCompletionMessageParam] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"User question: {query}"},
+    ]
+    response, _ = await llm.complete_chat(messages)
+    if response:
+        return response.strip()
+    return query
+
+
 global_llm_client: GeneralOpenAIClient | None = None
 global_reranker: GeneralReranker | None = None
 
@@ -110,3 +125,11 @@ async def get_default_llms():
     if not global_reranker:
         global_reranker = await get_reranker()
     return global_llm_client, global_reranker
+
+
+async def main():
+    print(await reformulate_query("I'm using vllm to run Qwen/Qwen3-4B model, now I'm sending it a string prompt, how can I use python libraries calculate how many tokens in my string prompt before I send it over?"))
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
