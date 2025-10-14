@@ -155,8 +155,8 @@ Here is the search results for current question:
                         # query has issue, reformulate and continue
                         next_query = await reformulate_query(next_query)
                         yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
-                                     silent=False, logger=self.logger)
-                        yield inter_resp(f"Next search({(tries+1)}/{self.max_tries}): {next_query}\n\n",
+                                         silent=False, logger=self.logger)
+                        yield inter_resp(f"Next search({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
 
