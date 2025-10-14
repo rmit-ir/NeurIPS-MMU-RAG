@@ -56,7 +56,6 @@ class VanillaAgent(RAGInterface):
 
     async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
         llm, reranker = await get_default_llms()
-        docs = update_docs_sids(docs)
         GRADE_PROMPT = """You are an expert in answering user question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
 
 Review the search results and see if they are sufficient for answering the user question. Please consider:
@@ -148,16 +147,23 @@ Here is the search results for current question:
                     # step 1: search
                     docs = await search_clueweb(next_query, k=10, cw22_a=self.cw22_a)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
-                    if not docs:
-                        # query has issue, reformulate and continue
-                        next_query = await reformulate_query(next_query)
-                        continue
 
                     # step 2: rerank
                     docs_reranked = await reranker.rerank(next_query, docs)
-                    docs_truncated = await atruncate_docs(docs_reranked, self.context_tokens)
+
+                    if not docs_reranked:
+                        # query has issue, reformulate and continue
+                        next_query = await reformulate_query(next_query)
+                        yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
+                                     silent=False, logger=self.logger)
+                        yield inter_resp(f"Next search({(tries+1)}/{self.max_tries}): {next_query}\n\n",
+                                         silent=False, logger=self.logger)
+                        continue
 
                     # step 3: LLM to review
+                    docs_truncated = await atruncate_docs(docs_reranked, self.context_tokens)
+                    docs_truncated = update_docs_sids(
+                        docs_truncated, base_count=len(acc_docs))
                     is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaryies, docs_truncated)
                     acc_docs.extend(useful_docs)
                     acc_queries.append(next_query)

@@ -79,7 +79,7 @@ async def atruncate_docs(docs: List[SearchResult], tokens_threshold: int) -> Lis
     return await loop.run_in_executor(None, truncate_docs, docs, tokens_threshold)
 
 
-def update_docs_sids(docs: List[SearchResult]) -> List[SearchResult]:
+def update_docs_sids(docs: List[SearchResult], base_count: int = 0) -> List[SearchResult]:
     """
     Update the 'sid' attribute of each SearchResult document to ensure uniqueness.
 
@@ -93,7 +93,7 @@ def update_docs_sids(docs: List[SearchResult]) -> List[SearchResult]:
         return []
 
     for idx, doc in enumerate(docs):
-        docs[idx] = doc._replace(sid=str(idx + 1))
+        docs[idx] = doc._replace(sid=str(idx + 1 + base_count))
 
     logger.info("Document SIDs updated", total_docs=len(docs))
     return docs
