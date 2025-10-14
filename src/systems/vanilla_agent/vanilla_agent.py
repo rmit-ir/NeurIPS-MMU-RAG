@@ -157,6 +157,8 @@ Here is the search results for current question:
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         async def stream():
             try:
+                yield inter_resp(f"Starting to process question: {request.question}\n\n",
+                                 silent=False, logger=self.logger)
                 llm, reranker = await get_default_llms()
                 acc_docs: List[SearchResult] = []
                 acc_docs_id_set = set()
@@ -220,7 +222,7 @@ Here is the search results for current question:
                     # we are done
                     if is_enough:
                         break
-                    
+
                     if not _next_query:
                         # ---- error case
                         # review had problem, not enough info, and no next query, we have to continue, same as above error case
