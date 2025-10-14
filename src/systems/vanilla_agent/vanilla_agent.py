@@ -64,7 +64,7 @@ class VanillaAgent(RAGInterface):
 Go through each document in the search results, judge if they are sufficient for answering the user question. Please consider:
 
 1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need a wider range of documents from different aspects.
-2. Does the search results fully addresses the user's query and any subcomponents?
+2. Does the search results fully addresses the user's query and any sub-components?
 3. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, recommendation questions that will benefit from multiple aspects, try to tackle the question from different aspects to form a balanced, comprehensive view.
 4. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
 5. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
@@ -94,17 +94,17 @@ Here is the search results for current question:
         prompt_tokens = calc_tokens_str(prompt)
 
         # truncate docs to fit in context
-        anser_max_tokens = 2048
+        answer_max_tokens = 2048
         redundant_tokens = 1024  # for doc header, prompt template, and safety margin overhead
         available_context = self.context_length - \
-            prompt_tokens - anser_max_tokens - redundant_tokens
+            prompt_tokens - answer_max_tokens - redundant_tokens
         docs_truncated = await atruncate_docs(docs, available_context)
         context = build_to_context(docs_truncated)
         prompt += context
         self.logger.info("Truncate documents for review",
                          model_context_length=self.context_length,
                          prompt_tokens=prompt_tokens,
-                         answer_max_tokens=anser_max_tokens,
+                         answer_max_tokens=answer_max_tokens,
                          available_context=available_context,
                          original_count=len(docs),
                          truncated_count=len(docs_truncated),
@@ -115,7 +115,7 @@ Here is the search results for current question:
             {"role": "user", "content": prompt}
         ]
         resp_text = ""
-        async for chunk in llm.complete_chat_streaming(messages, max_tokens=anser_max_tokens):
+        async for chunk in llm.complete_chat_streaming(messages, max_tokens=answer_max_tokens):
             if chunk.choices[0].finish_reason is not None:
                 break
             delta = chunk.choices[0].delta
@@ -161,7 +161,7 @@ Here is the search results for current question:
                 acc_docs: List[SearchResult] = []
                 acc_docs_id_set = set()
                 acc_doc_base_count = 0
-                acc_summaryies: List[str] = []
+                acc_summaries: List[str] = []
                 acc_queries: List[str] = []
                 next_query = request.question
                 qv_think_enabled = False
@@ -183,7 +183,7 @@ Here is the search results for current question:
                         # query has issue, reformulate and continue, this should be rare since we are searching with query variants
                         next_query = await reformulate_query(next_query)
                         qv_think_enabled = True
-                        yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
+                        yield inter_resp(f"Found no relevant documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
                         yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
@@ -194,7 +194,7 @@ Here is the search results for current question:
                     docs_reranked = update_docs_sids(
                         # base_count: every time the id will start from previous max + 1
                         docs_reranked, base_count=acc_doc_base_count)
-                    is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaryies, docs_reranked)
+                    is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaries, docs_reranked)
                     acc_queries.append(next_query)
 
                     # update acc_doc_base_count and acc_docs
@@ -205,14 +205,14 @@ Here is the search results for current question:
                             acc_docs.append(d)
 
                     if useful_docs_summary:
-                        acc_summaryies.append(useful_docs_summary)
+                        acc_summaries.append(useful_docs_summary)
                         yield inter_resp(f"Found documents: {useful_docs_summary}\n\n",
                                          silent=False, logger=self.logger)
 
                     # had enough documents to answer
                     sum_tokens = sum(calc_tokens(d) for d in acc_docs)
                     if sum_tokens >= self.context_tokens:
-                        yield inter_resp(f"Read too much, let's answer with what we have so far\n\n",
+                        yield inter_resp("Read too much, let's answer with what we have so far\n\n",
                                          silent=False, logger=self.logger)
                         acc_docs = await atruncate_docs(acc_docs, self.context_tokens)
                         break
@@ -226,7 +226,7 @@ Here is the search results for current question:
                         # review had problem, not enough info, and no next query, we have to continue, same as above error case
                         next_query = await reformulate_query(next_query)
                         qv_think_enabled = True
-                        yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
+                        yield inter_resp(f"Found no relevant documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
                         yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
