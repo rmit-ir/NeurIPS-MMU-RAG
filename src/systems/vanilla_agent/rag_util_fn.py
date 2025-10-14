@@ -1,5 +1,6 @@
+import asyncio
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Tuple
 from openai.types.chat import ChatCompletionMessageParam
 from structlog import BoundLogger
 from systems.rag_interface import RunStreamingResponse
@@ -7,16 +8,16 @@ from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.reranker_vllm import GeneralReranker, get_reranker
 from tools.str_utils import extract_tag_val
-from tools.web_search import SearchResult
+from tools.web_search import SearchResult, search_clueweb
 
 
 def system_message(enable_think: bool) -> str:
     # Create a simple RAG prompt
     return f"""You are a knowledgeable AI search assistant.
 
-Your search engine has returned a list of relevant webpages based on the user's query, listed below in <search-results> tags.
+Your search engine has returned a list of relevant webpages based on the user's question, listed below in <search-results> tags. These webpages are your knowledge.
 
-The next user message is the full user query, and you need to explain and answer the search query based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
+The next user message is the full user question, and you need to explain and answer the question based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search question, say you don't have enough information for the question.
 
 Keep your response concise and to the point, and do not answer to greetings or chat with the user, always reply in English.
 
@@ -32,7 +33,7 @@ Search results knowledge cutoff: December 2024
 def build_llm_messages(results: str | list[SearchResult], query: str, enable_think: bool) -> List[ChatCompletionMessageParam]:
     context = ""
     if isinstance(results, list):
-        if results[0] and isinstance(results[0], SearchResult):
+        if len(results) > 0 and isinstance(results[0], SearchResult):
             context = build_to_context(results)
         else:
             context = "<search-results>Empty results</search-results>"
@@ -69,7 +70,11 @@ def inter_resp(desc: str, silent: bool, logger: BoundLogger) -> RunStreamingResp
 async def generate_qvs(query: str, num_qvs: int, logger: BoundLogger) -> List[str]:
     """Generate a list of query variants"""
     llm, reranker = await get_default_llms()
-    system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question. To comply with the format, put your query variants enclosed in queries xml markup:
+    system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
+
+Try express the same question in different ways, use reasonable guess and different keywords to reach different aspects.
+
+To comply with the format, put your query variants enclosed in queries xml markup:
 
 <queries>
 query variant 1
@@ -110,6 +115,29 @@ async def reformulate_query(query: str) -> str:
     return query
 
 
+async def search_w_qv(query: str, num_qvs: int, logger: BoundLogger) -> Tuple[List[str], List[SearchResult]]:
+    """Search with query variants and merge results"""
+    queries = await generate_qvs(query, num_qvs, logger=logger)
+    queries = [query, *queries]
+    querys_docs = await asyncio.gather(*[
+        search_clueweb(query=q, k=10, cw22_a=True) for q in queries])
+
+    # Deduplicate and put into a list
+    all_results: List[SearchResult] = []
+    all_docs_id_set = set()
+    for docs in querys_docs:
+        for r in docs:
+            if isinstance(r, SearchResult) and r.id not in all_docs_id_set:
+                all_results.append(r)
+                all_docs_id_set.add(r.id)
+
+    logger.info("Search with query variants completed",
+                original_query=query,
+                num_variants=len(queries),
+                all_results=len(all_results))
+
+    return queries, all_results
+
 global_llm_client: GeneralOpenAIClient | None = None
 global_reranker: GeneralReranker | None = None
 
@@ -131,5 +159,4 @@ async def main():
     print(await reformulate_query("I'm using vllm to run Qwen/Qwen3-4B model, now I'm sending it a string prompt, how can I use python libraries calculate how many tokens in my string prompt before I send it over?"))
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())

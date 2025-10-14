@@ -204,7 +204,7 @@ class GeneralReranker:
             # Fallback: return zero scores
             return [0.0] * len(docs_fmt)
 
-    async def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000) -> List[SearchResult]:
+    async def rerank(self, query: str, search_results: List[SearchResult], max_words: int = 4000, drop_irrelevant_threshold: float | None = None) -> List[SearchResult]:
         if not search_results:
             self.logger.warning("No search results to rerank")
             return []
@@ -249,11 +249,12 @@ class GeneralReranker:
         # Sort by score descending
         ranked_results.sort(key=lambda x: x.score or 0.0, reverse=True)
 
-        if self.drop_irrelevant_threshold is not None:
+        drop_irrelevant_threshold = drop_irrelevant_threshold or self.drop_irrelevant_threshold
+        if drop_irrelevant_threshold is not None:
             # Filter out results with scores below threshold
             ranked_results = [
                 res for res in ranked_results
-                if (res.score or 0.0) > self.drop_irrelevant_threshold
+                if (res.score or 0.0) > drop_irrelevant_threshold
             ]
             self.logger.info("Filtered irrelevant results",
                              num_remaining=len(ranked_results))

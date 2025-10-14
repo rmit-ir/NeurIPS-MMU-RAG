@@ -36,16 +36,16 @@ def truncate_docs(docs: List[SearchResult], tokens_threshold: int) -> List[Searc
         return []
 
     truncated_docs = []
-    total_words = 0
+    total_tokens = 0
 
     for doc in docs:
         # Count words in the document text
-        word_count = calc_tokens(doc)
+        tokens_count = calc_tokens(doc)
 
         # Check if adding this document would exceed the threshold
-        if total_words + word_count > tokens_threshold:
+        if total_tokens + tokens_count > tokens_threshold:
             logger.debug("Token threshold reached",
-                         total_words=total_words,
+                         total_words=total_tokens,
                          threshold=tokens_threshold,
                          docs_included=len(truncated_docs),
                          docs_total=len(docs))
@@ -53,24 +53,25 @@ def truncate_docs(docs: List[SearchResult], tokens_threshold: int) -> List[Searc
 
         # Add document and update word count
         truncated_docs.append(doc)
-        total_words += word_count
+        total_tokens += tokens_count
 
     if len(truncated_docs) == 0 and len(docs) > 0:
         # Ensure at least one document is included
         doc_0 = docs[0]
-        doc_0_txt_truncated_list = doc_0.text.split()[:tokens_threshold]
+        words_threshold = int(tokens_threshold * 0.5)
+        doc_0_txt_truncated_list = doc_0.text.split()[:words_threshold]
         doc_0_txt_truncated = " ".join(doc_0_txt_truncated_list)
         doc_0 = doc_0._replace(text=doc_0_txt_truncated)
         truncated_docs.append(doc_0)
-        total_words = len(doc_0_txt_truncated_list)
-        logger.debug("No documents fit within the threshold; truncating the first document",
-                     total_words=total_words,
-                     threshold=tokens_threshold)
+        total_tokens = len(doc_0_txt_truncated_list)
+        logger.info("No documents fit within the threshold; truncating the first document",
+                    total_words=total_tokens,
+                    threshold=tokens_threshold)
 
     logger.info("Documents truncated",
                 original_count=len(docs),
                 truncated_count=len(truncated_docs),
-                total_words=total_words)
+                total_words=total_tokens)
     return truncated_docs
 
 

@@ -3,7 +3,7 @@ import json
 from openai.types.chat import ChatCompletionMessageParam
 from typing import AsyncGenerator, Callable, List, Optional, Tuple
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
-from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query
+from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query, search_w_qv
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
@@ -18,6 +18,7 @@ class VanillaAgent(RAGInterface):
         self,
         context_length: int = 20_000,
         context_tokens: int = 14_904,  # 20_000 - 5096 (for prompt and answer)
+        num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
     ):
@@ -35,6 +36,7 @@ class VanillaAgent(RAGInterface):
         """
         self.context_length = context_length
         self.context_tokens = context_tokens
+        self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
 
@@ -60,16 +62,17 @@ class VanillaAgent(RAGInterface):
 
 Review the search results and see if they are sufficient for answering the user question. Please consider:
 
-1. Does the user want a simple answer or a comprehensive explanation?
+1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need a wider range of documents from different aspects.
 2. Does the search results fully addresses the user's query and any subcomponents?
-3. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using a different query to search, and let you review again.
-4. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags, and do not provide <new-query> tag.
-5. Identify new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
-6. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences.
+3. Try to provide a balanced view for controversial topics.
+4. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
+5. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
+6. Identify new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
+7. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences.
 
 Response format:
 
-- <is-sufficient>yes or no</is-sufficient>
+- <is-sufficient>yes or no</is-sufficient> (if yes, then provide <useful-docs> and <useful-docs-summary> tags; if 'no', then provide <new-query> tag)
 - <new-query>your new query</new-query> (only if is-sufficient is 'no')
 - <useful-docs>1,2,3</useful-docs> (list of document IDs that are useful for answering the question, separated by commas)
 - <useful-docs-summary></useful-docs-summary> (short summary of what these useful documents are talking about, just the summary, only if useful-docs is not empty)
@@ -79,24 +82,36 @@ Response format:
 Here is the current question: "{next_query}"
 Here is the search results for current question:
 
-{context}
 """
-        context = build_to_context(docs)
         prompt = GRADE_PROMPT.format(
             question=question,
             next_query=next_query,
             prev_questions="Here are the previous questions we already tried: " +
             "; ".join(acc_queries) if acc_queries else "",
             prev_docs_summaries="Here are the summaries of previous documents we collected for this question, do not duplicate: " +
-            "; ".join(acc_summaries) if acc_summaries else "",
-            context=context)
+            "; ".join(acc_summaries) if acc_summaries else "")
         prompt_tokens = calc_tokens_str(prompt)
+
+        # truncate docs to fit in context
+        anser_max_tokens = 2048
+        available_context = self.context_length - prompt_tokens - anser_max_tokens
+        docs_truncated = await atruncate_docs(docs, available_context)
+        self.logger.info("Truncate documents for review",
+                         model_context_length=self.context_length,
+                         prompt_tokens=prompt_tokens,
+                         answer_max_tokens=anser_max_tokens,
+                         available_context=available_context,
+                         original_count=len(docs),
+                         truncated_count=len(docs_truncated),
+                         actual_tokens=sum([calc_tokens(d) for d in docs_truncated]))
+        context = build_to_context(docs_truncated)
+
+        prompt += context
         messages: List[ChatCompletionMessageParam] = [
             {"role": "user", "content": prompt}
         ]
         resp_text = ""
-        available_context = self.context_length - prompt_tokens - 100
-        async for chunk in llm.complete_chat_streaming(messages, max_tokens=available_context):
+        async for chunk in llm.complete_chat_streaming(messages, max_tokens=anser_max_tokens):
             if chunk.choices[0].finish_reason is not None:
                 break
             delta = chunk.choices[0].delta
@@ -138,6 +153,8 @@ Here is the search results for current question:
             try:
                 llm, reranker = await get_default_llms()
                 acc_docs: List[SearchResult] = []
+                acc_docs_id_set = set()
+                acc_doc_base_count = 0
                 acc_summaryies: List[str] = []
                 acc_queries: List[str] = []
                 next_query = request.question
@@ -145,14 +162,17 @@ Here is the search results for current question:
                 while sum(calc_tokens(d) for d in acc_docs) < self.context_tokens and tries < self.max_tries:
                     tries += 1
                     # step 1: search
-                    docs = await search_clueweb(next_query, k=10, cw22_a=self.cw22_a)
+                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, logger=self.logger)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
+                    qvs_str = ", ".join(qvs)
+                    yield inter_resp(f"Search with query variants: {qvs_str}, found {len(docs)} documents\n\n",
+                                     silent=False, logger=self.logger)
 
                     # step 2: rerank
                     docs_reranked = await reranker.rerank(next_query, docs)
 
                     if not docs_reranked:
-                        # query has issue, reformulate and continue
+                        # query has issue, reformulate and continue, this should be rare since we are searching with query variants
                         next_query = await reformulate_query(next_query)
                         yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
@@ -161,12 +181,19 @@ Here is the search results for current question:
                         continue
 
                     # step 3: LLM to review
-                    docs_truncated = await atruncate_docs(docs_reranked, self.context_tokens)
-                    docs_truncated = update_docs_sids(
-                        docs_truncated, base_count=len(acc_docs))
-                    is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaryies, docs_truncated)
-                    acc_docs.extend(useful_docs)
+                    # docs_truncated = await atruncate_docs(docs_reranked, self.context_tokens)
+                    docs_reranked = update_docs_sids(
+                        # base_count: every time the id will start from previous max + 1
+                        docs_reranked, base_count=acc_doc_base_count)
+                    is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaryies, docs_reranked)
                     acc_queries.append(next_query)
+
+                    # update acc_doc_base_count and acc_docs
+                    acc_doc_base_count += len(useful_docs)
+                    for d in useful_docs:
+                        if d.id not in acc_docs_id_set:
+                            acc_docs_id_set.add(d.id)
+                            acc_docs.append(d)
 
                     if useful_docs_summary:
                         acc_summaryies.append(useful_docs_summary)
@@ -278,7 +305,7 @@ if __name__ == "__main__":
                 else:
                     if print_type != 'final':
                         print_type = 'final'
-                        print(f"\n[FINAL] {response.final_report}\n\n")
+                        print(f"\n[FINAL] {response.final_report}")
                     if response.final_report:
                         print(response.final_report, end="", flush=True)
                     if response.citations:

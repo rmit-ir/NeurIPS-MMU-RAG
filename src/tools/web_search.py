@@ -194,7 +194,7 @@ async def search_fineweb(
     return results
 
 
-@retry(max_retries=8, retry_on=(ClientError, ServerTimeoutError, ClientConnectionError, WebSearchError))
+@retry(max_retries=4, retry_on=(ClientError, ServerTimeoutError, ClientConnectionError, WebSearchError))
 async def search_clueweb(
     query: str,
     k: int = 5,
