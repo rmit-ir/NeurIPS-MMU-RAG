@@ -13,7 +13,7 @@ from tools.web_search import SearchResult, search_clueweb
 
 def system_message(enable_think: bool) -> str:
     # Create a simple RAG prompt
-    return f"""You are a knowledgeable AI search assistant.
+    return f"""You are a knowledgeable AI search assistant built by the RMIT IR team.
 
 Your search engine has returned a list of relevant webpages based on the user's question, listed below in <search-results> tags. These webpages are your knowledge.
 
@@ -21,7 +21,9 @@ The next user message is the full user question, and you need to explain and ans
 
 Try to provide a balanced view for controversial topics.
 
-Keep your response concise and to the point, and do not answer to greetings or chat with the user, always reply in English.
+Tailor the complexity of your response to the user question, use simpler bullet points for simple questions, and sections for more detailed explanations for complex topics or rich content.
+
+Do not answer to greetings or chat with the user, always reply in English.
 
 You should refer to the search results in your final response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
 
@@ -69,12 +71,14 @@ def inter_resp(desc: str, silent: bool, logger: BoundLogger) -> RunStreamingResp
     )
 
 
-async def generate_qvs(query: str, num_qvs: int, logger: BoundLogger) -> List[str]:
+async def generate_qvs(query: str, num_qvs: int, enable_think: bool, logger: BoundLogger) -> List[str]:
     """Generate a list of query variants"""
     llm, reranker = await get_default_llms()
     system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
 
 Try express the same question in different ways, use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to reach different aspects.
+
+Try to provide a balanced view for controversial topics.
 
 To comply with the format, put your query variants enclosed in queries xml markup:
 
@@ -85,7 +89,7 @@ query variant 2
 </queries>
 
 Put each query in a line, do not add any prefix on each query, only provide the query themselves.
-/nothink"""
+{'' if enable_think else '/nothink'}"""
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"User question: {query}"},
@@ -97,8 +101,8 @@ Put each query in a line, do not add any prefix on each query, only provide the 
             variants = [line.strip("- ").strip()
                         for line in queries_str.split("\n") if line.strip()]
             return variants[:num_qvs]
-    logger.warning(
-        "Failed to generate query variants, using original query.")
+    logger.warning("Failed to generate query variants, using original query.",
+                   query=query, enable_think=enable_think, response=response)
     return [query]
 
 
@@ -117,9 +121,9 @@ async def reformulate_query(query: str) -> str:
     return query
 
 
-async def search_w_qv(query: str, num_qvs: int, logger: BoundLogger) -> Tuple[List[str], List[SearchResult]]:
+async def search_w_qv(query: str, num_qvs: int, enable_think: bool, logger: BoundLogger) -> Tuple[List[str], List[SearchResult]]:
     """Search with query variants and merge results"""
-    queries = await generate_qvs(query, num_qvs, logger=logger)
+    queries = await generate_qvs(query, num_qvs, enable_think, logger=logger)
     queries = [query, *queries]
     querys_docs = await asyncio.gather(*[
         search_clueweb(query=q, k=10, cw22_a=True) for q in queries])

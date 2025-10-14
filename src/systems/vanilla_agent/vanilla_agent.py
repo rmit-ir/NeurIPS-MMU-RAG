@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from openai.types.chat import ChatCompletionMessageParam
 from typing import AsyncGenerator, Callable, List, Optional, Tuple
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
@@ -60,14 +61,14 @@ class VanillaAgent(RAGInterface):
         llm, reranker = await get_default_llms()
         GRADE_PROMPT = """You are an expert in answering user question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
 
-Review the search results and see if they are sufficient for answering the user question. Please consider:
+Go through each document in the search results, judge if they are sufficient for answering the user question. Please consider:
 
 1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need a wider range of documents from different aspects.
 2. Does the search results fully addresses the user's query and any subcomponents?
-3. For controversial topics, try to tackle the question from different aspects to form a balanced view.
+3. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, recommendation questions that will benefit from multiple aspects, try to tackle the question from different aspects to form a balanced, comprehensive view.
 4. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
 5. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
-6. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
+6. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty. Only compare to previous documents description, do not compare to their IDs, their IDs are using a different index and will not not match.
 7. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences.
 
 Response format:
@@ -107,7 +108,8 @@ Here is the search results for current question:
                          available_context=available_context,
                          original_count=len(docs),
                          truncated_count=len(docs_truncated),
-                         actual_tokens=calc_tokens_str(prompt))
+                         actual_tokens=calc_tokens_str(prompt),
+                         IDs=[d.sid for d in docs_truncated])
 
         messages: List[ChatCompletionMessageParam] = [
             {"role": "user", "content": prompt}
@@ -128,6 +130,8 @@ Here is the search results for current question:
         new_query = extract_tag_val(resp_text, "new-query")
         useful_doc_ids_str = extract_tag_val(resp_text, "useful-docs")
         useful_docs_summary = extract_tag_val(resp_text, "useful-docs-summary")
+        useful_docs_summary = re.sub(r'[Dd]ocuments?\s*\d+\s*', '', useful_docs_summary) \
+            if useful_docs_summary else None
 
         self.logger.info("Review documents completed",
                          question=question,
@@ -160,11 +164,12 @@ Here is the search results for current question:
                 acc_summaryies: List[str] = []
                 acc_queries: List[str] = []
                 next_query = request.question
+                qv_think_enabled = False
                 tries = 0
                 while sum(calc_tokens(d) for d in acc_docs) < self.context_tokens and tries < self.max_tries:
                     tries += 1
                     # step 1: search
-                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, logger=self.logger)
+                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = ", ".join(qvs)
                     yield inter_resp(f"Search with query variants: {qvs_str}, found {len(docs)} documents\n\n",
@@ -174,11 +179,13 @@ Here is the search results for current question:
                     docs_reranked = await reranker.rerank(next_query, docs)
 
                     if not docs_reranked:
+                        # ---- error case
                         # query has issue, reformulate and continue, this should be rare since we are searching with query variants
                         next_query = await reformulate_query(next_query)
+                        qv_think_enabled = True
                         yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
-                        yield inter_resp(f"Next search({(tries)}/{self.max_tries}): {next_query}\n\n",
+                        yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
 
@@ -202,17 +209,31 @@ Here is the search results for current question:
                         yield inter_resp(f"Found documents: {useful_docs_summary}\n\n",
                                          silent=False, logger=self.logger)
 
-                    if is_enough:
-                        sum_tokens = sum(calc_tokens(d)
-                                         for d in acc_docs)
-                        if sum_tokens >= self.context_tokens:
-                            acc_docs = await atruncate_docs(acc_docs, self.context_tokens)
+                    # had enough documents to answer
+                    sum_tokens = sum(calc_tokens(d) for d in acc_docs)
+                    if sum_tokens >= self.context_tokens:
+                        yield inter_resp(f"Read too much, let's answer with what we have so far\n\n",
+                                         silent=False, logger=self.logger)
+                        acc_docs = await atruncate_docs(acc_docs, self.context_tokens)
                         break
-                    else:
-                        if not _next_query:
-                            break
-                        next_query = _next_query
 
+                    # we are done
+                    if is_enough:
+                        break
+                    
+                    if not _next_query:
+                        # ---- error case
+                        # review had problem, not enough info, and no next query, we have to continue, same as above error case
+                        next_query = await reformulate_query(next_query)
+                        qv_think_enabled = True
+                        yield inter_resp(f"Found no relevent documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
+                                         silent=False, logger=self.logger)
+                        yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
+                                         silent=False, logger=self.logger)
+                        continue
+
+                    # continue next turn
+                    next_query = _next_query
                     yield inter_resp(f"Need more information, so far we have {len(acc_docs)} relevant documents\n\n",
                                      silent=False, logger=self.logger)
                     yield inter_resp(f"Next search({(tries+1)}/{self.max_tries}): {next_query}\n\n",
@@ -222,7 +243,8 @@ Here is the search results for current question:
                 acc_docs = await atruncate_docs(acc_docs, self.context_tokens)
                 acc_docs = update_docs_sids(acc_docs)
 
-                yield inter_resp("Starting final answer\n\n", silent=False, logger=self.logger)
+                yield inter_resp(f"Starting final answer with {len(acc_docs)} documents\n\n",
+                                 silent=False, logger=self.logger)
                 messages = build_llm_messages(
                     acc_docs, request.question, True)
 
@@ -291,6 +313,7 @@ if __name__ == "__main__":
             q = sys.argv[1] if len(sys.argv) > 1 \
                 else "What is the capital of France?"
             run_request = RunRequest(question=q)
+            start_time = asyncio.get_event_loop().time()
 
             stream_func = await rag.run_streaming(run_request)
             print("Streaming response:")
@@ -314,7 +337,8 @@ if __name__ == "__main__":
                         print(f"\n\nCitations: {len(response.citations)}")
                     if response.error:
                         print(f"\n\nError: {response.error}")
-
+            end_time = asyncio.get_event_loop().time()
+            print(f"\n\nTotal time: {end_time - start_time:.2f} seconds")
         except Exception as e:
             print(f"Error during testing: {str(e)}")
 
