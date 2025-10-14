@@ -1,0 +1,112 @@
+from datetime import datetime, timezone
+from typing import List
+from openai.types.chat import ChatCompletionMessageParam
+from structlog import BoundLogger
+from systems.rag_interface import RunStreamingResponse
+from tools.llm_servers.general_openai_client import GeneralOpenAIClient
+from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
+from tools.reranker_vllm import GeneralReranker, get_reranker
+from tools.str_utils import extract_tag_val
+from tools.web_search import SearchResult
+
+
+def system_message(enable_think: bool) -> str:
+    # Create a simple RAG prompt
+    return f"""You are a knowledgeable AI search assistant.
+
+Your search engine has returned a list of relevant webpages based on the user's query, listed below in <search-results> tags.
+
+The next user message is the full user query, and you need to explain and answer the search query based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
+
+Keep your response concise and to the point, and do not answer to greetings or chat with the user, always reply in English.
+
+You should refer to the search results in your final response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
+
+Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
+Search results knowledge cutoff: December 2024
+{'/nothink' if enable_think is not True else ''}
+
+"""
+
+
+def build_llm_messages(results: str | list[SearchResult], query: str, enable_think: bool) -> List[ChatCompletionMessageParam]:
+    context = ""
+    if isinstance(results, list):
+        if results[0] and isinstance(results[0], SearchResult):
+            context = build_to_context(results)
+        else:
+            context = "<search-results>Empty results</search-results>"
+    elif isinstance(results, str):
+        context = results
+
+    sys_msg = system_message(enable_think) + context
+    return [
+        {"role": "system", "content": sys_msg},
+        {"role": "user", "content": query},
+    ]
+
+
+def build_to_context(results: list[SearchResult]) -> str:
+    context = "<search-results>"
+    context += "\n".join([f"""
+Webpage ID=[{r.sid}] URL=[{r.url}] Date=[{r.date}]:
+
+{r.text}""" for r in results])
+    context += "</search-results>"
+    return context
+
+
+def inter_resp(desc: str, silent: bool, logger: BoundLogger) -> RunStreamingResponse:
+    if not silent:
+        logger.info(f"Intermediate step | {desc}")
+    return RunStreamingResponse(
+        intermediate_steps=desc,
+        is_intermediate=True,
+        complete=False
+    )
+
+
+async def generate_qvs(query: str, num_qvs: int, logger: BoundLogger) -> List[str]:
+    """Generate a list of query variants"""
+    llm, reranker = await get_default_llms()
+    system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question. To comply with the format, put your query variants enclosed in queries xml markup:
+
+<queries>
+query variant 1
+query variant 2
+...
+</queries>
+
+Put each query in a line, do not add any prefix on each query, only provide the query themselves.
+/nothink"""
+    messages: List[ChatCompletionMessageParam] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"User question: {query}"},
+    ]
+    response, _ = await llm.complete_chat(messages)
+    if response:
+        queries_str = extract_tag_val(response.strip(), "queries")
+        if queries_str:
+            variants = [line.strip("- ").strip()
+                        for line in queries_str.split("\n") if line.strip()]
+            return variants[:num_qvs]
+    logger.warning(
+        "Failed to generate query variants, using original query.")
+    return [query]
+
+
+global_llm_client: GeneralOpenAIClient | None = None
+global_reranker: GeneralReranker | None = None
+
+
+async def get_default_llms():
+    global global_llm_client, global_reranker
+    if not global_llm_client:
+        llm_mgr = get_llm_mgr(VllmConfig())
+        global_llm_client = await llm_mgr.get_openai_client(
+            max_tokens=4_096,
+            temperature=0.0
+        )
+    if not global_reranker:
+        global_reranker = await get_reranker()
+    return global_llm_client, global_reranker

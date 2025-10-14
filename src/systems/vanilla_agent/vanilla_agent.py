@@ -9,12 +9,11 @@ from openai.types.chat import ChatCompletionMessageParam
 
 # Import existing components
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
-from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
+from systems.vanilla_agent.agent_tools import MSG_TYPE, pub_msg, to_any
+from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp
 from tools.logging_utils import get_logger
 from tools.web_search import SearchResult, search_clueweb
-from tools.reranker_vllm import get_reranker
 from tools.docs_utils import truncate_docs, update_docs_sids
-from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 
 
 class GradeDocuments(BaseModel):
@@ -34,7 +33,6 @@ class VanillaAgent(RAGInterface):
 
     def __init__(
         self,
-        api_host: str | None = None,
         model_id: str = "Qwen/Qwen3-4B",
         reasoning_parser: Optional[str] = "qwen3",
         gpu_memory_utilization: Optional[float] = 0.6,
@@ -44,11 +42,10 @@ class VanillaAgent(RAGInterface):
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 5000,
         enable_think: bool = True,
-        k_docs: int = 30,
+        k_docs: int = 20,
         cw22_a: bool = True,
     ):
         """Initialize VanillaAgent with agentic capabilities using Qwen3 4B."""
-        self.api_host = api_host
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.model_id = model_id
@@ -75,39 +72,18 @@ class VanillaAgent(RAGInterface):
     def name(self) -> str:
         return "vanilla-agent"
 
-    async def _ensure_llms(self):
-        """Ensure LLMs are initialized."""
-        if not self.llm_client:
-            if self.api_host:
-                self.llm_client = GeneralOpenAIClient(
-                    api_base=self.api_host, model_id=self.model_id,
-                    temperature=self.temperature, max_tokens=self.max_tokens)
-            else:
-                llm_mgr = get_llm_mgr(VllmConfig(model_id=self.model_id,
-                                                 reasoning_parser=self.reasoning_parser,
-                                                 gpu_memory_utilization=self.gpu_memory_utilization,
-                                                 max_model_len=self.max_model_len,
-                                                 api_key=self.api_key))
-                self.llm_client = await llm_mgr.get_openai_client(
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature
-                )
-        if not self.reranker:
-            self.reranker = await get_reranker()
-
     async def _create_retriever_tool(self):
         """Create a retriever tool that uses the agent's search capabilities."""
         @tool
         async def retrieve_documents(query: str) -> str:
             """Search and return relevant documents for the given query."""
-            await self._ensure_llms()
-            if not self.reranker:
-                raise ValueError("Reranker is not initialized.")
+            llm, reranker = await get_default_llms()
             try:
+                self.logger.info(f"Search: {query}")
                 # Use existing search capabilities
                 docs = await search_clueweb(query, k=self.k_docs, cw22_a=self.cw22_a)
                 docs = [r for r in docs if isinstance(r, SearchResult)]
-                docs = await self.reranker.rerank(query, docs)
+                docs = await reranker.rerank(query, docs)
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 docs = update_docs_sids(docs)
 
@@ -131,25 +107,47 @@ class VanillaAgent(RAGInterface):
 
         async def retrieve_step(state: MessagesState):
             """Retrieve documents for the query."""
+            self.logger.info("[retrieve_step] START")
             retriever_tool = await self._create_retriever_tool()
             query = state["messages"][0].content
             context = await retriever_tool.ainvoke({"query": query})
+            self.logger.info("[retrieve_step] END")
             return {"messages": state["messages"] + [HumanMessage(content=context)]}
 
-        async def grade_documents(state: MessagesState) -> Literal["generate_answer", "rewrite_question"]:
+        async def grade_context(state: MessagesState) -> Literal["generate_answer", "rewrite_question"]:
             """Determine whether retrieved documents are relevant using Qwen3 4B."""
-            await self._ensure_llms()
-            if not self.llm_client or not self.reranker:
-                raise RuntimeError("LLM or Reranker are not initialized.")
+            self.logger.info("[grade_documents] START")
+            llm, reranker = await get_default_llms()
+            GRADE_PROMPT = """You are an expert in the field of answering questions like "{question}".
 
-            GRADE_PROMPT = (
-                "You are a grader assessing relevance of a retrieved document to a user question. "
-                "Here is the retrieved document:\n\n{context}\n\n"
-                "Here is the user question: {question}\n"
-                "If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. "
-                "Give a binary score 'yes' or 'no' to indicate whether the document is relevant to the question. "
-                "Only respond with 'yes' or 'no'."
-            )
+Review the search results and see if they are sufficient for answering the user question. Please consider:
+
+1. Does the user want a simple answer or a comprehensive explanation?
+2. Does the search results fully addresses the user's query and any subcomponents?
+3. When you answer 'yes', we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using a different query to search, and let you review again.
+4. If information is missing or uncertain, always return 'no' for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed.
+5. Have you ran out of turns? If there is no turn left, you must say 'yes'.
+
+Response format:
+
+- You must give a binary score 'yes' or 'no' to indicate whether the search results are sufficient to the question.
+- Only respond with 'yes' or 'no'.
+
+Turn left: {turn_left} / {turn_total}.
+
+Here is the user question: {question}
+
+Here is the search results:
+
+{context}
+"""
+            # "You are a grader assessing relevance of a retrieved document to a user question. "
+            # "Here is the retrieved document:\n\n{context}\n\n"
+            # "Here is the user question: {question}\n"
+            # "If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. "
+            # "Give a binary score 'yes' or 'no' to indicate whether the document is relevant to the question. "
+            # "Only respond with 'yes' or 'no'."
+            # )
 
             question = state["messages"][0].content
             context = state["messages"][-1].content
@@ -159,21 +157,21 @@ class VanillaAgent(RAGInterface):
                 {"role": "user", "content": prompt}
             ]
 
-            response, cpl = await self.llm_client.complete_chat(messages)
+            response, cpl = await llm.complete_chat(messages)
+            print('cpl trying to get reasoning', cpl)
             reasoning_content = cpl.choices[0].message.reasoning_content.strip() \
                 if 'reasoning_content' in cpl.choices[0].message else ''
             score = response.strip().lower() if response else "no"
             self.logger.info(
                 "grade_documents", question=question, score=score, reasoning=reasoning_content)
 
+            self.logger.info("[grade_documents] END")
             return "generate_answer" if score == "yes" else "rewrite_question"
 
         async def rewrite_question(state: MessagesState):
             """Rewrite the original user question for better retrieval"""
-            await self._ensure_llms()
-            if not self.llm_client or not self.reranker:
-                raise RuntimeError("LLM or Reranker are not initialized.")
-
+            self.logger.info("[rewrite_question] START")
+            llm, reranker = await get_default_llms()
             REWRITE_PROMPT = (
                 "Look at the input and try to reason about the underlying semantic intent / meaning.\n"
                 "Here is the initial question:\n"
@@ -191,39 +189,63 @@ class VanillaAgent(RAGInterface):
                 {"role": "user", "content": prompt}
             ]
 
-            response, cpl = await self.llm_client.complete_chat(llm_messages)
+            response, cpl = await llm.complete_chat(llm_messages)
             reasoning_content = cpl.choices[0].message.reasoning_content.strip() \
                 if 'reasoning_content' in cpl.choices[0].message else ''
             self.logger.info(
                 "rewrite_question", original_question=question,
                 rewritten_question=response or "", reasoning=reasoning_content)
+            self.logger.info("[rewrite_question] END")
             return {"messages": [HumanMessage(content=response or question)]}
 
         async def generate_answer(state: MessagesState):
             """Generate final answer based on retrieved context using Qwen3 4B."""
-            await self._ensure_llms()
-            if not self.llm_client or not self.reranker:
-                raise RuntimeError("LLM or Reranker are not initialized.")
+            self.logger.info("[generate_answer] START")
+            final_content = ""
+            question: str = to_any(state["messages"][0].content)
+            context: str = to_any(state["messages"][-1].content)
+            llm_client, reranker = await get_default_llms()
+            messages = build_llm_messages(context, question, self.enable_think)
+            pub_msg("custom_intermediate_step",
+                    inter_resp("Starting final answer\n\n", silent=False, logger=self.logger))
+            async for chunk in llm_client.complete_chat_streaming(messages):
+                if chunk.choices[0].finish_reason is not None:
+                    # Stream finished
+                    break
+                delta = chunk.choices[0].delta
+                if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                    # still intermediate steps
+                    pub_msg("custom_intermediate_step",
+                            inter_resp(delta.reasoning_content, silent=True, logger=self.logger))
+                elif hasattr(delta, 'content') and delta.content:
+                    # final report
+                    final_content += delta.content
+                    pub_msg("custom_final_answer", RunStreamingResponse(
+                        final_report=delta.content,
+                        is_intermediate=False,
+                        complete=False
+                    ))
+                # otherwise ignore empty deltas
 
-            GENERATE_PROMPT = (
-                "You are an assistant for question-answering tasks. "
-                "Use the following pieces of retrieved context to answer the question. "
-                "If you don't know the answer, just say that you don't know. "
-                "Use three sentences maximum and keep the answer concise.\n"
-                "Question: {question}\n"
-                "Context: {context}"
-            )
-
-            question = state["messages"][0].content
-            context = state["messages"][-1].content
-            prompt = GENERATE_PROMPT.format(question=question, context=context)
-
-            llm_messages: List[ChatCompletionMessageParam] = [
-                {"role": "user", "content": prompt}
+            citations = [
+                # CitationItem(
+                #     url=r.url,
+                #     icon_url=to_icon_url(r.url),
+                #     date=str(r.date) if r.date else None,
+                #     sid=r.sid,
+                #     title=None,
+                #     text=r.text
+                # )
+                # for r in docs if isinstance(r, SearchResult)
             ]
-
-            response, _ = await self.llm_client.complete_chat(llm_messages)
-            return {"messages": [AIMessage(content=response or "I don't know.")]}
+            # Final response
+            pub_msg("custom_final_answer", RunStreamingResponse(
+                citations=citations,
+                is_intermediate=False,
+                complete=False
+            ))
+            self.logger.info("[generate_answer] END")
+            return {"messages": [AIMessage(content=final_content)]}
 
         # Build the workflow
         workflow = StateGraph(MessagesState)
@@ -235,13 +257,7 @@ class VanillaAgent(RAGInterface):
 
         # Add edges
         workflow.add_edge(START, "retrieve")
-
-        # Conditional edges from retrieve
-        workflow.add_conditional_edges(
-            "retrieve",
-            grade_documents,
-        )
-
+        workflow.add_conditional_edges("retrieve", grade_context)
         workflow.add_edge("generate_answer", END)
         workflow.add_edge("rewrite_question", "retrieve")
 
@@ -250,8 +266,6 @@ class VanillaAgent(RAGInterface):
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
         """Process an evaluation request using the agentic workflow."""
         try:
-            await self._ensure_llms()
-
             if not self.graph:
                 self.workflow = await self._build_workflow()
                 self.graph = self.workflow.compile()
@@ -285,6 +299,15 @@ class VanillaAgent(RAGInterface):
                 generated_response=f"Agent error: {str(e)}"
             )
 
+    def _inter_resp(self, desc: str, silent: bool = False) -> RunStreamingResponse:
+        if not silent:
+            self.logger.info(f"Intermediate step | {desc}")
+        return RunStreamingResponse(
+            intermediate_steps=desc,
+            is_intermediate=True,
+            complete=False
+        )
+
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """Process a streaming request using the agentic workflow."""
         async def stream():
@@ -292,50 +315,28 @@ class VanillaAgent(RAGInterface):
                 self.logger.info(
                     f"Processing agentic request: {request.question}")
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Vanilla Agent starting agentic workflow...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
-
-                await self._ensure_llms()
+                yield inter_resp("Vanilla Agent starting agentic workflow...\n\n", silent=False, logger=self.logger)
 
                 if not self.graph:
-                    yield RunStreamingResponse(
-                        intermediate_steps="Building agentic workflow graph...\n\n",
-                        is_intermediate=True,
-                        complete=False
-                    )
+                    yield inter_resp("Building agentic workflow graph...\n\n", silent=False, logger=self.logger)
                     self.workflow = await self._build_workflow()
                     self.graph = self.workflow.compile()
 
-                yield RunStreamingResponse(
-                    intermediate_steps="Running agentic decision-making process...\n\n",
-                    is_intermediate=True,
-                    complete=False
-                )
+                yield inter_resp("Running agentic workflow...\n\n", silent=False, logger=self.logger)
 
                 # Stream through the workflow
                 final_response = ""
-                async for chunk in self.graph.astream({
+                async for (_msg_type, _chunk) in self.graph.astream({
                     "messages": [HumanMessage(content=request.question)]
-                }):
-                    for node, update in chunk.items():
-                        yield RunStreamingResponse(
-                            intermediate_steps=f"Agent node '{node}' processing...\n",
-                            is_intermediate=True,
-                            complete=False
-                        )
-
-                        if "messages" in update and update["messages"]:
-                            last_message = update["messages"][-1]
-                            if hasattr(last_message, 'content') and last_message.content:
-                                final_response = last_message.content
+                }, stream_mode="custom"):
+                    # TODO: msg_type might be useful
+                    msg_type: MSG_TYPE = to_any(_msg_type)
+                    chunk: RunStreamingResponse = to_any(_chunk)
+                    yield chunk
 
                 # Final response
                 yield RunStreamingResponse(
                     final_report=final_response,
-                    citations=[],  # TODO: Extract citations from workflow
                     is_intermediate=False,
                     complete=True
                 )
@@ -344,7 +345,6 @@ class VanillaAgent(RAGInterface):
                 self.logger.exception("Error in agentic streaming")
                 yield RunStreamingResponse(
                     final_report=f"Agent error: {str(e)}",
-                    citations=[],
                     is_intermediate=False,
                     complete=True,
                     error=str(e)
@@ -360,41 +360,49 @@ if __name__ == "__main__":
         print("Testing VanillaAgent with Qwen3 4B LLM...")
 
         # Initialize VanillaAgent
-        agent = VanillaAgent(
-            api_host="http://localhost:8088/v1",
-            temperature=0.0,
-            max_tokens=4096
-        )
+        agent = VanillaAgent(temperature=0.0, max_tokens=4096)
+        question = "I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building."
 
         try:
-            # Test evaluation method
-            print("\n=== Testing VanillaAgent Agentic Evaluation ===")
-            eval_request = EvaluateRequest(
-                query="I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building.",
-                iid="agent-test-001"
-            )
+            async def test_eval():
+                # Test evaluation method
+                print("\n=== Testing VanillaAgent Agentic Evaluation ===")
+                eval_request = EvaluateRequest(
+                    query=question, iid="agent-test-001")
 
-            eval_response = await agent.evaluate(eval_request)
-            print(f"Query ID: {eval_response.query_id}")
-            print(f"Response: {eval_response.generated_response}")
+                eval_response = await agent.evaluate(eval_request)
+                print(f"Query ID: {eval_response.query_id}")
+                print(f"Response: {eval_response.generated_response}")
 
-            # Test streaming method
-            print("\n=== Testing VanillaAgent Agentic Streaming ===")
-            run_request = RunRequest(
-                question="Explain quantum computing and its potential applications."
-            )
+            async def test_streaming():
+                # Test streaming method
+                print("\n=== Testing VanillaAgent Agentic Streaming ===")
+                print(f"Question: {question}")
+                run_request = RunRequest(question=question)
 
-            stream_func = await agent.run_streaming(run_request)
-            print("Agentic streaming response:")
+                stream_func = await agent.run_streaming(run_request)
+                print("Agentic streaming response:")
 
-            async for response in stream_func():
-                if response.is_intermediate and response.intermediate_steps:
-                    print(f"[AGENT] {response.intermediate_steps.strip()}")
-                elif response.final_report:
-                    print(f"[FINAL] {response.final_report}")
-                elif response.error:
-                    print(f"[ERROR] {response.error}")
+                current_step = ''
 
+                async for response in stream_func():
+                    if response.error:
+                        print(f"[ERROR] {response.error}")
+                    elif response.complete:
+                        print("\n[STREAM COMPLETE]")
+                    elif response.is_intermediate and response.intermediate_steps:
+                        if current_step != 'intermediate':
+                            print("\n"+"-"*30 + " Intermediate Steps " + "-"*30)
+                            current_step = 'intermediate'
+                        print(response.intermediate_steps, end='', flush=True)
+                    elif response.final_report:
+                        if current_step != 'final':
+                            print("\n"+"="*30 + " Final Answer " + "="*30)
+                            current_step = 'final'
+                        print(response.final_report, end='', flush=True)
+
+            # await test_eval()
+            await test_streaming()
         except Exception as e:
             print(f"Error during agentic testing: {str(e)}")
 

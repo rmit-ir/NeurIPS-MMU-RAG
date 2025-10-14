@@ -1,13 +1,11 @@
 import asyncio
-from datetime import datetime, timezone
-from typing import AsyncGenerator, Callable, List, Optional
-from openai.types.chat import ChatCompletionMessageParam
+from typing import AsyncGenerator, Callable, Optional
 from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
-from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
-from tools.reranker_vllm import GeneralReranker, get_reranker
+from tools.reranker_vllm import GeneralReranker
 from tools.web_search import SearchResult, search_clueweb
 from tools.docs_utils import truncate_docs, update_docs_sids
 
@@ -61,98 +59,22 @@ class VanillaRAG(RAGInterface):
     def name(self) -> str:
         return "vanilla-rag"
 
-    async def _ensure_llms(self):
-        if not self.llm_client:
-            llm_mgr = get_llm_mgr(VllmConfig(model_id=self.model_id,
-                                             reasoning_parser=self.reasoning_parser,
-                                             gpu_memory_utilization=self.gpu_memory_utilization,
-                                             max_model_len=self.max_model_len,
-                                             api_key=self.api_key))
-            self.llm_client = await llm_mgr.get_openai_client(
-                max_tokens=self.max_tokens,
-                temperature=self.temperature
-            )
-        if not self.reranker:
-            self.reranker = await get_reranker()
-
-    async def _generate_qvs(self, query: str) -> List[str]:
-        """Generate a list of query variants"""
-        if not self.llm_client:
-            await self._ensure_llms()
-        if not self.llm_client:
-            raise RuntimeError("LLM client is not initialized.")
-
-        system_prompt = f"You will receive a question and you need to come up with a 2 to {self.num_qvs} Google search queries to answer that question. Do not think too much. To comply with the format, put your query variants enclosed in <queries>query variant 1\nquery variant 2...</queries>, put each query in a row, do not add any prefix on each query, only provide the query itself. /nothink"
-        messages: List[ChatCompletionMessageParam] = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"User question: {query}"},
-        ]
-        response, _ = await self.llm_client.complete_chat(messages)
-        if response:
-            variants = [line.strip("- ").strip()
-                        for line in response.split("\n") if line.strip()]
-            return variants[:3]  # Return up to 3 variants
-        return [query]
-
-    def _to_context(self, results: list[SearchResult]) -> str:
-        context = "<search-results>"
-        context += "\n".join([f"""
-Webpage ID=[{r.sid}] URL=[{r.url}] Date=[{r.date}]:
-
-{r.text}""" for r in results])
-        context += "</search-results>"
-        return context
-
-    def _llm_messages(self, results: list[SearchResult], query: str) -> List[ChatCompletionMessageParam]:
-        # Create a simple RAG prompt
-        system_message = f"""You are a knowledgeable AI search assistant.
-
-Your search engine has returned a list of relevant webpages based on the user's query, listed below in <search-results> tags.
-
-The next user message is the full user query, and you need to explain and answer the search query based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search query, say you don't have enough information for the search query.
-
-Keep your response concise and to the point, and do not answer to greetings or chat with the user, always reply in English.
-
-You should refer to the search results in your final response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
-
-Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
-Search results knowledge cutoff: December 2024
-{'/nothink' if self.enable_think is not True else ''}
-"""
-        system_message = \
-            str(system_message) + self._to_context(results)
-
-        return [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": query},
-        ]
-
     async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """
-        Process an evaluation request using LLM server.
-
-        Args:
-            request: EvaluateRequest containing query and iid
-
-        Returns:
-            EvaluateResponse with generated answer
-        """
         try:
-            await self._ensure_llms()
-            if not self.llm_client or not self.reranker:
-                raise RuntimeError("LLM or Reranker are not initialized.")
+            llm, reranker = await get_default_llms()
 
             # Search for relevant documents
             docs = await search_clueweb(request.query,
                                         k=self.k_docs, cw22_a=self.cw22_a)
             docs = [r for r in docs if isinstance(r, SearchResult)]
-            docs = await self.reranker.rerank(request.query, docs)
+            docs = await reranker.rerank(request.query, docs)
             docs = truncate_docs(docs, self.retrieval_words_threshold)
             docs = update_docs_sids(docs)
-            messages = self._llm_messages(docs, request.query)
+            messages = build_llm_messages(
+                docs, request.query, self.enable_think)
 
             # Generate response using LLM
-            generated_response, _ = await self.llm_client.complete_chat(messages)
+            generated_response, _ = await llm.complete_chat(messages)
 
             # Extract citations and contexts from search results
             # Only include docs that have both URL and text to ensure consistency
@@ -176,69 +98,42 @@ Search results knowledge cutoff: December 2024
                 generated_response=f"Error processing query: {str(e)}"
             )
 
-    def _inter_resp(self, desc: str, silent: bool = False) -> RunStreamingResponse:
-        if not silent:
-            self.logger.info(f"Intermediate step | {desc}")
-        return RunStreamingResponse(
-            intermediate_steps=desc,
-            is_intermediate=True,
-            complete=False
-        )
-
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
-        """
-        Process a streaming request using LLM server.
-
-        Args:
-            request: RunRequest containing the question
-
-        Returns:
-            Async generator function for streaming responses
-        """
         async def stream():
             try:
-                self.logger.info(f"Processing question: {request.question}")
-                # TODO: this message is not sent to frontend, it's blocked by LLM startup
-                # Ensure server is running
-                yield self._inter_resp("Preparing to answer...\n\n")
+                yield inter_resp(f"Processing question: {request.question}\n\n", silent=False, logger=self.logger)
+                llm, reranker = await get_default_llms()
 
-                await self._ensure_llms()
-                if not self.llm_client or not self.reranker:
-                    raise RuntimeError("LLM or Reranker failed to launch\n\n")
-
-                # yield self._inter_resp("Processing question with language model...\n\n")
-
-                yield self._inter_resp(f"Searching: {request.question}\n\n")
-                self.logger.info("Searching",
-                                 question=request.question, k=self.k_docs)
+                yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 docs = await search_clueweb(request.question,
                                             k=self.k_docs, cw22_a=self.cw22_a)
                 total_docs = len(docs)
-                yield self._inter_resp(f"Found {total_docs} documents for {request.question}\n\n")
+                yield inter_resp(f"Found {total_docs} documents for {request.question}\n\n", silent=False, logger=self.logger)
+
                 docs = [r for r in docs if isinstance(r, SearchResult)]
-                docs = await self.reranker.rerank(request.question, docs)
+                docs = await reranker.rerank(request.question, docs)
                 reranked_docs = len(docs)
-                yield self._inter_resp(f"Reranked {reranked_docs} documents for {request.question}\n\n")
+                yield inter_resp(f"Reranked {reranked_docs} documents for {request.question}\n\n", silent=False, logger=self.logger)
+
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 docs = update_docs_sids(docs)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
+                yield inter_resp(f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
 
-                yield self._inter_resp(f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
+{md_urls}\n\n""", silent=False, logger=self.logger)
 
-{md_urls}\n\n""")
-                messages = self._llm_messages(docs, request.question)
-
-                yield self._inter_resp("Starting final answer\n\n")
-
-                async for chunk in self.llm_client.complete_chat_streaming(messages):
+                yield inter_resp("Starting final answer\n\n", silent=False, logger=self.logger)
+                messages = build_llm_messages(
+                    docs, request.question, self.enable_think)
+                async for chunk in llm.complete_chat_streaming(messages):
                     if chunk.choices[0].finish_reason is not None:
                         # Stream finished
                         break
                     delta = chunk.choices[0].delta
                     if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         # still intermediate steps
-                        yield self._inter_resp(delta.reasoning_content, silent=True)
+                        yield inter_resp(delta.reasoning_content, silent=True, logger=self.logger)
                     elif hasattr(delta, 'content') and delta.content:
                         # final report
                         yield RunStreamingResponse(
@@ -332,9 +227,9 @@ if __name__ == "__main__":
                     if response.final_report:
                         print(response.final_report, end="", flush=True)
                     if response.citations:
-                        print(f"Citations: {response.citations}")
+                        print(f"\n\nCitations: {response.citations}")
                     if response.error:
-                        print(f"Error: {response.error}")
+                        print(f"\n\nError: {response.error}")
 
         except Exception as e:
             print(f"Error during testing: {str(e)}")

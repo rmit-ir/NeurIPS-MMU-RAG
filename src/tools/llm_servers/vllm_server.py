@@ -3,8 +3,9 @@ import atexit
 import subprocess
 from typing import Callable, NamedTuple, Optional, Dict, Tuple, Any
 
+from tools.llm_servers.command_server import find_available_port, test_port_available
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
-from tools.llm_servers.sglang_utils import wait_for_server
+from tools.llm_servers.sglang_utils import test_server, wait_for_server
 from tools.logging_utils import get_logger
 
 logger = get_logger("vllm_server")
@@ -31,7 +32,7 @@ class VllmConfig(NamedTuple):
     max_num_seqs: Optional[int] = None
     """number of concurrent requests in a batch"""
     host: str = "0.0.0.0"
-    port: Optional[int] = None
+    port: int = 8088
     api_key: Optional[str] = None
 
 
@@ -47,12 +48,9 @@ async def launch_server(config: VllmConfig):
         port (Optional[int]): Port to bind the server to. If None, will use a random available port.
         api_key (Optional[str]): API key for authentication.
     """
-    # Find an available port if not specified
-    if config.port is None:
-        import socket
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', 0))
-            config = config._replace(port=s.getsockname()[1])
+    port = config.port
+    if port is None or not test_port_available(port):
+        port = find_available_port()
 
     command = [
         "python", "-m", "vllm.entrypoints.openai.api_server",
@@ -68,7 +66,7 @@ async def launch_server(config: VllmConfig):
         *(["--max-num-seqs", str(config.max_num_seqs)]
           if config.max_num_seqs else []),
         "--host", config.host,
-        "--port", str(config.port),
+        "--port", str(port),
     ]
 
     if config.api_key:
@@ -171,6 +169,17 @@ class VLLMServerManager:
                 self._logger.info("Using existing vLLM server",
                                   port=self._port, model_id=self.config.model_id)
                 return self._api_base, self._port, self._server_host
+            
+            # check if process is already running elsewhere
+            server_host = f"http://{self.config.host}:{self.config.port}"
+            already_running = await test_server(server_host, self.config.api_key)
+            if already_running:
+                self._logger.info("Server already running", url=server_host)
+                _server_host = server_host
+                _api_base = f"{_server_host}/v1"
+                _port = self.config.port
+                return _api_base, _port, _server_host
+
 
             # Launch new server
             self._logger.info("Launching new vLLM server",

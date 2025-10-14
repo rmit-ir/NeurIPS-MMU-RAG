@@ -22,6 +22,12 @@ def terminate_process(process):
             process.wait()
 
 
+def test_port_available(port: int) -> bool:
+    """Check if a port is available."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) != 0
+
+
 def find_available_port() -> int:
     """Find an available port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

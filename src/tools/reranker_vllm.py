@@ -6,8 +6,8 @@ from typing import List, Optional, Dict, Any, Tuple, NamedTuple
 import aiohttp
 
 from tools.web_search import SearchError, SearchResult, search_clueweb
-from tools.llm_servers.command_server import launch_command_server, find_available_port, RunningServer
-from tools.llm_servers.sglang_utils import wait_for_server
+from tools.llm_servers.command_server import launch_command_server, find_available_port, RunningServer, test_port_available
+from tools.llm_servers.sglang_utils import test_server, wait_for_server
 from tools.logging_utils import get_logger
 
 logger = get_logger('reranker_vllm')
@@ -26,7 +26,7 @@ class RerankerConfig(NamedTuple):
         "is_original_qwen3_reranker": True
     }
     host: str = "0.0.0.0"
-    port: Optional[int] = None
+    port: int = 8087
     api_key: Optional[str] = None
 
 
@@ -42,7 +42,7 @@ def build_reranker_command(config: RerankerConfig) -> Tuple[List[str], str, str,
     """Build command for vLLM reranker server."""
     # Find an available port if not specified
     port = config.port
-    if port is None:
+    if port is None or not test_port_available(port):
         port = find_available_port()
 
     # Default KV cache memory for reranker
@@ -87,11 +87,22 @@ async def ensure_reranker_server(config: RerankerConfig) -> Tuple[str, str, int]
             logger.info("Using existing vLLM reranker server", port=_port)
             return _api_base, _server_host, _port
 
+        # check if process is already running elsewhere
+        _test_exists_server_host = f"http://{config.host}:{config.port}"
+        already_running = await test_server(_test_exists_server_host, config.api_key)
+        if already_running:
+            logger.info("Server already running", url=_test_exists_server_host)
+            _server_host = _test_exists_server_host
+            _api_base = _test_exists_server_host
+            _port = config.port
+            return _api_base, _server_host, _port
+
         # Build command and server info
         command, server_host, api_base, server_port = build_reranker_command(
             config)
 
         # Health check function
+
         async def health_check():
             await wait_for_server(server_host, timeout=1800, api_key=config.api_key)
 
