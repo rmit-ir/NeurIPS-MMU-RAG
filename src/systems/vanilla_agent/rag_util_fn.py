@@ -19,6 +19,8 @@ Your search engine has returned a list of relevant webpages based on the user's 
 
 The next user message is the full user question, and you need to explain and answer the question based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search question, say you don't have enough information for the question.
 
+Try to provide a balanced view for controversial topics.
+
 Keep your response concise and to the point, and do not answer to greetings or chat with the user, always reply in English.
 
 You should refer to the search results in your final response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
@@ -72,7 +74,7 @@ async def generate_qvs(query: str, num_qvs: int, logger: BoundLogger) -> List[st
     llm, reranker = await get_default_llms()
     system_prompt = f"""You will receive a question from a user and you need interprete what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
 
-Try express the same question in different ways, use reasonable guess and different keywords to reach different aspects.
+Try express the same question in different ways, use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to reach different aspects.
 
 To comply with the format, put your query variants enclosed in queries xml markup:
 

@@ -64,10 +64,10 @@ Review the search results and see if they are sufficient for answering the user 
 
 1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need a wider range of documents from different aspects.
 2. Does the search results fully addresses the user's query and any subcomponents?
-3. Try to provide a balanced view for controversial topics.
+3. For controversial topics, try to tackle the question from different aspects to form a balanced view.
 4. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
 5. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
-6. Identify new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
+6. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
 7. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences.
 
 Response format:
@@ -94,8 +94,12 @@ Here is the search results for current question:
 
         # truncate docs to fit in context
         anser_max_tokens = 2048
-        available_context = self.context_length - prompt_tokens - anser_max_tokens
+        redundant_tokens = 1024  # for doc header, prompt template, and safety margin overhead
+        available_context = self.context_length - \
+            prompt_tokens - anser_max_tokens - redundant_tokens
         docs_truncated = await atruncate_docs(docs, available_context)
+        context = build_to_context(docs_truncated)
+        prompt += context
         self.logger.info("Truncate documents for review",
                          model_context_length=self.context_length,
                          prompt_tokens=prompt_tokens,
@@ -103,10 +107,8 @@ Here is the search results for current question:
                          available_context=available_context,
                          original_count=len(docs),
                          truncated_count=len(docs_truncated),
-                         actual_tokens=sum([calc_tokens(d) for d in docs_truncated]))
-        context = build_to_context(docs_truncated)
+                         actual_tokens=calc_tokens_str(prompt))
 
-        prompt += context
         messages: List[ChatCompletionMessageParam] = [
             {"role": "user", "content": prompt}
         ]
