@@ -213,14 +213,6 @@ Here is the search results for current question:
                         yield inter_resp(f"Found documents: {useful_docs_summary}\n\n",
                                          silent=False, logger=self.logger)
 
-                    # had enough documents to answer
-                    sum_tokens = sum(calc_tokens(d) for d in acc_docs)
-                    if sum_tokens >= self.context_tokens:
-                        yield inter_resp("Read too much, let's answer with what we have so far\n\n",
-                                         silent=False, logger=self.logger)
-                        acc_docs = await atruncate_docs(acc_docs, self.context_tokens)
-                        break
-
                     # we are done
                     if is_enough:
                         break
