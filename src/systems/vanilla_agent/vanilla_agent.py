@@ -157,7 +157,7 @@ Here is the search results for current question:
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         async def stream():
             try:
-                yield inter_resp(f"Starting to process question: {request.question}\n\n",
+                yield inter_resp(f"Searching question with query variants: {request.question}\n\n",
                                  silent=False, logger=self.logger)
                 llm, reranker = await get_default_llms()
                 acc_docs: List[SearchResult] = []
@@ -174,7 +174,7 @@ Here is the search results for current question:
                     qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = ", ".join(qvs)
-                    yield inter_resp(f"Search with query variants: {qvs_str}, found {len(docs)} documents\n\n",
+                    yield inter_resp(f"Searching: {qvs_str}, found {len(docs)} documents\n\n",
                                      silent=False, logger=self.logger)
 
                     # step 2: rerank
@@ -183,11 +183,11 @@ Here is the search results for current question:
                     if not docs_reranked:
                         # ---- error case
                         # query has issue, reformulate and continue, this should be rare since we are searching with query variants
-                        next_query = await reformulate_query(next_query)
                         qv_think_enabled = True
-                        yield inter_resp(f"Found no relevant documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
+                        yield inter_resp(f"Found no relevant documents, so far we have {len(acc_docs)} relevant documents, reformulating query...\n\n",
                                          silent=False, logger=self.logger)
-                        yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
+                        next_query = await reformulate_query(next_query)
+                        yield inter_resp(f"Next search ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
 
@@ -196,6 +196,8 @@ Here is the search results for current question:
                     docs_reranked = update_docs_sids(
                         # base_count: every time the id will start from previous max + 1
                         docs_reranked, base_count=acc_doc_base_count)
+                    yield inter_resp("Reviewing documents for relevance and sufficiency...\n\n",
+                                     silent=False, logger=self.logger)
                     is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaries, docs_reranked)
                     acc_queries.append(next_query)
 
@@ -226,10 +228,10 @@ Here is the search results for current question:
                     if not _next_query:
                         # ---- error case
                         # review had problem, not enough info, and no next query, we have to continue, same as above error case
-                        next_query = await reformulate_query(next_query)
                         qv_think_enabled = True
                         yield inter_resp(f"Found no relevant documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
+                        next_query = await reformulate_query(next_query)
                         yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
@@ -238,7 +240,7 @@ Here is the search results for current question:
                     next_query = _next_query
                     yield inter_resp(f"Need more information, so far we have {len(acc_docs)} relevant documents\n\n",
                                      silent=False, logger=self.logger)
-                    yield inter_resp(f"Next search({(tries+1)}/{self.max_tries}): {next_query}\n\n",
+                    yield inter_resp(f"Next search({(tries)}/{self.max_tries}): {next_query}\n\n",
                                      silent=False, logger=self.logger)
 
                 # truncate before answering

@@ -109,8 +109,7 @@ Put each query in a line, do not add any prefix on each query, only provide the 
 async def reformulate_query(query: str) -> str:
     """Reformulate the query to improve search results"""
     llm, reranker = await get_default_llms()
-    system_prompt = """You will receive a question from a user and you need interpret what the question is actually asking about and come up with a better Google search query to answer that question. Only provide the reformulated query, do not add any prefix or suffix.
-/nothink"""
+    system_prompt = """You will receive a question from a user and you need interpret what the question is actually asking about and come up with a better Google search query to answer that question. Only provide the reformulated query, do not add any prefix or suffix."""
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"User question: {query}"},
