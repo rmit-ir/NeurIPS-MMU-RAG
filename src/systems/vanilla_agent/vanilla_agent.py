@@ -63,13 +63,14 @@ class VanillaAgent(RAGInterface):
 
 Go through each document in the search results, judge if they are sufficient for answering the user question. Please consider:
 
-1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need a wider range of documents from different aspects.
+1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need searching with different aspects to cover a wider range of perspectives.
 2. Does the search results fully addresses the user's query and any sub-components?
-3. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, recommendation questions that will benefit from multiple aspects, try to tackle the question from different aspects to form a balanced, comprehensive view.
+3. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, recommendation questions that will benefit from multiple aspects, try to search from different aspects to form a balanced, comprehensive view.
 4. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
 5. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
-6. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty. Only compare to previous documents description, do not compare to their IDs, their IDs are using a different index and will not not match.
-7. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences.
+6. If current search results have very limited information, try use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to get relevant results, and put the new query in <>new-query>your query</new-query> xml tags. If there are previous search queries, do not repeat them in the new query, we know they don't work.
+7. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
+8. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences. Start your summary with "These documents discuss...". Do not mention specific document IDs in the summary.
 
 Response format:
 
@@ -87,7 +88,7 @@ Here is the search results for current question:
         prompt = GRADE_PROMPT.format(
             question=question,
             next_query=next_query,
-            prev_questions="Here are the previous questions we already tried: " +
+            prev_questions="Here are the previous search queries, do not repeat these queries in <new-query>: " +
             "; ".join(acc_queries) if acc_queries else "",
             prev_docs_summaries="Here are the summaries of previous documents we collected for this question, do not duplicate: " +
             "; ".join(acc_summaries) if acc_summaries else "")
@@ -130,8 +131,6 @@ Here is the search results for current question:
         new_query = extract_tag_val(resp_text, "new-query")
         useful_doc_ids_str = extract_tag_val(resp_text, "useful-docs")
         useful_docs_summary = extract_tag_val(resp_text, "useful-docs-summary")
-        useful_docs_summary = re.sub(r'[Dd]ocuments?\s*\d+\s*', '', useful_docs_summary) \
-            if useful_docs_summary else None
 
         self.logger.info("Review documents completed",
                          question=question,
