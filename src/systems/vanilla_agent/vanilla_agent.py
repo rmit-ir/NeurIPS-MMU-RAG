@@ -172,7 +172,7 @@ Here is the search results for current question:
                     # step 1: search
                     qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
-                    qvs_str = ", ".join(qvs)
+                    qvs_str = "; ".join(qvs)
                     yield inter_resp(f"Searching: {qvs_str}, found {len(docs)} documents\n\n",
                                      silent=False, logger=self.logger)
 
