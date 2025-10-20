@@ -23,10 +23,28 @@ try:
 except ImportError:
     NLPMetricsEvaluator = None
 
+# DeepResearch evaluators
+try:
+    from .deepresearch_evaluators import (
+        CitationPrecisionEvaluator,
+        CitationRecallEvaluator,
+        HolisticQualityEvaluator,
+        KeyPointRecallEvaluator
+    )
+except ImportError:
+    CitationPrecisionEvaluator = None
+    CitationRecallEvaluator = None
+    HolisticQualityEvaluator = None
+    KeyPointRecallEvaluator = None
+
 __all__ = [
     'EvaluatorInterface',
     'EvaluationResult',
     'DeepEvalEvaluator',
     'CitationQualityEvaluator',
-    'NLPMetricsEvaluator'
+    'NLPMetricsEvaluator',
+    'CitationPrecisionEvaluator',
+    'CitationRecallEvaluator',
+    'HolisticQualityEvaluator',
+    'KeyPointRecallEvaluator'
 ]

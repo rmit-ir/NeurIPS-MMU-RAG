@@ -47,7 +47,7 @@ class DeepEvalEvaluator(EvaluatorInterface):
     
     def __init__(
         self,
-        model: str = "qwen.qwen3-32b-v1:0",
+        model: str = "openai.gpt-oss-120b-1:0",
         base_url: str = "https://mmu-proxy-server-llm-proxy.rankun.org",
         api_key: Optional[str] = None,
         faithfulness_threshold: float = 0.7,

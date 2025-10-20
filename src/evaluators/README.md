@@ -6,6 +6,42 @@ This directory contains evaluators for assessing RAG (Retrieval-Augmented Genera
 
 ## Available Evaluators
 
+### 🔬 DeepResearch Evaluators
+**Path:** `src.evaluators.deepresearch_evaluators`
+
+Comprehensive benchmarking suite based on [cxcscmu/deepresearch_benchmarking](https://github.com/cxcscmu/deepresearch_benchmarking) for multi-dimensional RAG quality assessment:
+
+#### Combined DeepResearch Evaluator (Recommended)
+**Path:** `src.evaluators.deepresearch_evaluators.CombinedDeepResearchEvaluator`
+
+Runs all DeepResearch evaluators in a single pass:
+- **Citation Recall** (37%): Percentage of claims with supporting citations
+- **Key Point Recall** (61%): Coverage of ground-truth key points
+- **Holistic Quality** (35%): Multi-criteria assessment across 6 dimensions:
+  - Clarity, Depth, Balance, Breadth, Support, Insightfulness (each 0-10)
+- **Citation Precision** (optional, slow): Verifies if citations actually support claims
+
+**Special Features:**
+- Comprehensive quality assessment in single evaluation run
+- OpenAI structured outputs with graceful JSON fallback
+- Detailed per-criterion explanations for holistic quality
+- Optional citation precision (requires URL crawling)
+- Multi-threaded processing support
+
+**Parameters:**
+- `model`: LLM model for evaluation (default: "openai.gpt-oss-120b-1:0")
+- `num_threads`: Number of concurrent threads (default: 1)
+- `silent_errors`: Log errors and continue (default: True)
+- `include_citation_precision`: Enable citation precision (slow, requires crawling) (default: False)
+
+**Individual Evaluators:**
+- `CitationRecallEvaluator`: Fast, measures citation coverage
+- `KeyPointRecallEvaluator`: Fast, evaluates key point coverage
+- `HolisticQualityEvaluator`: Moderate speed, 6-criteria quality assessment
+- `CitationPrecisionEvaluator`: Slow, verifies citation accuracy (requires URL crawling)
+
+**📚 Full Documentation:** See [DeepResearch Evaluators README](deepresearch_evaluators/README.md) for detailed usage, metrics interpretation, and examples.
+
 ### 🧠 DeepEvalEvaluator
 **Path:** `src.evaluators.deepeval_evaluator.evaluator.DeepEvalEvaluator`
 
@@ -100,6 +136,14 @@ Traditional NLP metrics for surface-level and semantic text similarity:
 ### Basic Usage
 
 ```bash
+# DeepResearch Combined evaluation (Recommended)
+python scripts/evaluate.py \\
+    --evaluator src.evaluators.deepresearch_evaluators.combined_deepresearch_evaluator.CombinedDeepResearchEvaluator \\
+    --results data/system_outputs.jsonl \\
+    --reference data/references.jsonl \\
+    --output-dir data/evaluation_results \\
+    --output-prefix deepresearch_eval
+
 # DeepEval evaluation
 python scripts/evaluate.py \\
     --evaluator DeepEvalEvaluator \\
@@ -142,6 +186,23 @@ python scripts/evaluate.py \\
 ### Advanced Usage
 
 ```bash
+# DeepResearch with parallel processing
+python scripts/evaluate.py \\
+    --evaluator src.evaluators.deepresearch_evaluators.combined_deepresearch_evaluator.CombinedDeepResearchEvaluator \\
+    --results data/outputs.jsonl \\
+    --reference data/refs.jsonl \\
+    --output-dir data/evaluation_results \\
+    --output-prefix deepresearch_parallel \\
+    --num-threads 4
+
+# DeepResearch individual evaluators
+python scripts/evaluate.py \\
+    --evaluator src.evaluators.deepresearch_evaluators.citation_recall_evaluator.CitationRecallEvaluator \\
+    --results data/outputs.jsonl \\
+    --reference data/refs.jsonl \\
+    --output-dir data/evaluation_results \\
+    --output-prefix citation_recall
+
 # DeepEval with specific metrics only
 python scripts/evaluate.py \\
     --evaluator DeepEvalEvaluator \\
@@ -215,6 +276,35 @@ The evaluation generates two files:
 2. **Row-level Results** (`*.rows.jsonl`): Per-item scores (if available)
 
 ### Example Aggregated Output
+
+**DeepResearch Combined Evaluator:**
+```json
+{
+  "metrics": {
+    "overall_deepresearch_score": 24.01,
+    "citation_recall": 0.3702,
+    "citation_recall_total_claims": 74,
+    "citation_recall_supported": 27,
+    "key_point_recall": 0.6056,
+    "key_point_support_rate": 0.6056,
+    "key_point_omitted_rate": 0.2611,
+    "key_point_contradicted_rate": 0.1333,
+    "holistic_quality": 35.00,
+    "clarity_avg": 35.56,
+    "depth_avg": 24.44,
+    "balance_avg": 83.33,
+    "breadth_avg": 36.67,
+    "support_avg": 3.33,
+    "insightfulness_avg": 26.67
+  },
+  "evaluator_name": "combined_deepresearch",
+  "sample_count": 9,
+  "timestamp": "2025-10-20T23:38:46.691085",
+  "total_time_ms": 169636.64
+}
+```
+
+**DeepEval/RAGAS Evaluator:**
 ```json
 {
   "metrics": {
@@ -269,6 +359,23 @@ class MyEvaluator(EvaluatorInterface):
             sample_count=len(system_outputs)
         )
 ```
+
+## Evaluator Comparison
+
+| Evaluator | Speed | Metrics | Best For | Requires API |
+|-----------|-------|---------|----------|--------------|
+| **DeepResearch Combined** | Moderate (19s/sample) | Citation Recall, Key Point Recall, Holistic Quality (6 criteria) | Comprehensive benchmarking, research evaluation | Yes |
+| **LLMEvaluator** | Fast (5-10s/sample) | Relevance, Faithfulness | Quick quality assessment, general RAG evaluation | Yes |
+| **DeepEvalEvaluator** | Moderate | Faithfulness, Answer Relevancy, Contextual Relevancy | Semantic quality with explainability | Yes |
+| **RAGASEvaluator** | Moderate | Faithfulness, Answer Relevancy, Correctness, Context Precision/Recall | Standard RAG benchmarking | Yes |
+| **NLPMetricsEvaluator** | Very Fast | ROUGE-L, BLEU, BERTScore | Surface-level similarity, baseline metrics | No |
+| **CitationQualityEvaluator** | Fast | Citation Relevance, Accuracy, Completeness, Attribution | Citation-focused evaluation | Yes |
+
+**Recommendation:**
+- **Quick evaluation**: Use **LLMEvaluator** or **NLPMetricsEvaluator**
+- **Comprehensive benchmarking**: Use **DeepResearch Combined**
+- **Standard RAG metrics**: Use **DeepEvalEvaluator** or **RAGASEvaluator**
+- **Citation analysis**: Use **CitationQualityEvaluator** or **DeepResearch Combined**
 
 ## Help and Documentation
 

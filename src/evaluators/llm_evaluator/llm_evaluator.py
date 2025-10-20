@@ -58,7 +58,7 @@ class LLMEvaluator(EvaluatorInterface):
     """
     def __init__(
         self,
-        model_id: str = "openai.gpt-oss-20b-1:0",
+        model_id: str = "openai.gpt-oss-120b-1:0",
         temperature: float = 0.0,
         max_tokens: int = 2048,
         use_gold_references: bool = True,
@@ -353,7 +353,7 @@ class LLMEvaluator(EvaluatorInterface):
 if __name__ == "__main__":
     # Main entry point for testing the evaluator
     evaluator = LLMEvaluator(
-        model_id="openai.gpt-oss-20b-1:0",
+        model_id="openai.gpt-oss-120b-1:0",
         temperature=0.0,
         max_tokens=2048,
         use_gold_references=False,
