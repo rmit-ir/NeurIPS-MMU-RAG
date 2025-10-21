@@ -190,7 +190,7 @@ Here is the search results for current question:
                     docs_reranked = update_docs_sids(
                         # base_count: every time the id will start from previous max + 1
                         docs_reranked, base_count=acc_doc_base_count)
-                    yield inter_resp("Reviewing documents in the background for relevance and sufficiency...\n\n",
+                    yield inter_resp("Reviewing documents for relevance and sufficiency...\n\n",
                                      silent=False, logger=self.logger)
                     is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaries, docs_reranked)
                     acc_queries.append(next_query)
