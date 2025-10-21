@@ -293,7 +293,7 @@ ALL_RERANKERS: Dict[str, GeneralReranker] = {}
 
 
 async def get_reranker(config: Optional[RerankerConfig] = None,
-                       drop_irrelevant_threshold: Optional[float] = 0.5) -> GeneralReranker:
+                       drop_irrelevant_threshold: Optional[float] = None) -> GeneralReranker:
     """
     Get a reranker instance, creating if necessary and ensuring server is started.
     """

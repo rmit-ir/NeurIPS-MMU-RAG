@@ -17,26 +17,19 @@ from tools.docs_utils import atruncate_docs, calc_tokens, calc_tokens_str, updat
 class VanillaAgent(RAGInterface):
     def __init__(
         self,
-        context_length: int = 20_000,
-        context_tokens: int = 14_904,  # 20_000 - 5096 (for prompt and answer)
+        context_length: int = 25_000,  # LLM context length in tokens
+        # available space for context in tokens in final answer gen, assuming 5096 is prompt + answer
+        context_tokens: int = 25_000 - 5096,
         num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
     ):
         """
         Initialize VanillaAgent with LLM server.
-
-        Args:
-            model_id: The model ID to use for LLM server
-            reasoning_parser: Parser for reasoning models
-            mem_fraction_static: Memory fraction for static allocation
-            max_running_requests: Maximum concurrent requests
-            api_key: API key for the server (optional)
-            temperature: Generation temperature
-            max_tokens: Maximum tokens to generate
         """
         self.context_length = context_length
         self.context_tokens = context_tokens
+        self.docs_review_max_tokens = 4096
         self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
@@ -66,15 +59,17 @@ Go through each document in the search results, judge if they are sufficient for
 1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need searching with different aspects to cover a wider range of perspectives.
 2. Does the search results fully addresses the user's query and any sub-components?
 3. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, recommendation questions that will benefit from multiple aspects, try to search from different aspects to form a balanced, comprehensive view.
-4. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
-5. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
-6. If current search results have very limited information, try use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to get relevant results, and put the new query in <>new-query>your query</new-query> xml tags. If there are previous search queries, do not repeat them in the new query, we know they don't work.
-7. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
-8. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences. Start your summary with "These documents discuss...". Do not mention specific document IDs in the summary.
+4. Don't mention irrelevant, off-topic documents.
+5. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
+6. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
+7. If current search results have very limited information, try use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to get relevant results, and put the new query in <>new-query>your query</new-query> xml tags. If there are previous search queries, do not repeat them in the new query, we know they don't work.
+8. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
+9. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences. Start your summary with "These documents discuss...". Do not mention specific document IDs in the summary.
+10. Your purpose is to judge documents relevance against the question, not to provide the final answer yet, do not answer the question.
 
 Response format:
 
-- <is-sufficient>yes or no</is-sufficient> (if yes, then provide <useful-docs> and <useful-docs-summary> tags; if 'no', then provide <new-query> tag)
+- <is-sufficient>yes or no</is-sufficient> (For all of the documents we have collected, including previous documents, do we have enough information to answer the user question? If yes, then provide <useful-docs> and <useful-docs-summary> tags; if 'no', then provide <new-query> tag)
 - <new-query>your new query</new-query> (only if is-sufficient is 'no')
 - <useful-docs>1,2,3</useful-docs> (list of document IDs that are useful for answering the question, separated by commas)
 - <useful-docs-summary></useful-docs-summary> (short summary of what these useful documents are talking about, just the summary, only if useful-docs is not empty)
@@ -95,7 +90,7 @@ Here is the search results for current question:
         prompt_tokens = calc_tokens_str(prompt)
 
         # truncate docs to fit in context
-        answer_max_tokens = 2048
+        answer_max_tokens = self.docs_review_max_tokens
         redundant_tokens = 1024  # for doc header, prompt template, and safety margin overhead
         available_context = self.context_length - \
             prompt_tokens - answer_max_tokens - redundant_tokens
@@ -173,7 +168,7 @@ Here is the search results for current question:
                     qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = "; ".join(qvs)
-                    yield inter_resp(f"Searching: {qvs_str}, found {len(docs)} documents\n\n",
+                    yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",
                                      silent=False, logger=self.logger)
 
                     # step 2: rerank
@@ -195,7 +190,7 @@ Here is the search results for current question:
                     docs_reranked = update_docs_sids(
                         # base_count: every time the id will start from previous max + 1
                         docs_reranked, base_count=acc_doc_base_count)
-                    yield inter_resp("Reviewing documents for relevance and sufficiency...\n\n",
+                    yield inter_resp("Reviewing documents in the background for relevance and sufficiency...\n\n",
                                      silent=False, logger=self.logger)
                     is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaries, docs_reranked)
                     acc_queries.append(next_query)
@@ -244,8 +239,8 @@ Here is the search results for current question:
                     acc_docs, request.question, True)
 
                 prompt_tokens = calc_tokens_str(json.dumps(messages))
-                available_context = self.context_length - prompt_tokens - 1000
-                async for chunk in llm.complete_chat_streaming(messages, max_tokens=available_context):
+                gen_max_tokens = self.context_length - prompt_tokens - 1000
+                async for chunk in llm.complete_chat_streaming(messages, max_tokens=gen_max_tokens):
                     if chunk.choices[0].finish_reason is not None:
                         # Stream finished
                         break
