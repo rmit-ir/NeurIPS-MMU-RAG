@@ -167,3 +167,17 @@ python local_test.py --base-url http://localhost:8000
 - **MMU-RAG Challenge**: [Official Challenge Details](https://agi-lti.github.io/MMU-RAgent/text-to-text)
 
 </details>
+
+<details>
+<summary>Development Tips</summary>
+Launch the LLM and reranker on the background and run your RAG system locally for faster development.
+
+```bash
+# Launch LLM server
+uv run python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-4B --reasoning-parser qwen3 --gpu-memory-utilization 0.75 --max-model-len 25000 --kv-cache-memory-bytes 8589934592 --max-num-seqs 5 --host 0.0.0.0 --port 8088
+
+# Launch reranker server
+uv run python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-Reranker-0.6B --gpu-memory-utilization 0.2 --max-model-len 16000 --kv-cache-memory-bytes 3221225472 --max-num-seqs 3 --host 0.0.0.0 --port 8087
+```
+
+</details>

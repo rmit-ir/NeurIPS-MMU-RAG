@@ -14,11 +14,13 @@ async def warmup_models():
 
     vllm_config = VllmConfig(model_id="Qwen/Qwen3-4B",
                              reasoning_parser="qwen3",
-                             max_model_len=20_000,
-                             # model=7.56GB, arch=1.4+4.1+0.61=6.11GB, kv_cache=5GB
-                             kv_cache_memory=6*1024**3,
+                             gpu_memory_utilization=0.75,
+                             max_model_len=25_000,
+                             # model=7.56GB, arch=1.4+4.1+0.61=6.11GB, kv_cache=8GB
+                             kv_cache_memory=8*1024**3,
                              max_num_seqs=5,)
     reranker_config = RerankerConfig(model_id="Qwen/Qwen3-Reranker-0.6B",
+                                     gpu_memory_utilization=0.2,
                                      max_model_len=16_000,
                                      kv_cache_memory_bytes=3*1024**3,
                                      max_num_seqs=3,)
