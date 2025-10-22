@@ -8,7 +8,7 @@ import json
 import os
 import hashlib
 import uuid
-from typing import Dict, Optional, Any
+from typing import Dict, Any
 from datetime import datetime
 
 from systems.commercial.azure_o3_research import AzureO3ResearchRAG
