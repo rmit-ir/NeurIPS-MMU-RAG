@@ -40,8 +40,6 @@ rag_systems: Dict[str, RAGInterface] = {
     "azure-o3-deep-research": AzureO3ResearchRAG(),
 }
 
-# Authentication setup
-API_KEY = os.getenv("API_KEY")
 
 # Global initialization flag
 _initialized = False
@@ -55,13 +53,6 @@ async def initialize_handler():
         await warmup_models()
         _initialized = True
         logger.info("Handler initialization complete")
-
-
-def verify_api_key(api_key: Optional[str] = None) -> bool:
-    """Verify API key if one is set in environment variables."""
-    if API_KEY is None:
-        return True
-    return api_key == API_KEY
 
 
 def generate_chat_hash(question: str, model: str) -> str:
@@ -228,17 +219,6 @@ async def async_handler(job):
         elif openai_route == "/v1/chat/completions":
             logger.info(
                 f"Processing chat completion request for model: {openai_input.get('model')}")
-
-            # Check for authentication if API key is set
-            auth_header = job_input.get("authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                api_key = auth_header[7:]  # Remove "Bearer " prefix
-                if not verify_api_key(api_key):
-                    yield {"error": "Invalid API key"}
-                    return
-            elif API_KEY is not None:
-                yield {"error": "API key required. Please provide Authorization header with Bearer token."}
-                return
 
             # Check if streaming is requested
             stream = openai_input.get("stream", False)
