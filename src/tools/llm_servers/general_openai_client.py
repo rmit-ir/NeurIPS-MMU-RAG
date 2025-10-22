@@ -28,7 +28,7 @@ class GeneralOpenAIClient(LLMInterface):
         max_retries: int = 5,
         timeout: float = 600.0,
         model_id: str = "tiiuae/falcon3-10b-instruct",
-        temperature: float = 0.0,
+        temperature: Optional[float] = None,
         max_tokens: int = 4096,
         logger=get_logger("general_openai_client"),
         llm_name: str = "general_openai_client"
@@ -40,7 +40,7 @@ class GeneralOpenAIClient(LLMInterface):
             api_base (str): API base URL (required)
             api_key (Optional[str]): API key (optional, defaults to None)
             model_id (str): The model ID to use
-            temperature (float): The temperature parameter for generation
+            temperature (Optional[float]): The temperature parameter for generation
             max_tokens (int): Maximum number of tokens to generate
             logger (logging.Logger): Logger instance
             llm_name (str): Name of the LLM client for file naming
@@ -221,6 +221,11 @@ class GeneralOpenAIClient(LLMInterface):
         start_time = time.time()
 
         try:
+            self.logger.info("Starting model request",
+                             model=self.model_id,
+                             temperature=self.temperature,
+                             max_tokens=max_tokens or self.max_tokens,
+                             stream=True)
             # Send the message and get the streaming response
             stream: Any = await self.async_client.chat.completions.create(
                 model=self.model_id,
@@ -240,14 +245,6 @@ class GeneralOpenAIClient(LLMInterface):
                     full_content["content"] += first_choice.delta.content
                 if hasattr(first_choice.delta, 'reasoning_content') and first_choice.delta.reasoning_content:
                     full_content["reasoning_content"] += first_choice.delta.reasoning_content
-                # """
-                # # TODO: here when outputting reasoning, we need to deal with this differently, what does OpenAI do?
-                # =None, function_call=None, refusal=None, role=None, tool_calls=None, reasoning_content=' complex'), finish_reason=None, index=0, logprobs=None, matched_stop=None)], created=1758191469, model='Qwen/Qwen3-4B', object='chat.completion.chunk', service_tier=None, system_fingerprint=None, usage=None)                                                                                           2025-09-18 10:31:09 [info     ] Received chunk                 [general_openai_client] chunk=ChatCompletionChunk(id='2ab21e6911f243a1b2139a838b6ae8bb', choices=[Choice(delta=ChoiceDelta(content
-                # """
-                # content_chunk = chunk.choices[0].delta.content
-                # full_content += content_chunk
-                # yield ChatStreamChunk(content=content_chunk, reasoning_content=chunk.choices[0].reasoning_content)
-                # yield content_chunk
 
             # Log response time
             response_time = time.time() - start_time

@@ -19,7 +19,6 @@ class DecompositionRAG(RAGInterface):
         gpu_memory_utilization: Optional[float] = 0.6,
         max_model_len: Optional[int] = 20000,
         api_key: Optional[str] = None,
-        temperature: float = 0.0,
         max_tokens: int = 4096,
         search_results_k: int = 3,
         max_context_length: int = 3000,
@@ -37,7 +36,6 @@ class DecompositionRAG(RAGInterface):
             gpu_memory_utilization: GPU memory utilization fraction
             max_model_len: Maximum model length
             api_key: API key for the server (optional)
-            temperature: Generation temperature
             max_tokens: Maximum tokens to generate
             search_results_k: Number of search results to retrieve per sub-query after reranking
             max_context_length: Maximum length of context per sub-query
@@ -51,7 +49,6 @@ class DecompositionRAG(RAGInterface):
         self.gpu_memory_utilization = gpu_memory_utilization
         self.max_model_len = max_model_len
         self.api_key = api_key
-        self.temperature = temperature
         self.max_tokens = max_tokens
         self.search_results_k = search_results_k
         self.max_context_length = max_context_length
@@ -73,7 +70,6 @@ class DecompositionRAG(RAGInterface):
                                              api_key=self.api_key))
             self.llm_client = await llm_mgr.get_openai_client(
                 max_tokens=self.max_tokens,
-                temperature=self.temperature
             )
         if not self.reranker:
             self.reranker = await get_reranker()
@@ -497,7 +493,6 @@ if __name__ == "__main__":
         rag = DecompositionRAG(
             model_id="Qwen/Qwen3-4B",
             api_key=None,
-            temperature=0.0,
             max_tokens=4096,
             search_results_k=2,  # Fewer results per sub-query
             max_sub_queries=3

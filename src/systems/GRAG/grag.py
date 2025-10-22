@@ -20,7 +20,6 @@ class GRAG(RAGInterface):
         max_model_len: Optional[int] = 20000,
         max_running_requests: Optional[int] = 4,
         api_key: Optional[str] = None,
-        temperature: float = 0.0,
         max_tokens: int = 4096,
         search_results_k: int = 3,
         max_context_length: int = 3000,
@@ -40,7 +39,6 @@ class GRAG(RAGInterface):
             mem_fraction_static: Memory fraction for static allocation
             max_running_requests: Maximum concurrent requests
             api_key: API key for the server (optional)
-            temperature: Generation temperature
             max_tokens: Maximum tokens to generate
             search_results_k: Number of search results to retrieve per sub-query
             max_context_length: Maximum length of context per sub-query
@@ -55,7 +53,6 @@ class GRAG(RAGInterface):
         self.max_model_len = max_model_len
         self.max_running_requests = max_running_requests
         self.api_key = api_key
-        self.temperature = temperature
         self.max_tokens = max_tokens
         self.search_results_k = search_results_k
         self.max_context_length = max_context_length
@@ -77,7 +74,6 @@ class GRAG(RAGInterface):
                                              api_key=self.api_key))
             self.llm_client = await llm_mgr.get_openai_client(
                 max_tokens=self.max_tokens,
-                temperature=self.temperature
             )
 
     def _ensure_rerank_model(self):
@@ -632,7 +628,6 @@ if __name__ == "__main__":
         rag = GRAG(
             model_id="Qwen/Qwen3-4B",
             api_key=None,
-            temperature=0.0,
             max_tokens=4096,
             search_results_k=2,  # Fewer results per sub-query
             max_sub_queries=3,

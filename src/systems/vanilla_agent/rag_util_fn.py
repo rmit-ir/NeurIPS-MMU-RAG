@@ -153,7 +153,6 @@ async def get_default_llms():
         llm_mgr = get_llm_mgr(VllmConfig())
         global_llm_client = await llm_mgr.get_openai_client(
             max_tokens=4_096,
-            temperature=0.0
         )
     if not global_reranker:
         global_reranker = await get_reranker()

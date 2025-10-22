@@ -151,7 +151,7 @@ Here is the search results for current question:
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         async def stream():
             try:
-                yield inter_resp(f"Searching question with query variants: {request.question}\n\n",
+                yield inter_resp(f"Searching question: {request.question}\n\n",
                                  silent=False, logger=self.logger)
                 llm, reranker = await get_default_llms()
                 acc_docs: List[SearchResult] = []

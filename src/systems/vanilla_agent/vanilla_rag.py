@@ -18,7 +18,6 @@ class VanillaRAG(RAGInterface):
         gpu_memory_utilization: Optional[float] = 0.6,
         max_model_len: Optional[int] = 20000,
         api_key: Optional[str] = None,
-        temperature: float = 0.0,
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 5000,
         enable_think: bool = True,
@@ -35,7 +34,6 @@ class VanillaRAG(RAGInterface):
             mem_fraction_static: Memory fraction for static allocation
             max_running_requests: Maximum concurrent requests
             api_key: API key for the server (optional)
-            temperature: Generation temperature
             max_tokens: Maximum tokens to generate
         """
         self.model_id = model_id
@@ -43,7 +41,6 @@ class VanillaRAG(RAGInterface):
         self.gpu_memory_utilization = gpu_memory_utilization
         self.max_model_len = max_model_len
         self.api_key = api_key
-        self.temperature = temperature
         self.max_tokens = max_tokens
         self.retrieval_words_threshold = retrieval_words_threshold
         self.enable_think = enable_think
@@ -185,7 +182,6 @@ if __name__ == "__main__":
         rag = VanillaRAG(
             model_id="Qwen/Qwen3-4B",
             api_key=None,  # Optional API key
-            temperature=0.0,
             max_tokens=4096
         )
 

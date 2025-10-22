@@ -20,7 +20,6 @@ class LocalGRAG(RAGInterface):
         model_id: str = "qwen/qwen3-4b-thinking-2507",
         lm_studio_base_url: str = "http://localhost:1234/v1",
         api_key: str = "lm-studio",
-        temperature: float = 0.0,
         max_tokens: int = 4096,
         search_results_k: int = 3,
         max_context_length: int = 3000,
@@ -38,7 +37,6 @@ class LocalGRAG(RAGInterface):
             model_id: The model ID to use (should match what's loaded in LM Studio)
             lm_studio_base_url: Base URL for LM Studio API
             api_key: API key for LM Studio (usually "lm-studio")
-            temperature: Generation temperature
             max_tokens: Maximum tokens to generate
             search_results_k: Number of search results to retrieve per sub-query
             max_context_length: Maximum length of context per sub-query
@@ -50,7 +48,6 @@ class LocalGRAG(RAGInterface):
         self.model_id = model_id
         self.lm_studio_base_url = lm_studio_base_url
         self.api_key = api_key
-        self.temperature = temperature
         self.max_tokens = max_tokens
         self.search_results_k = search_results_k
         self.max_context_length = max_context_length
@@ -115,7 +112,6 @@ Only output the numbered list, nothing else.
             response = await self.llm_client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
-                temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
 
@@ -178,7 +174,6 @@ Document 3: [passage 3]
             response = await self.llm_client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
-                temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
 
@@ -315,7 +310,6 @@ Document 3: [passage 3]
             response = await self.llm_client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
-                temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
 
@@ -358,7 +352,6 @@ If there are any contradictions or gaps, note them clearly.
             response = await self.llm_client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
-                temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
 
@@ -616,7 +609,6 @@ if __name__ == "__main__":
             model_id="qwen/qwen3-4b-thinking-2507",  # Should match the model loaded in Local LLM server
             lm_studio_base_url="http://localhost:1234/v1",
             api_key="lm-studio",
-            temperature=0.0,
             max_tokens=4096,
             search_results_k=2,
             max_sub_queries=3

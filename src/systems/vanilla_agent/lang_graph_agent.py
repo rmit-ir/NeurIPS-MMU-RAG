@@ -45,7 +45,6 @@ class LangGraphAgent(RAGInterface):
         gpu_memory_utilization: Optional[float] = 0.6,
         max_model_len: Optional[int] = 20000,
         api_key: Optional[str] = None,
-        temperature: float = 0.0,
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 5000,
         enable_think: bool = True,
@@ -53,7 +52,6 @@ class LangGraphAgent(RAGInterface):
         cw22_a: bool = True,
     ):
         """Initialize LangGraphAgent with agentic capabilities using Qwen3 4B."""
-        self.temperature = temperature
         self.max_tokens = max_tokens
         self.model_id = model_id
         self.reasoning_parser = reasoning_parser
@@ -390,7 +388,7 @@ if __name__ == "__main__":
         print("Testing LangGraphAgent with Qwen3 4B LLM...")
 
         # Initialize LangGraphAgent
-        agent = LangGraphAgent(temperature=0.0, max_tokens=4096)
+        agent = LangGraphAgent(max_tokens=4096)
         question = "I want a thorough understanding of what makes up a community, including its definitions in various contexts like science and what it means to be a 'civilized community.' I'm also interested in related terms like 'grassroots organizations,' how communities set boundaries and priorities, and their roles in important areas such as preparedness and nation-building."
 
         try:

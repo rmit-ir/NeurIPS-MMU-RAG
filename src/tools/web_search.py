@@ -187,10 +187,15 @@ async def search_fineweb(
 
     params = {"query": query, "k": str(k)}
     headers = {"x-api-key": key}
+    start_time = asyncio.get_event_loop().time()
     json_resp = await _make_search_request(
         FINEWEB_BASE_URL, params, headers, session, timeout, "FineWeb"
     )
     results = _decode_results(json_resp, 'fine_web', id_prefix)
+    took_time = asyncio.get_event_loop().time() - start_time
+    logger.info("FineWeb search completed",
+                query=query, num_results=len(results), duration=took_time)
+
     return results
 
 
@@ -235,11 +240,15 @@ async def search_clueweb(
         params["cw22_a"] = "true"
     headers = {"x-api-key": key}
 
+    start_time = asyncio.get_event_loop().time()
     json_resp = await _make_search_request(
         CLUEWEB_BASE_URL, params, headers, session, timeout, "ClueWeb"
     )
 
     results = _decode_results(json_resp, 'clue_web', id_prefix)
+    took_time = asyncio.get_event_loop().time() - start_time
+    logger.info("ClueWeb search completed",
+                query=query, num_results=len(results), duration=took_time)
     return results
 
 

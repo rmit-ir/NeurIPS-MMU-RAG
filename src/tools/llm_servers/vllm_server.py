@@ -169,7 +169,7 @@ class VLLMServerManager:
                 self._logger.info("Using existing vLLM server",
                                   port=self._port, model_id=self.config.model_id)
                 return self._api_base, self._port, self._server_host
-            
+
             # check if process is already running elsewhere
             server_host = f"http://{self.config.host}:{self.config.port}"
             already_running = await test_server(server_host, self.config.api_key)
@@ -179,7 +179,6 @@ class VLLMServerManager:
                 _api_base = f"{_server_host}/v1"
                 _port = self.config.port
                 return _api_base, _port, _server_host
-
 
             # Launch new server
             self._logger.info("Launching new vLLM server",
@@ -220,7 +219,7 @@ class VLLMServerManager:
 
     async def get_openai_client(self,
                                 max_tokens: int = 4096,
-                                temperature: float = 0.0) -> GeneralOpenAIClient:
+                                temperature: Optional[float] = None) -> GeneralOpenAIClient:
         """
         Get an OpenAI client connected to this vLLM server instance.
 
@@ -293,7 +292,6 @@ async def main():
             api_base=api_base,
             api_key=api_key,
             model_id=model_id,
-            temperature=0
         )
 
         # Test the server

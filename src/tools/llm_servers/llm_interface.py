@@ -17,8 +17,8 @@ class LLMInterface(ABC):
     def __init__(
         self,
         model_id: str,
-        temperature: float,
         max_tokens: int,
+        temperature: Optional[float],
     ):
         """
         Initialize the LLM client.
