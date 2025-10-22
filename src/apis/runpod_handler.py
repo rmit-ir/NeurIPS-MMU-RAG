@@ -8,7 +8,6 @@ import json
 import os
 import hashlib
 import uuid
-import asyncio
 from typing import Dict, Optional, Any
 from datetime import datetime
 
@@ -195,7 +194,7 @@ async def create_streaming_chat_completion(openai_input: Dict[str, Any]):
         yield f"data: {json.dumps(error_chunk)}\n\n"
 
 
-def handler(job):
+async def async_handler(job):
     """
     RunPod serverless handler for OpenAI-compatible API.
 
@@ -214,65 +213,75 @@ def handler(job):
         openai_input = job_input.get("openai_input", {})
 
         if not openai_route:
-            return {"error": "No openai_route provided. Use RunPod's OpenAI-compatible URL format."}
+            yield {"error": "No openai_route provided. Use RunPod's OpenAI-compatible URL format."}
+            return
 
         # Initialize handler if needed
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        await initialize_handler()
 
-        try:
-            loop.run_until_complete(initialize_handler())
+        # Route based on OpenAI endpoint
+        if openai_route == "/v1/models":
+            logger.info("Processing models list request")
+            yield create_models_response()
+            return
 
-            # Route based on OpenAI endpoint
-            if openai_route == "/v1/models":
-                logger.info("Processing models list request")
-                return create_models_response()
+        elif openai_route == "/v1/chat/completions":
+            logger.info(
+                f"Processing chat completion request for model: {openai_input.get('model')}")
 
-            elif openai_route == "/v1/chat/completions":
-                logger.info(
-                    f"Processing chat completion request for model: {openai_input.get('model')}")
+            # Check for authentication if API key is set
+            auth_header = job_input.get("authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                api_key = auth_header[7:]  # Remove "Bearer " prefix
+                if not verify_api_key(api_key):
+                    yield {"error": "Invalid API key"}
+                    return
+            elif API_KEY is not None:
+                yield {"error": "API key required. Please provide Authorization header with Bearer token."}
+                return
 
-                # Check for authentication if API key is set
-                auth_header = job_input.get("authorization")
-                if auth_header and auth_header.startswith("Bearer "):
-                    api_key = auth_header[7:]  # Remove "Bearer " prefix
-                    if not verify_api_key(api_key):
-                        return {"error": "Invalid API key"}
-                elif API_KEY is not None:
-                    return {"error": "API key required. Please provide Authorization header with Bearer token."}
+            # Check if streaming is requested
+            stream = openai_input.get("stream", False)
 
-                # Check if streaming is requested
-                stream = openai_input.get("stream", False)
-
-                if stream:
-                    logger.info("Streaming response requested")
-                    # For streaming, we need to return a generator
-                    # RunPod handles this by yielding results
-
-                    async def stream_generator():
-                        chunks = []
-                        async for chunk in create_streaming_chat_completion(openai_input):
-                            chunks.append(chunk)
-                        return "\n".join(chunks)
-
-                    result = loop.run_until_complete(stream_generator())
-                    return {"stream_response": result}
-                else:
-                    logger.info("Non-streaming response requested")
-                    return loop.run_until_complete(create_chat_completion_response(openai_input))
-
+            if stream:
+                logger.info("Streaming response requested")
+                # For streaming, yield each chunk as it comes
+                async for chunk in create_streaming_chat_completion(openai_input):
+                    yield chunk
             else:
-                return {"error": f"Unsupported route: {openai_route}"}
+                logger.info("Non-streaming response requested")
+                response = await create_chat_completion_response(openai_input)
+                yield response
 
-        finally:
-            loop.close()
+        else:
+            yield {"error": f"Unsupported route: {openai_route}"}
 
     except Exception as e:
         logger.error(f"Handler error: {str(e)}")
-        return {"error": f"Handler error: {str(e)}"}
+        yield {"error": f"Handler error: {str(e)}"}
+
+
+def get_max_concurrency(default=5):
+    """
+    Returns the maximum concurrency value.
+    By default, it uses 5 unless the 'MAX_CONCURRENCY' environment variable is set.
+
+    Args:
+        default (int): The default concurrency value if the environment variable is not set.
+
+    Returns:
+        int: The maximum concurrency value.
+    """
+    return int(os.getenv("MAX_CONCURRENCY", default))
 
 
 if __name__ == "__main__":
     # Start the RunPod serverless handler
     logger.info("Starting RunPod serverless handler...")
-    runpod.serverless.start({"handler": handler})
+    runpod.serverless.start(
+        {
+            "handler": async_handler,
+            "concurrency_modifier": get_max_concurrency,
+            "return_aggregate_stream": True,
+        }
+    )
