@@ -45,7 +45,7 @@ class CitationRecallEvaluator(EvaluatorInterface):
         self,
         model: str = "openai.gpt-oss-120b-1:0",
         temperature: float = 0.0,
-        max_tokens: int = 2048,
+        max_tokens: int = 15000,
         silent_errors: bool = True,
         num_threads: int = 1,
         api_base: str = "https://mmu-proxy-server-llm-proxy.rankun.org",
@@ -179,7 +179,8 @@ Report: {answer}{citations_text}
                         {"role": "user", "content": prompt}
                     ],
                     response_format=ClaimsModel,
-                    temperature=self.temperature
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
                 )
                 result = json.loads(response.choices[0].message.content)
                 claims = result.get("claims", [])

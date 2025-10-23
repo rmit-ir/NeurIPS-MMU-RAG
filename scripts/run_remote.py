@@ -175,8 +175,8 @@ async def process_topic_remote(session: aiohttp.ClientSession, request: Evaluate
         )
 
     except Exception as e:
-        logger.error("Error processing topic via remote API",
-                     topic_id=request.iid, error=str(e))
+        logger.exception("Error processing topic via remote API",
+                         topic_id=request.iid, error=e)
 
 
 def get_output_path(output_dir: str, input_file: str, server_key: str) -> Path:

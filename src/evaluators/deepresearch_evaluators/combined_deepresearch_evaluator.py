@@ -16,10 +16,10 @@ Usage:
 """
 
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
 
-from ..evaluator_interface import EvaluatorInterface, EvaluationResult
+from evaluators.evaluator_interface import EvaluatorInterface, EvaluationResult
 from .citation_recall_evaluator import CitationRecallEvaluator
 from .citation_precision_evaluator import CitationPrecisionEvaluator
 from .key_point_recall_evaluator import KeyPointRecallEvaluator

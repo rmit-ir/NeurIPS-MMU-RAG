@@ -48,12 +48,12 @@ SYSTEMS=(
 
 # Define datasets with format: "path|display_name"
 DATASETS=(
-    "./data/past_topics/processed/trec_rag_2025_queries.jsonl|trec 2025"
+    "./data/past_topics/processed/trec_rag_2025_queries.n50.jsonl|trec 2025"
     "./data/past_topics/organizers_outputs/t2t_val.jsonl|t2t_val"
     "./data/past_topics/processed/IKAT_processed_query.jsonl|ikat"
-    "./data/past_topics/processed/LiveRAG_LCD_Session1_Question_file.jsonl|live"
+    "./data/past_topics/processed/LiveRAG.n50.jsonl|live"
     "./data/past_topics/processed/sachin-test-collection-queries.jsonl|sachin"
-    "./data/past_topics/processed/topics.rag24.test.jsonl|rag24"
+    "./data/past_topics/processed/topics.rag24.test.n50.jsonl|rag24"
 )
 
 # Common output directory

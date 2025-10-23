@@ -70,7 +70,7 @@ class HolisticQualityEvaluator(EvaluatorInterface):
         self,
         model: str = "openai.gpt-oss-120b-1:0",
         temperature: float = 0.0,
-        max_tokens: int = 2048,
+        max_tokens: int = 6000,
         silent_errors: bool = True,
         num_threads: int = 1,
         api_base: str = "https://mmu-proxy-server-llm-proxy.rankun.org",

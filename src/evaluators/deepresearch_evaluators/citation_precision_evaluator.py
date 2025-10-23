@@ -17,7 +17,7 @@ import logging
 from openai import OpenAI
 from pydantic import BaseModel
 
-from src.evaluators.evaluator_interface import EvaluatorInterface, EvaluationResult
+from evaluators.evaluator_interface import EvaluatorInterface, EvaluationResult
 
 try:
     from crawl4ai import AsyncWebCrawler
@@ -61,7 +61,7 @@ class CitationPrecisionEvaluator(EvaluatorInterface):
         self,
         model: str = "openai.gpt-oss-120b-1:0",
         temperature: float = 0.0,
-        max_tokens: int = 2048,
+        max_tokens: int = 6000,
         silent_errors: bool = True,
         num_threads: int = 1,
         api_base: str = "https://mmu-proxy-server-llm-proxy.rankun.org",
