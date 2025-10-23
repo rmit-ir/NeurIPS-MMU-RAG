@@ -73,11 +73,9 @@ class VanillaRAG(RAGInterface):
 
                 docs = [r for r in docs if isinstance(r, SearchResult)]
                 docs = await reranker.rerank(request.question, docs)
-                reranked_docs = len(docs)
-                yield inter_resp(f"Reranked {reranked_docs} documents\n\n", silent=False, logger=self.logger)
-
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 docs = update_docs_sids(docs)
+                reranked_docs = len(docs)
                 md_urls = '\n'.join(
                     [f"- {r.url}" for r in docs if isinstance(r, SearchResult)])
                 yield inter_resp(f"""Search returned {total_docs}, identified {reranked_docs} relevant, truncated to {len(docs)} web pages.
