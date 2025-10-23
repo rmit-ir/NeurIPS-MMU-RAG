@@ -1,8 +1,6 @@
 from typing import AsyncGenerator, Callable
 from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import (
-    EvaluateRequest,
-    EvaluateResponse,
     RAGInterface,
     RunRequest,
     RunStreamingResponse,
@@ -22,17 +20,6 @@ class RAGRouterLLM(RAGInterface):
     @property
     def name(self) -> str:
         return "rag-router"
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        complexity = await self.query_complexity_model.predict(request.query)
-        if complexity.is_simple:
-            self.logger.info(
-                f"Routing to VanillaRAG for query: {request.query}")
-            return await self.rag_simple_query.evaluate(request)
-        else:
-            self.logger.info(
-                f"Routing to DecompositionRAG for query: {request.query}")
-            return await self.rag_complex_query.evaluate(request)
 
     def _inter_resp(self, desc: str):
         self.logger.info(f"Intermediate step | {desc}")

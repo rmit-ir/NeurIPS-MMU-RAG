@@ -1,6 +1,6 @@
 import asyncio
 from typing import AsyncGenerator, Callable, Optional
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.rag_interface import EvaluateRequest, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
@@ -55,45 +55,6 @@ class VanillaRAG(RAGInterface):
     @property
     def name(self) -> str:
         return "vanilla-rag"
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        try:
-            llm, reranker = await get_default_llms()
-
-            # Search for relevant documents
-            docs = await search_clueweb(request.query,
-                                        k=self.k_docs, cw22_a=self.cw22_a)
-            docs = [r for r in docs if isinstance(r, SearchResult)]
-            docs = await reranker.rerank(request.query, docs)
-            docs = truncate_docs(docs, self.retrieval_words_threshold)
-            docs = update_docs_sids(docs)
-            messages = build_llm_messages(
-                docs, request.query, self.enable_think)
-
-            # Generate response using LLM
-            generated_response, _ = await llm.complete_chat(messages)
-
-            # Extract citations and contexts from search results
-            # Only include docs that have both URL and text to ensure consistency
-            valid_docs = [doc for doc in docs if doc.url and doc.text]
-            citations = [doc.url for doc in valid_docs]
-            contexts = [doc.text for doc in valid_docs]
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=citations,
-                contexts=contexts,
-                generated_response=generated_response or ""
-            )
-
-        except Exception as e:
-            self.logger.error("Error in evaluate", error=str(e))
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                contexts=[],
-                generated_response=f"Error processing query: {str(e)}"
-            )
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         async def stream():

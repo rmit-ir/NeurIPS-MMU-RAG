@@ -1,12 +1,12 @@
 """
 For Local GRAG using local LLM server as many can't run vllm or slang
 """
-from typing import AsyncGenerator, Callable, List, Optional, Dict
+from typing import AsyncGenerator, Callable, List, Dict
 import asyncio
 import re
 from openai.types.chat import ChatCompletionMessageParam
 from openai import AsyncOpenAI
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.rag_interface import EvaluateRequest, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_fineweb
 from tools.logging_utils import get_logger
@@ -55,6 +55,7 @@ class LocalGRAG(RAGInterface):
         self.rerank_model = rerank_model
         self.rerank_top_k = rerank_top_k
         self.reranker = reranker
+        self._is_processing = False
 
         self.logger = get_logger("local_grag")
         self.llm_client = None
@@ -233,7 +234,8 @@ Document 3: [passage 3]
                     unique_documents.append(doc)
                     seen_urls.add(doc["url"])
 
-            self.logger.info("Retrieved documents", count=len(unique_documents))
+            self.logger.info("Retrieved documents",
+                             count=len(unique_documents))
             return unique_documents
 
         except Exception as e:
@@ -257,7 +259,8 @@ Document 3: [passage 3]
 
         # Sort by similarity and take top k
         sorted_indices = np.argsort(similarities)[::-1]
-        reranked_docs = [documents[i] for i in sorted_indices[:self.rerank_top_k]]
+        reranked_docs = [documents[i]
+                         for i in sorted_indices[:self.rerank_top_k]]
 
         self.logger.info("Reranked documents using sentence transformer",
                          original_count=len(documents), reranked_count=len(reranked_docs))
@@ -347,7 +350,8 @@ If there are any contradictions or gaps, note them clearly.
             if not self.llm_client:
                 raise RuntimeError("Local LLM client is not initialized.")
 
-            messages = self._prepare_synthesis_messages(original_query, sub_queries, sub_answers)
+            messages = self._prepare_synthesis_messages(
+                original_query, sub_queries, sub_answers)
 
             response = await self.llm_client.chat.completions.create(
                 model=self.model_id,
@@ -383,84 +387,6 @@ If there are any contradictions or gaps, note them clearly.
         answer = await self._answer_sub_query(sub_query, context)
 
         return i, sub_query, answer, reranked_documents
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """
-        Process an evaluation request using LM Studio GRAG.
-
-        Args:
-            request: EvaluateRequest containing query and iid
-
-        Returns:
-            EvaluateResponse with generated answer
-        """
-        self._is_processing = True
-        try:
-            await self._ensure_llm_client()
-            if not self.llm_client:
-                raise RuntimeError("Local LLM client is not initialized.")
-
-            # Step 1: Decompose the query
-            sub_queries = await self._decompose_query(request.query)
-            self.logger.info("Query decomposed", sub_queries=sub_queries)
-
-            # Step 2: Answer each sub-query in parallel
-            sub_answers = []
-            all_documents = []
-
-            # Process all sub-queries concurrently
-            tasks = [self._process_sub_query(i, sub_queries, sub_query)
-                     for i, sub_query in enumerate(sub_queries)]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Process results and handle any exceptions
-            sub_answers: List[str] = [""] * len(sub_queries)
-            for idx, result in enumerate(results):
-                if isinstance(result, Exception) or isinstance(result, BaseException):
-                    self.logger.error(
-                        "Error processing sub-query", error=str(result))
-                    sub_answers[idx] = f"Error processing sub-query {idx+1}: {str(result)}"
-                else:
-                    i, sub_query, answer, documents = result
-                    sub_answers[i] = answer
-                    all_documents.extend(documents)
-
-            # Fill any empty values with error messages
-            for i, answer in enumerate(sub_answers):
-                if not answer:
-                    sub_answers[i] = f"Error processing sub-query {i+1}"
-
-            # Step 3: Synthesize final answer
-            final_answer = await self._synthesize_answers(request.query, sub_queries, sub_answers)
-
-            # Extract citations and contexts
-            citations = []
-            contexts = []
-            for doc in all_documents:
-                if doc.get("url"):
-                    citations.append(doc["url"])
-                if doc.get("content") or doc.get("text"):
-                    doc_content = doc.get("content") or doc.get("text", "")
-                    if doc_content:
-                        contexts.append(doc_content)
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=list(set(citations)),  # Remove duplicates
-                contexts=contexts,
-                generated_response=final_answer
-            )
-
-        except Exception as e:
-            self.logger.error("Error in evaluate", error=str(e))
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                contexts=[],
-                generated_response=f"Error processing query: {str(e)}"
-            )
-        finally:
-            self._is_processing = False
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
@@ -606,7 +532,8 @@ if __name__ == "__main__":
 
         # Initialize LocalGRAG
         rag = LocalGRAG(
-            model_id="qwen/qwen3-4b-thinking-2507",  # Should match the model loaded in Local LLM server
+            # Should match the model loaded in Local LLM server
+            model_id="qwen/qwen3-4b-thinking-2507",
             lm_studio_base_url="http://localhost:1234/v1",
             api_key="lm-studio",
             max_tokens=4096,

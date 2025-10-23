@@ -7,7 +7,7 @@ import os
 import asyncio
 import aiohttp
 from typing import AsyncGenerator, Callable
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse
 from tools.logging_utils import get_logger
 from tools.retry_utils import retry
 
@@ -75,35 +75,6 @@ class AzureO3ResearchRAG(RAGInterface):
                 result = await response.json()
                 self.logger.info("API response", result=result)
                 return result["choices"][0]["message"]["content"]
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """
-        Process an evaluation request using Azure OpenAI o3 model.
-
-        Args:
-            request: EvaluateRequest containing query and iid
-
-        Returns:
-            EvaluateResponse with query_id and generated_response
-        """
-        try:
-            # Create messages for evaluation
-            messages = self._create_research_messages(request.query)
-
-            # Make API request
-            generated_response = await self._make_api_request(messages)
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                contexts=[],  # No document retrieval in this system
-                generated_response=generated_response
-            )
-
-        except Exception as e:
-            self.logger.error("Error processing evaluation request",
-                              query_id=request.iid, error=str(e))
-            raise
 
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """

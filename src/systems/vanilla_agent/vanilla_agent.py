@@ -1,9 +1,8 @@
 import asyncio
 import json
-import re
 from openai.types.chat import ChatCompletionMessageParam
 from typing import AsyncGenerator, Callable, List, Optional, Tuple
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query, search_w_qv
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
@@ -41,14 +40,6 @@ class VanillaAgent(RAGInterface):
     @property
     def name(self) -> str:
         return "vanilla-agent"
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        return EvaluateResponse(
-            query_id=request.iid,
-            citations=[],
-            contexts=[],
-            generated_response=f"Not implemented, update RAGInterface to use run_streaming()"
-        )
 
     async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
         llm, reranker = await get_default_llms()

@@ -2,7 +2,7 @@ from typing import AsyncGenerator, Callable, List, Optional, Dict
 import asyncio
 import re
 from openai.types.chat import ChatCompletionMessageParam
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.rag_interface import EvaluateRequest, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.path_utils import to_icon_url
 from tools.web_search import SearchResult, search_clueweb
@@ -264,87 +264,6 @@ Cite sources using [sid] when possible.
         answer = await self._answer_sub_query(sub_query, context)
 
         return i, sub_query, answer, documents
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """
-        Process an evaluation request using decomposition RAG.
-
-        Args:
-            request: EvaluateRequest containing query and iid
-
-        Returns:
-            EvaluateResponse with generated answer
-        """
-        self._is_processing = True
-        try:
-            await self._ensure_llms()
-            if not self.llm_client or not self.reranker:
-                raise RuntimeError("LLM or Reranker are not initialized.")
-
-            # Step 1: Decompose the query
-            sub_queries = await self._decompose_query(request.query)
-            self.logger.info("Query decomposed", sub_queries=sub_queries)
-
-            # Step 2: Answer each sub-query in parallel
-            sub_answers = []
-            all_documents = []
-
-            # Process all sub-queries concurrently
-            tasks = [self._process_sub_query(i, sub_queries, sub_query)
-                     for i, sub_query in enumerate(sub_queries)]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Process results and handle any exceptions
-            # Initialize with correct size and type
-            sub_answers: List[str] = [""] * len(sub_queries)
-            for idx, result in enumerate(results):
-                if isinstance(result, Exception) or isinstance(result, BaseException):
-                    self.logger.error(
-                        "Error processing sub-query", error=str(result))
-                    # Handle the exception by using a fallback answer
-                    sub_answers[idx] = f"Error processing sub-query {idx+1}: {str(result)}"
-                else:
-                    i, sub_query, answer, documents = result
-                    sub_answers[i] = answer
-                    all_documents.extend(documents)
-
-            # Fill any empty values with error messages (in case of exceptions)
-            for i, answer in enumerate(sub_answers):
-                if not answer:
-                    sub_answers[i] = f"Error processing sub-query {i+1}"
-
-            # Step 3: Synthesize final answer
-            final_answer = await self._synthesize_answers(request.query, sub_queries, sub_answers)
-
-            # Deduplicate documents by sid
-            global_docs = {}
-            for doc in all_documents:
-                sid = doc.get('sid')
-                if sid and sid not in global_docs:
-                    global_docs[sid] = doc
-
-            # Extract citations and contexts
-            valid_docs = [doc for doc in global_docs.values() if doc.get("url") and doc.get("text")]
-            citations = [doc["url"] for doc in valid_docs]
-            contexts = [doc["text"] for doc in valid_docs]
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=citations,
-                contexts=contexts,
-                generated_response=final_answer
-            )
-
-        except Exception as e:
-            self.logger.error("Error in evaluate", error=str(e))
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                contexts=[],
-                generated_response=f"Error processing query: {str(e)}"
-            )
-        finally:
-            self._is_processing = False
 
     def _inter_resp(self, desc: str, silent: bool = False) -> RunStreamingResponse:
         if not silent:

@@ -113,38 +113,6 @@ class PerplexityResearchRAG(RAGInterface):
         message = choices[0].get("message", {})
         return message.get("content", "No content available")
 
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """
-        Process an evaluation request using Perplexity's deep research capabilities.
-
-        Args:
-            request: EvaluateRequest containing query and iid
-
-        Returns:
-            EvaluateResponse with query_id and generated_response
-        """
-        try:
-            # Use low reasoning effort for faster evaluation responses
-            response_data = await self._make_perplexity_request(
-                request.query,
-                reasoning_effort="low"
-            )
-
-            generated_response = self._extract_content(response_data)
-            citations = self._extract_citations(response_data)
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[citation["url"] for citation in citations],
-                contexts=[],  # Document contexts not available from Perplexity API
-                generated_response=generated_response
-            )
-
-        except Exception as e:
-            self.logger.error("Error processing evaluation request",
-                              query_id=request.iid, error=str(e))
-            raise
-
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         """
         Process a streaming request using Perplexity's deep research capabilities.

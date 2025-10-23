@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 from openai.types.chat import ChatCompletionMessageParam
 
 # Import existing components
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse
+from systems.rag_interface import EvaluateRequest, RAGInterface, RunRequest, RunStreamingResponse
 from systems.vanilla_agent.agent_tools import MSG_TYPE, pub_msg, to_any
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp
 from tools.logging_utils import get_logger
@@ -284,45 +284,6 @@ Here is the search results:
         workflow.add_edge("rewrite_question", "retrieve")
 
         return workflow
-
-    async def evaluate(self, request: EvaluateRequest) -> EvaluateResponse:
-        """Process an evaluation request using the agentic workflow."""
-        try:
-            if not self.graph:
-                self.workflow = await self._build_workflow()
-                self.graph = self.workflow.compile()
-
-            # Run the agentic workflow
-            final_state = await self.graph.ainvoke({
-                "messages": [HumanMessage(content=request.query)],
-                "total_turns": 3,
-                "turns_left": 3,
-                "accumulated_context": []
-            })
-
-            # Extract the final response
-            final_message = final_state["messages"][-1]
-            if hasattr(final_message, 'content'):
-                generated_response = final_message.content
-            else:
-                generated_response = str(final_message)
-
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],  # TODO: Extract citations from workflow
-                contexts=[],   # TODO: Extract contexts from workflow
-                generated_response=generated_response or "No response generated."
-            )
-
-        except Exception as e:
-            self.logger.error("Error in agentic evaluation",
-                              query_id=request.iid, error=str(e))
-            return EvaluateResponse(
-                query_id=request.iid,
-                citations=[],
-                contexts=[],
-                generated_response=f"Agent error: {str(e)}"
-            )
 
     def _inter_resp(self, desc: str, silent: bool = False) -> RunStreamingResponse:
         if not silent:
