@@ -12,11 +12,16 @@ log_with_notification() {
     local message="$1"
     local title="${2:-MMU-RAG Script}"
     
+
     # Print to console with timestamp
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message"
-    
-    # Show macOS notification
-    osascript -e "display notification \"$message\" with title \"$title\""
+
+    # Show macOS notification only if osascript is available
+    if command -v osascript >/dev/null 2>&1; then
+        # Show macOS notification
+        osascript -e "display notification \"$message\" with title \"$title\""
+    fi
+
 }
 
 # Function to get parallel count for a system
