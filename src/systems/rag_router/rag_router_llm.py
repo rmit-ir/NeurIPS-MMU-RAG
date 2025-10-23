@@ -1,10 +1,10 @@
 from typing import AsyncGenerator, Callable
-from systems.decomposition_rag.decomposition_rag import DecompositionRAG
 from systems.rag_interface import (
     RAGInterface,
     RunRequest,
     RunStreamingResponse,
 )
+from systems.vanilla_agent.vanilla_agent import VanillaAgent
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.classifiers.llm_query_complexity import QueryComplexityLLM
 from tools.logging_utils import get_logger
@@ -13,7 +13,7 @@ from tools.logging_utils import get_logger
 class RAGRouterLLM(RAGInterface):
     def __init__(self):
         self.rag_simple_query = VanillaRAG()
-        self.rag_complex_query = DecompositionRAG()
+        self.rag_complex_query = VanillaAgent()
         self.query_complexity_model = QueryComplexityLLM()
         self.logger = get_logger('RAGRouterLLM')
 

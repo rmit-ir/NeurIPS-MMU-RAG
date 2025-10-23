@@ -49,11 +49,9 @@ class QueryComplexityLLM:
 
         system_prompt = """Judge if the user query is a complex query. Note that the answer can only be "yes" or "no".
 
-Given the query below, if you are doing the research, do you think you can do a single search on Google and find out the answer?
+Given the query below, if you are doing the research, do you think the question is very easy and you can find the answer easily with a single search on Google?
 
-If so, it's not a complex query. If you need to search multiple times, it's a complex query.
-
-If the user query is long, but can be summarized into a simple question, then it's still not a complex query.
+If so, it's not a complex query, respond with "no", otherwise, it's a complex query, respond with "yes".
 
 Generally, for straightforward questions, the answer is no, if the question is ambiguous, multifaceted, contains multiple parts or requires multiple steps to answer, the answer is yes.
 
@@ -70,7 +68,8 @@ Give the final answer based on your last reasoning, yes indicates it's a complex
         infer_time = time.time() - start_time
 
         # Parse the response
-        is_complex = content.strip().lower() == 'yes' if content else False
+        lowered_answer = content.strip().lower() if content else ''
+        is_complex = lowered_answer == 'yes' or 'yes' in lowered_answer
         is_simple = not is_complex
 
         # log thinking process
@@ -82,8 +81,8 @@ Give the final answer based on your last reasoning, yes indicates it's a complex
 
         return PredictionResult(
             query=query,
-            is_simple_prob=1,
+            is_simple_prob=1.0 if is_simple else 0.0,
             is_simple=is_simple,
-            confidence=1,
+            confidence=1.0,
             infer_time=infer_time
         )
