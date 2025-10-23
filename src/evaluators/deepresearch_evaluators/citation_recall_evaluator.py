@@ -1,9 +1,9 @@
 """
 Citation Recall Evaluator for DeepResearch benchmarking.
 
-Evaluates citation recall by measuring the percentage of claims in the answer
-that have supporting sources (URLs). This measures how well the system
-provides evidence for its claims.
+Evaluates citation recall by measuring the percentage of gold reference claims
+that are covered in the system's answer. This uses gold standard references
+to measure how well the system covers expected claims.
 """
 
 import json
@@ -35,10 +35,10 @@ class ClaimsModel(BaseModel):
 
 class CitationRecallEvaluator(EvaluatorInterface):
     """
-    Evaluates citation recall for deep research reports.
+    Evaluates citation recall for deep research reports using gold references.
 
-    Measures the percentage of claims that have supporting sources.
-    Higher scores indicate better coverage of evidence for claims.
+    Measures the percentage of gold reference claims that are covered in the system output.
+    Higher scores indicate better coverage of expected claims from gold standard.
     """
 
     def __init__(
@@ -81,12 +81,8 @@ class CitationRecallEvaluator(EvaluatorInterface):
     def name(self) -> str:
         return "citation_recall"
 
-    def create_prompt_extractor(self, answer: str, citations: List[str] = None) -> str:
-        """Create prompt for extracting all claims from answer, with or without sources."""
-        citations_text = ""
-        if citations:
-            citations_text = "\n\nAvailable Citations:\n" + "\n".join(f"[{i+1}] {url}" for i, url in enumerate(citations, 1))
-        
+    def create_prompt_extractor(self, answer: str) -> str:
+        """Create prompt for extracting claims from answer (based on deepresearch_benchmarking repo)."""
         return f"""You are an information extraction expert.
 
 Given a structured report containing claims and their supporting sources (usually in the form of inline hyperlinks or referenced URLs), extract all distinct factual or argumentative claims in the text.
@@ -113,14 +109,22 @@ Return a JSON object like this:
 Where:
 
 - The root is "claims", which contains a list of claim objects.
-- Each claim object has:
+- Each claim object has: 
     - claim_id: an identifier (sequential integer starting from 1).
     - claim: a concise but complete sentence restating the claim.
-    - sources: list of URLs (empty list if no sources).
+    - sources: a list of URLs that explicitly support the claim, or an empty list if no URLs support it. 
 
-Extract ALL claims from the report, whether they have sources or not.
+(**IMPORTANT**: Only include URLs that are **explicitly present in the report text**, typically as inline hyperlinks or reference-style citations. Do not infer or fabricate URLs. Do not include non-URL citations such as book titles, paper references, or other non-URL sources.)
 
-Report: {answer}{citations_text}
+(**IMPORTANT**: Only include claims that are directly and explicitly stated in the report and are factual or argumentative in nature (i.e., statements that can be verified or refuted). Do not include general summaries, personal opinions, or meta-commentary.)
+
+Process the full report carefully to ensure all claims are included and accurately captured.
+
+Now extract the claims from the report below:
+
+{answer}
+
+Return the JSON object, and nothing else.
 """
 
     def _parse_llm_response(self, response: str) -> Dict[str, Any]:
@@ -150,83 +154,134 @@ Report: {answer}{citations_text}
         Evaluate a single system output for citation recall.
         """
         try:
-            answer = system_output.get('answer', system_output.get('generated_response', ''))
-
-            # Check if answer has any URLs (in text or citations array)
-            url_pattern = r'https?://\S+|www\.\S+'
-            citations = system_output.get('citations', [])
+            system_answer = system_output.get('answer', system_output.get('generated_response', ''))
+            gold_answer = reference.get('generated_response', reference.get('answer', ''))
             
-            # Extract URLs from both text and citations array
-            text_urls = re.findall(url_pattern, answer) if answer else []
-            citation_urls = citations if isinstance(citations, list) else []
-            all_urls = text_urls + citation_urls
-            
-            if not all_urls:
+            if not gold_answer:
                 return {
                     "citation_recall": 0.0,
-                    "total_claims": 0,
-                    "supported_claims": 0,
-                    "details": "No URLs found in answer or citations."
+                    "total_gold_claims": 0,
+                    "covered_claims": 0,
+                    "details": "No gold reference answer found."
                 }
-
-            # Extract all claims using structured output
-            prompt = self.create_prompt_extractor(answer, citations)
+            
+            if not system_answer:
+                return {
+                    "citation_recall": 0.0,
+                    "total_gold_claims": 0,
+                    "covered_claims": 0,
+                    "details": "No system answer provided."
+                }
+            
+            # Extract gold claims from reference answer
+            logger.info("Extracting gold claims from reference answer...")
+            gold_prompt = self.create_prompt_extractor(gold_answer)
+            
             try:
-                response = self.client.beta.chat.completions.parse(
+                gold_response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    response_format=ClaimsModel,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                )
-                result = json.loads(response.choices[0].message.content)
-                claims = result.get("claims", [])
-            except Exception as e:
-                # Fallback to manual parsing if beta API not available
-                logger.warning(f"Structured output not available, using fallback parsing: {e}")
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": prompt}
+                        {"role": "user", "content": gold_prompt}
                     ],
                     temperature=self.temperature,
                     max_tokens=self.max_tokens
                 )
-                llm_response = response.choices[0].message.content
-                result = self._parse_llm_response(llm_response)
-                claims = result.get("claims", [])
-
-            if not claims:
+                
+                gold_llm_response = gold_response.choices[0].message.content
+                gold_result = self._parse_llm_response(gold_llm_response)
+                gold_claims_data = gold_result.get("claims", [])
+                
+            except Exception as e:
+                logger.warning(f"Error extracting gold claims: {e}")
+                gold_claims_data = []
+            
+            if not gold_claims_data:
                 return {
                     "citation_recall": 0.0,
-                    "total_claims": 0,
-                    "supported_claims": 0,
-                    "details": "No claims extracted."
+                    "total_gold_claims": 0,
+                    "covered_claims": 0,
+                    "details": "No claims extracted from gold reference answer."
                 }
-
-            total_claims = len(claims)
-            supported_claims = sum(1 for claim in claims if claim.get("sources"))
-
-            score = supported_claims / total_claims if total_claims > 0 else 0.0
-
-            detailed = {
-                f"claim_{claim['claim_id']}": {
-                    "claim": claim["claim"],
-                    "sources": claim["sources"],
-                    "supported": bool(claim["sources"])
+            
+            # Extract claims from system answer
+            logger.info("Extracting claims from system answer...")
+            system_prompt = self.create_prompt_extractor(system_answer)
+            
+            try:
+                system_response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": system_prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                
+                system_llm_response = system_response.choices[0].message.content
+                system_result = self._parse_llm_response(system_llm_response)
+                system_claims_data = system_result.get("claims", [])
+                
+            except Exception as e:
+                logger.warning(f"Error extracting claims from system answer: {e}")
+                system_claims_data = []
+            
+            if not system_claims_data:
+                return {
+                    "citation_recall": 0.0,
+                    "total_gold_claims": len(gold_claims_data),
+                    "covered_claims": 0,
+                    "details": "No claims extracted from system answer."
                 }
-                for claim in claims
-            }
-
+            
+            # Combine all system claims into one text for matching
+            system_claims = [claim.get("claim", "") for claim in system_claims_data if claim.get("claim")]
+            system_claims_combined = " ".join(system_claims)
+            
+            # Check each gold claim for coverage in system claims
+            coverage_results = []
+            covered_count = 0
+            
+            for gold_claim_obj in gold_claims_data:
+                gold_claim = gold_claim_obj.get("claim", "")
+                if not gold_claim or not gold_claim.strip():
+                    continue
+                
+                # Use word overlap heuristic to check coverage
+                gold_claim_lower = gold_claim.lower().strip()
+                system_combined_lower = system_claims_combined.lower()
+                
+                # Extract alphanumeric sequences (potential key terms)
+                gold_words = set(re.findall(r'\b\w{4,}\b', gold_claim_lower))
+                system_words = set(re.findall(r'\b\w{4,}\b', system_combined_lower))
+                
+                # Calculate overlap
+                if gold_words:
+                    overlap = len(gold_words & system_words) / len(gold_words)
+                    # If at least 60% of key words from gold claim appear in system output
+                    is_covered = overlap >= 0.6
+                else:
+                    is_covered = False
+                
+                if is_covered:
+                    covered_count += 1
+                
+                coverage_results.append({
+                    "gold_claim_id": gold_claim_obj.get("claim_id", 0),
+                    "gold_claim": gold_claim[:200] + "..." if len(gold_claim) > 200 else gold_claim,
+                    "covered": is_covered,
+                    "overlap_ratio": round(overlap, 2) if gold_words else 0.0
+                })
+            
+            total_gold_claims = len(gold_claims_data)
+            recall_score = covered_count / total_gold_claims if total_gold_claims > 0 else 0.0
+            
             return {
-                "citation_recall": score,
-                "total_claims": total_claims,
-                "supported_claims": supported_claims,
-                "details": detailed
+                "citation_recall": recall_score,
+                "total_gold_claims": total_gold_claims,
+                "covered_claims": covered_count,
+                "details": coverage_results
             }
 
         except Exception as e:
@@ -234,8 +289,8 @@ Report: {answer}{citations_text}
                 logger.error(f"Error during citation recall evaluation: {e}")
                 return {
                     "citation_recall": 0.0,
-                    "total_claims": 0,
-                    "supported_claims": 0,
+                    "total_gold_claims": 0,
+                    "covered_claims": 0,
                     "details": f"Evaluation error: {str(e)}"
                 }
             else:
@@ -243,60 +298,73 @@ Report: {answer}{citations_text}
 
     def evaluate(self, system_outputs: List[Dict[str, Any]], references: List[Dict[str, Any]]) -> EvaluationResult:
         """
-        Evaluate citation recall for the system outputs.
+        Evaluate citation recall for the system outputs using gold references.
+        
+        For each system output, we:
+        1. Find the matching gold reference by query_id
+        2. Extract gold claims from the reference
+        3. Check how many gold claims are covered in the system output
+        4. Calculate recall = covered_claims / total_gold_claims
         """
         start_time = time.time()
 
         # Validate inputs
         self.validate_inputs(system_outputs, references)
 
-        # Create lookup for references (though not used for citation recall eval)
-        ref_lookup = {ref.get('iid', ref.get('query_id')): ref for ref in references}
+        # Create lookup for references by query_id
+        ref_lookup = {ref.get('query_id', ref.get('iid')): ref for ref in references}
 
         rows = []
         recall_scores = []
-        total_claims_list = []
-        supported_claims_list = []
+        total_gold_claims_list = []
+        covered_claims_list = []
 
         def evaluate_sample(output, reference):
             result = self._evaluate_single(output, reference)
+            query_id = output.get('query_id', output.get('iid'))
             rows.append({
-                'query_id': output.get('iid', output.get('query_id')),
+                'query_id': query_id,
                 'citation_recall': result.get('citation_recall', 0.0),
-                'total_claims': result.get('total_claims', 0),
-                'supported_claims': result.get('supported_claims', 0),
+                'total_gold_claims': result.get('total_gold_claims', 0),
+                'covered_claims': result.get('covered_claims', 0),
                 'details': result.get('details', {})
             })
             recall_scores.append(result.get('citation_recall', 0.0))
-            total_claims_list.append(result.get('total_claims', 0))
-            supported_claims_list.append(result.get('supported_claims', 0))
+            total_gold_claims_list.append(result.get('total_gold_claims', 0))
+            covered_claims_list.append(result.get('covered_claims', 0))
 
         if self.num_threads > 1:
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_threads) as executor:
                 futures = []
                 for output in system_outputs:
-                    output_id = output.get('iid', output.get('query_id'))
+                    output_id = output.get('query_id', output.get('iid'))
                     reference = ref_lookup.get(output_id, {})
+                    if not reference:
+                        logger.warning(f"No gold reference found for query_id: {output_id}")
+                        reference = {}
                     futures.append(executor.submit(evaluate_sample, output, reference))
 
                 for future in concurrent.futures.as_completed(futures):
                     future.result()
         else:
             for output in system_outputs:
-                output_id = output.get('iid', output.get('query_id'))
+                output_id = output.get('query_id', output.get('iid'))
                 reference = ref_lookup.get(output_id, {})
+                if not reference:
+                    logger.warning(f"No gold reference found for query_id: {output_id}")
+                    reference = {}
                 evaluate_sample(output, reference)
 
         # Calculate metrics
         from statistics import mean
         avg_recall = mean(recall_scores) if recall_scores else 0.0
-        total_claims_overall = sum(total_claims_list)
-        total_supported_overall = sum(supported_claims_list)
+        total_gold_claims_overall = sum(total_gold_claims_list)
+        total_covered_overall = sum(covered_claims_list)
 
         metrics = {
             'citation_recall': avg_recall,
-            'total_claims': total_claims_overall,
-            'total_supported_claims': total_supported_overall,
+            'total_gold_claims': total_gold_claims_overall,
+            'total_covered_claims': total_covered_overall,
             'count': len(system_outputs)
         }
 

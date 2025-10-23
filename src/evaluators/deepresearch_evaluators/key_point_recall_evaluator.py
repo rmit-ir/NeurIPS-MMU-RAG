@@ -40,7 +40,7 @@ class KeyPointRecallEvaluator(EvaluatorInterface):
         self,
         model: str = "openai.gpt-oss-120b-1:0",
         temperature: float = 0.0,
-        max_tokens: int = 6000,
+        max_tokens: int = 8000,
         silent_errors: bool = True,
         num_threads: int = 1,
         api_base: str = "https://mmu-proxy-server-llm-proxy.rankun.org",
@@ -99,6 +99,66 @@ Do **not** add any extra commentary or text outside the JSON.
 
 Key Point: {key_point}
 Report: {answer}
+"""
+
+    def create_key_points_extraction_prompt(self, question: str, text: str) -> str:
+        """Create prompt to extract key points from a document based on query."""
+        return f"""Based on the text provided, identify key points in the text that directly help in responding to the query. The key points are not simply some key content of the text, but rather the key points that are important for **answering the query**.
+
+IMPORTANT: Ensure each point is helpful in responding to the query. Keep the point using the original language and do not add explanations.
+
+Respond strictly in JSON format:
+{{
+    "points": [
+        {{
+            "point_number": point_number,
+            "point_content": point_content
+        }},
+        ...
+    ]
+}}
+
+Remember:
+- These key points must be helpful in responding to the query.
+- Keep points concise but complete.
+
+[Query]: {question}
+[Text]: {text}
+"""
+
+    def create_aggregation_prompt(self, original_points: List[str]) -> str:
+        """Create prompt to aggregate key points from multiple documents."""
+        # Format points as numbered list
+        points_text = "\n".join([f"{i + 1}. {point}" for i, point in enumerate(original_points)])
+
+        return f"""You are given a list of key points extracted from multiple documents. Your task is to aggregate these points according to the following instructions:
+
+1. Identify and deduplicate any duplicated or redundant points. Merge them into a single, representative point.
+2. Identify contradictory points. Merge them into a single point that presents both sides, e.g., "Sources claim that X, while other sources claim that Y".
+
+IMPORTANT RULES:
+- Every aggregated point must preserve **all original information** from the included points.
+- Do not invent or add any new information. Only use what is already present.
+- Do not provide any explanations or summaries beyond the aggregation itself.
+- Each aggregated point should **capture a single atomic idea**. Avoid combining unrelated aspects into one point.
+- Keep the aggregated point **concise but complete**: include all essential details needed to fully represent the merged idea, but do not make it overly detailed or verbose.
+
+Respond strictly in JSON format (no markdown code blocks):
+{{
+    "points": [
+        {{
+            "point_number": 1,
+            "point_content": "aggregated point 1"
+        }},
+        {{
+            "point_number": 2,
+            "point_content": "aggregated point 2"
+        }}
+    ]
+}}
+
+[Original Points]
+{points_text}
 """
 
     def _parse_llm_response(self, response: str) -> Dict[str, Any]:
@@ -180,6 +240,148 @@ Report: {answer}
 
         return results
 
+    def _extract_key_points_from_contexts(self, query: str, contexts: List[str]) -> List[Dict[str, Any]]:
+        """Extract and aggregate key points from multiple context documents."""
+        try:
+            all_points = []
+            
+            # Extract key points from each context document
+            for ctx_idx, context in enumerate(contexts):
+                if not context or not context.strip():
+                    continue
+                    
+                try:
+                    prompt = self.create_key_points_extraction_prompt(query, context)
+                    
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.0,
+                        max_tokens=self.max_tokens
+                    )
+                    llm_response = response.choices[0].message.content
+                    
+                    # Parse JSON
+                    import re
+                    json_match = re.search(r'\{.*?"points"\s*:\s*(\[.*?\])\s*\}', llm_response, re.DOTALL)
+                    if json_match:
+                        points_array = json.loads(json_match.group(1))
+                        for point in points_array:
+                            if isinstance(point, dict) and 'point_content' in point:
+                                all_points.append(point['point_content'])
+                    else:
+                        # Fallback: try to extract sentences
+                        sentences = [s.strip() for s in context.split('.') if s.strip() and len(s.strip()) > 20]
+                        all_points.extend(sentences[:2])  # Take top 2 sentences
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to extract key points from context {ctx_idx}: {e}")
+                    # Fallback: extract key sentences
+                    sentences = [s.strip() for s in context.split('.') if s.strip() and len(s.strip()) > 20]
+                    all_points.extend(sentences[:2])
+            
+            if not all_points:
+                logger.warning("No key points extracted from any context")
+                return []
+            
+            # Aggregate key points (deduplicate and merge)
+            try:
+                prompt = self.create_aggregation_prompt(all_points)
+                
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.0,
+                    max_tokens=self.max_tokens
+                )
+                llm_response = response.choices[0].message.content
+                
+                # Parse aggregated points - try multiple strategies
+                import re
+                
+                # Strategy 1: Extract full JSON object
+                try:
+                    json_match = re.search(r'\{.*"points"\s*:\s*\[.*?\]\s*\}', llm_response, re.DOTALL)
+                    if json_match:
+                        full_json = json.loads(json_match.group(0))
+                        aggregated_points = full_json.get('points', [])
+                    else:
+                        raise ValueError("No JSON object found")
+                except Exception as e:
+                    logger.debug(f"Strategy 1 failed: {e}, trying strategy 2")
+                    # Strategy 2: Extract just the array
+                    try:
+                        # Find JSON code block
+                        code_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', llm_response, re.DOTALL)
+                        if code_block_match:
+                            full_json = json.loads(code_block_match.group(1))
+                            aggregated_points = full_json.get('points', [])
+                        else:
+                            # Try to find any JSON structure
+                            full_json = json.loads(llm_response.strip())
+                            aggregated_points = full_json.get('points', [])
+                    except Exception as e2:
+                        logger.warning(f"All JSON parsing strategies failed: {e2}")
+                        aggregated_points = []
+                
+                # Ensure proper format
+                if aggregated_points:
+                    result = []
+                    for i, point in enumerate(aggregated_points):
+                        if isinstance(point, dict) and 'point_content' in point:
+                            result.append({
+                                "point_number": i + 1,
+                                "point_content": point['point_content']
+                            })
+                    if result:
+                        return result
+                
+                # Fallback if parsing failed
+                return self._fallback_key_points(all_points)
+                    
+            except Exception as e:
+                logger.warning(f"Failed to aggregate key points: {e}")
+                return self._fallback_key_points(all_points)
+                
+        except Exception as e:
+            logger.error(f"Error extracting key points from contexts: {e}")
+            return []
+    
+    def _fallback_key_points(self, all_points: List[str]) -> List[Dict[str, Any]]:
+        """Fallback: use first N unique points."""
+        unique_points = []
+        seen = set()
+        for point in all_points:
+            if point.lower() not in seen:
+                unique_points.append(point)
+                seen.add(point.lower())
+            if len(unique_points) >= 7:
+                break
+        
+        return [
+            {"point_content": point, "point_number": i+1}
+            for i, point in enumerate(unique_points)
+        ]
+
+    def _extract_key_points(self, reference_answer: str) -> List[Dict[str, Any]]:
+        """Extract key points from reference answer using LLM (deprecated - use contexts instead)."""
+        try:
+            # Simple extraction for backward compatibility
+            sentences = [s.strip() for s in reference_answer.split('.') if s.strip() and len(s.strip()) > 20]
+            return [
+                {"point_content": sentence, "point_number": i+1}
+                for i, sentence in enumerate(sentences[:5])
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to extract key points: {e}")
+            return []
+
     def _evaluate_single(self, system_output: Dict[str, Any], reference: Dict[str, Any]) -> Dict[str, Any]:
         """
         Evaluate a single system output for key point recall.
@@ -198,12 +400,36 @@ Report: {answer}
                 }
 
             if not key_points:
+                # Extract key points from reference contexts (ground-truth documents)
+                query = reference.get('query', '')
+                contexts = reference.get('contexts', [])
+                
+                if contexts and query:
+                    logger.info(f"No key points found, extracting from reference contexts for query_id {reference.get('query_id')}")
+                    key_points = self._extract_key_points_from_contexts(query, contexts)
+                    reference['key_points'] = key_points  # Cache for future use
+                else:
+                    # Fallback: extract from generated_response if contexts not available
+                    reference_answer = reference.get('generated_response', reference.get('reference', ''))
+                    if not reference_answer:
+                        return {
+                            "labels": {},
+                            "support_rate": 0.0,
+                            "omitted_rate": 0.0,
+                            "contradicted_rate": 0.0,
+                            "evaluation_error": "No key points, contexts, or reference answer provided"
+                        }
+                    logger.info(f"No key points or contexts found, extracting from reference answer for query_id {reference.get('query_id')}")
+                    key_points = self._extract_key_points(reference_answer)
+                    reference['key_points'] = key_points
+
+            if not key_points:
                 return {
                     "labels": {},
                     "support_rate": 0.0,
                     "omitted_rate": 0.0,
                     "contradicted_rate": 0.0,
-                    "evaluation_error": "No key points provided"
+                    "evaluation_error": "Failed to extract any key points"
                 }
 
             # Evaluate all key points

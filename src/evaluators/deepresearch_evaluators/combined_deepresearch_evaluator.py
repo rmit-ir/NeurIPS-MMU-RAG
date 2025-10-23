@@ -148,8 +148,8 @@ class CombinedDeepResearchEvaluator(EvaluatorInterface):
                 rows_by_id[query_id] = {'query_id': query_id}
             rows_by_id[query_id].update({
                 'citation_recall': row['citation_recall'],
-                'total_claims': row['total_claims'],
-                'supported_claims': row['supported_claims']
+                'total_gold_claims': row['total_gold_claims'],
+                'covered_claims': row['covered_claims']
             })
         
         print(f"✓ Citation Recall: {citation_recall_result.metrics['citation_recall']:.2%}\n")
@@ -212,8 +212,8 @@ class CombinedDeepResearchEvaluator(EvaluatorInterface):
         # Combine metrics
         combined_metrics = {
             'citation_recall': citation_recall_result.metrics['citation_recall'],
-            'citation_recall_total_claims': citation_recall_result.metrics['total_claims'],
-            'citation_recall_supported': citation_recall_result.metrics['total_supported_claims'],
+            'citation_recall_total_gold_claims': citation_recall_result.metrics['total_gold_claims'],
+            'citation_recall_covered': citation_recall_result.metrics['total_covered_claims'],
             
             'key_point_recall': key_point_result.metrics['key_point_recall'],
             'key_point_support_rate': key_point_result.metrics['avg_support_rate'],
