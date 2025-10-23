@@ -47,15 +47,15 @@ class QueryComplexityLLM:
         if not self.llm_client:
             raise RuntimeError("Failed to initialize LLM client")
 
-        system_prompt = """Judge if the user query is a complex query. Note that the answer can only be "yes" or "no".
+        system_prompt = """Judge if the user question is a complex question. Note that the answer can only be "yes" or "no".
 
-Given the query below, if you are doing the research, do you think the question is very easy and you can find the answer easily with a single search on Google?
+Given the question below, if you are doing the research, do you think the question is very easy and you can find the answer easily with a single search on Google?
 
-If so, it's not a complex query, respond with "no", otherwise, it's a complex query, respond with "yes".
+If so, it's not a complex question, respond with "no", otherwise, it's a complex question, respond with "yes".
 
-Generally, for straightforward questions, the answer is no, if the question is ambiguous, multifaceted, contains multiple parts or requires multiple steps to answer, the answer is yes.
+Generally, for straightforward, single question, it's a simple question. If the question is ambiguous, multifaceted, contains multiple parts, has 2 or more sub-questions or requires multiple steps to answer, it's a complex question.
 
-Give the final answer based on your last reasoning, yes indicates it's a complex query or no indicating it's not a complex query.
+Give the final answer based on your last reasoning, yes indicates it's a complex question or no indicating it's not a complex question.
 """
 
         messages: List[ChatCompletionMessageParam] = [
