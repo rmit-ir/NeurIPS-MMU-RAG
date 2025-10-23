@@ -135,12 +135,13 @@ async def search_w_qv(query: str,
                       num_qvs: int,
                       enable_think: bool,
                       logger: BoundLogger,
+                      cw22_a: bool = True,
                       preset_llm: Optional[GeneralOpenAIClient] = None) -> Tuple[List[str], List[SearchResult]]:
     """Search with query variants and merge results"""
     queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
     queries = set([query, *queries])
     queries_docs = await asyncio.gather(*[
-        search_clueweb(query=q, k=10, cw22_a=True) for q in queries])
+        search_clueweb(query=q, k=10, cw22_a=cw22_a) for q in queries])
 
     # Deduplicate and put into a list
     all_results: List[SearchResult] = []

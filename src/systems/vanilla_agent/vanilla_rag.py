@@ -1,7 +1,7 @@
 import asyncio
 from typing import AsyncGenerator, Callable, Optional
 from systems.rag_interface import EvaluateRequest, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
-from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp
+from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp, search_w_qv
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
@@ -63,15 +63,18 @@ class VanillaRAG(RAGInterface):
                 llm, reranker = await get_default_llms()
 
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
-                docs = await search_clueweb(request.question,
-                                            k=self.k_docs, cw22_a=self.cw22_a)
+                # docs = await search_clueweb(request.question,
+                #                             k=self.k_docs, cw22_a=self.cw22_a)
+                qvs, docs = await search_w_qv(request.question, num_qvs=self.num_qvs, enable_think=self.enable_think, logger=self.logger, cw22_a=self.cw22_a, preset_llm=llm)
                 total_docs = len(docs)
-                yield inter_resp(f"Found {total_docs} documents for {request.question}\n\n", silent=False, logger=self.logger)
+                qvs_str = "; ".join(qvs)
+                yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",
+                                 silent=False, logger=self.logger)
 
                 docs = [r for r in docs if isinstance(r, SearchResult)]
                 docs = await reranker.rerank(request.question, docs)
                 reranked_docs = len(docs)
-                yield inter_resp(f"Reranked {reranked_docs} documents for {request.question}\n\n", silent=False, logger=self.logger)
+                yield inter_resp(f"Reranked {reranked_docs} documents\n\n", silent=False, logger=self.logger)
 
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 docs = update_docs_sids(docs)
