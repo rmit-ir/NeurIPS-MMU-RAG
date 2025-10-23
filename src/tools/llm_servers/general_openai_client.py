@@ -7,6 +7,7 @@ import time
 import asyncio
 from typing import Dict, Optional, Tuple, Any, List, AsyncGenerator
 from openai import OpenAI, AsyncOpenAI, APIError, APIConnectionError, RateLimitError
+from openai.types import ReasoningEffort
 from openai.types.chat import ChatCompletionMessageParam
 from datetime import datetime
 
@@ -28,6 +29,7 @@ class GeneralOpenAIClient(LLMInterface):
         max_retries: int = 5,
         timeout: float = 600.0,
         model_id: str = "tiiuae/falcon3-10b-instruct",
+        reasoning_effort: Optional[ReasoningEffort] = None,  # 'medium'
         temperature: Optional[float] = None,
         max_tokens: int = 4096,
         logger=get_logger("general_openai_client"),
@@ -62,6 +64,7 @@ class GeneralOpenAIClient(LLMInterface):
 
         self.logger = logger
         self.llm_name = llm_name
+        self.reasoning_effort: Any = reasoning_effort
 
         # Initialize the OpenAI client with explicit headers
         self.client = OpenAI(
@@ -105,7 +108,7 @@ class GeneralOpenAIClient(LLMInterface):
                 model=self.model_id,
                 prompt=prompt+"\n\n",
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
 
             # Extract content from the response
@@ -169,7 +172,8 @@ class GeneralOpenAIClient(LLMInterface):
                 model=self.model_id,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                reasoning_effort=self.reasoning_effort,
             )
 
             # Extract content from the response
@@ -232,7 +236,8 @@ class GeneralOpenAIClient(LLMInterface):
                 messages=messages,
                 temperature=self.temperature,
                 max_tokens=max_tokens or self.max_tokens,
-                stream=True
+                stream=True,
+                reasoning_effort=self.reasoning_effort,
             )
 
             full_content = {"content": "", "reasoning_content": ""}

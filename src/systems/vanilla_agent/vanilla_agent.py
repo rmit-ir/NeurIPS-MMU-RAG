@@ -54,6 +54,7 @@ class VanillaAgent(RAGInterface):
                 alt_llm = GeneralOpenAIClient(model_id=alt_llm_model,
                                               api_base=alt_llm_api_base,
                                               api_key=alt_llm_api_key,
+                                              reasoning_effort='medium',
                                               max_retries=3)
                 return alt_llm, reranker
             if not alt_llm_api_key:
