@@ -39,7 +39,7 @@ REMOTE_API_BASE_URL = "https://ase-server-api.rankun.org/api/search/ai-overview"
 async def make_remote_request(session: aiohttp.ClientSession, query: str,
                               server_key: str, api_key: str) -> dict:
     """
-    Make a request to the remote API.
+    Make a streaming request to the remote API and accumulate the response.
 
     Args:
         session: aiohttp session
@@ -48,27 +48,93 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
         api_key: Bearer token for authorization
 
     Returns:
-        API response as dict
+        Accumulated response as dict in OpenAI format
     """
     # URL encode the query
     encoded_query = quote_plus(query)
 
-    # Build URL with query parameters
-    url = f"{REMOTE_API_BASE_URL}?query={encoded_query}&stream=false&server_key={server_key}"
+    # Build URL with query parameters - now using stream=true
+    url = f"{REMOTE_API_BASE_URL}?query={encoded_query}&stream=true&server_key={server_key}"
 
     headers = {
-        'accept': 'application/json',
+        'accept': 'text/event-stream',
         'authorization': f'Bearer {api_key}'
     }
 
     async with session.get(url, headers=headers) as response:
-        # result = await response.json()
-        text = await response.text()
         if response.status != 200:
+            text = await response.text()
             logger.error("Remote API error",
                          status=response.status, response=text)
-        response.raise_for_status()
-        return json.loads(text)
+            response.raise_for_status()
+
+        # Accumulate streaming response
+        accumulated_content = ""
+        accumulated_reasoning = ""
+        final_citations = []
+        final_contexts = []
+
+        async for line in response.content:
+            line_str = line.decode('utf-8').strip()
+
+            # Skip empty lines and non-data lines
+            if not line_str or not line_str.startswith('data: '):
+                continue
+
+            # Extract JSON data from SSE format
+            data_str = line_str[6:]  # Remove 'data: ' prefix
+
+            # Check for end of stream
+            if data_str == '[DONE]':
+                break
+
+            try:
+                chunk_data = json.loads(data_str)
+
+                # Check for error response
+                if 'error' in chunk_data:
+                    error_msg = chunk_data['error'].get(
+                        'message', 'Unknown error')
+                    logger.error("Remote API streaming error", error=error_msg)
+                    raise Exception(f"API Error: {error_msg}")
+
+                # Process OpenAI streaming chunk
+                choices = chunk_data.get('choices', [])
+                if choices and len(choices) > 0:
+                    delta = choices[0].get('delta', {})
+
+                    # Accumulate content
+                    if 'content' in delta and delta['content']:
+                        accumulated_content += delta['content']
+
+                    # Accumulate reasoning content
+                    if 'reasoning_content' in delta and delta['reasoning_content']:
+                        accumulated_reasoning += delta['reasoning_content']
+
+                    # Update citations (take the latest non-empty one)
+                    if 'citations' in delta and delta['citations']:
+                        final_citations = delta['citations']
+
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse streaming chunk",
+                               chunk=data_str, error=str(e))
+                continue
+
+        # Extract contexts from citations
+        for citation in final_citations:
+            if isinstance(citation, dict) and citation.get('text'):
+                final_contexts.append(citation['text'])
+
+        # Construct final response in OpenAI format
+        return {
+            'choices': [{
+                'message': {
+                    'content': accumulated_content,
+                    'citations': final_citations,
+                    'contexts': final_contexts
+                }
+            }]
+        }
 
 
 async def process_topic_remote(session: aiohttp.ClientSession, request: EvaluateRequest,
