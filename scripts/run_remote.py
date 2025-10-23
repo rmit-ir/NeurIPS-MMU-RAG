@@ -73,6 +73,7 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
         accumulated_reasoning = ""
         final_citations = []
         final_contexts = []
+        final_citation_urls = []
 
         async for line in response.content:
             line_str = line.decode('utf-8').strip()
@@ -123,14 +124,15 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
         # Extract contexts from citations
         for citation in final_citations:
             if isinstance(citation, dict) and citation.get('text'):
-                final_contexts.append(citation['text'])
+                final_contexts.append(citation.get('text', ''))
+                final_citation_urls.append(citation.get('url', ''))
 
         # Construct final response in OpenAI format
         return {
             'choices': [{
                 'message': {
                     'content': accumulated_content,
-                    'citations': final_citations,
+                    'citations': final_citation_urls,
                     'contexts': final_contexts
                 }
             }]

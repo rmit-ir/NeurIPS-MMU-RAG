@@ -25,7 +25,7 @@ get_parallel_count() {
         "mmu_rag_vanilla") echo 5 ;;
         "decomposition_rag") echo 2 ;;
         "mmu_rag_router_llm") echo 4 ;;
-        "mmu_vanilla_agent") echo 2 ;;
+        "mmu_vanilla_agent") echo 4 ;;
         *) echo 1 ;;
     esac
 }
