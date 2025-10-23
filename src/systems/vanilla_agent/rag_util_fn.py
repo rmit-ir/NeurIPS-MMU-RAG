@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from openai.types.chat import ChatCompletionMessageParam
 from structlog import BoundLogger
 from systems.rag_interface import RunStreamingResponse
@@ -71,9 +71,16 @@ def inter_resp(desc: str, silent: bool, logger: BoundLogger) -> RunStreamingResp
     )
 
 
-async def generate_qvs(query: str, num_qvs: int, enable_think: bool, logger: BoundLogger) -> List[str]:
+async def generate_qvs(query: str,
+                       num_qvs: int,
+                       enable_think: bool,
+                       logger: BoundLogger,
+                       preset_llm: Optional[GeneralOpenAIClient] = None) -> List[str]:
     """Generate a list of query variants"""
-    llm, reranker = await get_default_llms()
+    if not preset_llm:
+        llm, _ = await get_default_llms()
+    else:
+        llm = preset_llm
     system_prompt = f"""You will receive a question from a user and you need interpret what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
 
 Try express the same question in different ways, use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to reach different aspects.
@@ -106,9 +113,13 @@ Put each query in a line, do not add any prefix on each query, only provide the 
     return [query]
 
 
-async def reformulate_query(query: str) -> str:
+async def reformulate_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None) -> str:
     """Reformulate the query to improve search results"""
-    llm, reranker = await get_default_llms()
+    if not preset_llm:
+        llm, _ = await get_default_llms()
+    else:
+        llm = preset_llm
+
     system_prompt = """You will receive a question from a user and you need interpret what the question is actually asking about and come up with a better Google search query to answer that question. Only provide the reformulated query, do not add any prefix or suffix."""
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
@@ -120,9 +131,13 @@ async def reformulate_query(query: str) -> str:
     return query
 
 
-async def search_w_qv(query: str, num_qvs: int, enable_think: bool, logger: BoundLogger) -> Tuple[List[str], List[SearchResult]]:
+async def search_w_qv(query: str,
+                      num_qvs: int,
+                      enable_think: bool,
+                      logger: BoundLogger,
+                      preset_llm: Optional[GeneralOpenAIClient] = None) -> Tuple[List[str], List[SearchResult]]:
     """Search with query variants and merge results"""
-    queries = await generate_qvs(query, num_qvs, enable_think, logger=logger)
+    queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
     queries = set([query, *queries])
     queries_docs = await asyncio.gather(*[
         search_clueweb(query=q, k=10, cw22_a=True) for q in queries])

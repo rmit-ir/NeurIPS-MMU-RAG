@@ -178,7 +178,7 @@ Here is the search results for current question:
                 while sum(calc_tokens(d) for d in acc_docs) < self.context_tokens and tries < self.max_tries:
                     tries += 1
                     # step 1: search
-                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger)
+                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, preset_llm=llm)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = "; ".join(qvs)
                     yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",
@@ -193,7 +193,7 @@ Here is the search results for current question:
                         qv_think_enabled = True
                         yield inter_resp(f"Found no relevant documents, so far we have {len(acc_docs)} relevant documents, reformulating query...\n\n",
                                          silent=False, logger=self.logger)
-                        next_query = await reformulate_query(next_query)
+                        next_query = await reformulate_query(next_query, preset_llm=llm)
                         yield inter_resp(f"Next search ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
@@ -230,7 +230,7 @@ Here is the search results for current question:
                         qv_think_enabled = True
                         yield inter_resp(f"Found no relevant documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
-                        next_query = await reformulate_query(next_query)
+                        next_query = await reformulate_query(next_query, preset_llm=llm)
                         yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
