@@ -181,3 +181,37 @@ uv run python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-Reranker-
 ```
 
 </details>
+
+<details>
+<summary>Evaluation Guideline</summary>
+
+Queries dataset 1: [data/past_topics/organizers_outputs/t2t_val.jsonl](./data/past_topics/organizers_outputs/t2t_val.jsonl), from MMU RAG organizers [MMU-RAG Validation Set](https://agi-lti.github.io/MMU-RAGent/text-to-text#validation-set).
+
+Queries dataset 2: [data/past_topics/processed/benchmark_topics.jsonl](./data/past_topics/processed/benchmark_topics.jsonl), built from 20 queries from each of mmu_t2t, IKAT, LiveRAG, RAG24, RAG25, in total 100 queries.
+
+#### Step 1. Run Dataset
+
+Run the dataset through a RAG system, e.g.,
+
+```bash
+REMOTE_API_KEY=your_api_key_copy_it_from_ase_2.0_website_api_request
+bash scripts/run_datasets.sh
+```
+
+#### Step 2. Evaluate Results
+
+Take the generated results, and evaluate them using `src.evaluators.deepresearch_evaluators.combined_deepresearch_evaluator.CombinedDeepResearchEvaluator`.
+
+```bash
+uv run scripts/evaluate.py \
+  --evaluator src.evaluators.deepresearch_evaluators.combined_deepresearch_evaluator.CombinedDeepResearchEvaluator \
+  --results <results.jsonl> \
+  --reference data/past_topics/gold/t2t_val_results.jsonl \
+  --output-dir data/evaluation_results/with_gold \
+  --output-prefix t2t_rag_name \
+  --num-threads 8
+```
+
+TODO: add a `scripts/run_evaluation.sh` script to automate both steps. When run_datasets.sh finishes, output export statements that will determine what run_evaluation.sh will pick up.
+
+</details>

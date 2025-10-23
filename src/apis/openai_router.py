@@ -92,7 +92,7 @@ rag_systems: Dict[str, RAGInterface] = {
     "vanilla-agent": VanillaAgent(),
     "decomposition-rag": DecompositionRAG(),
     "langgraph-agent": LangGraphAgent(),
-    "vanilla-agent-sonnet": VanillaAgent(use_alt_llm=True),
+    "vanilla-agent-sonnet": VanillaAgent(use_alt_llm=True, context_length=50_000),
     # "rag-router-qc": RAGRouterQueryComplexity(),
     "rag-router-llm": RAGRouterLLM(),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),

@@ -18,8 +18,7 @@ class VanillaAgent(RAGInterface):
     def __init__(
         self,
         context_length: int = 25_000,  # LLM context length in tokens
-        # available space for context in tokens in final answer gen, assuming 5096 is prompt + answer
-        context_tokens: int = 25_000 - 5096,
+        docs_review_max_tokens: int = 4096,
         num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
@@ -29,8 +28,7 @@ class VanillaAgent(RAGInterface):
         Initialize VanillaAgent with LLM server.
         """
         self.context_length = context_length
-        self.context_tokens = context_tokens
-        self.docs_review_max_tokens = 4096
+        self.docs_review_max_tokens = docs_review_max_tokens
         self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
@@ -175,7 +173,11 @@ Here is the search results for current question:
                 next_query = request.question
                 qv_think_enabled = False
                 tries = 0
-                while sum(calc_tokens(d) for d in acc_docs) < self.context_tokens and tries < self.max_tries:
+                # 5096 is reserved for answer gen
+                context_tokens_limit = self.context_length - 5096
+                # ---------------------------------------------------------------
+                # AGENT LOOP
+                while sum(calc_tokens(d) for d in acc_docs) < context_tokens_limit and tries < self.max_tries:
                     tries += 1
                     # step 1: search
                     qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, preset_llm=llm)
@@ -241,9 +243,11 @@ Here is the search results for current question:
                                      silent=False, logger=self.logger)
                     yield inter_resp(f"Next search({(tries)}/{self.max_tries}): {next_query}\n\n",
                                      silent=False, logger=self.logger)
+                # END AGENT LOOP
+                # ---------------------------------------------------------------
 
                 # truncate before answering
-                acc_docs = await atruncate_docs(acc_docs, self.context_tokens)
+                acc_docs = await atruncate_docs(acc_docs, context_tokens_limit)
                 acc_docs = update_docs_sids(acc_docs)
 
                 yield inter_resp(f"Starting final answer with {len(acc_docs)} documents\n\n",
