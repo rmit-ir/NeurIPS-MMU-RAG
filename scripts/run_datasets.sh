@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #
 # Run run_remote.py on all datasets sequentially with notifications
+# 
+# Usage
+# export REMOTE_API_KEY=copy the Bearer token from your browser API request
+# bash scripts/run_datasets.sh
 #
 
 # Logging function that outputs to console and shows macOS notification
@@ -15,69 +19,59 @@ log_with_notification() {
     osascript -e "display notification \"$message\" with title \"$title\""
 }
 
+# Function to get parallel count for a system
+get_parallel_count() {
+    case "$1" in
+        "mmu_rag_vanilla") echo 5 ;;
+        "decomposition_rag") echo 2 ;;
+        "mmu_rag_router_llm") echo 4 ;;
+        *) echo 1 ;;
+    esac
+}
+
 # Script start notification
 log_with_notification "Starting MMU-RAG batch processing" "MMU-RAG Batch"
 
-# for topics files:
-# ./data/past_topics/processed/trec_rag_2025_queries.jsonl
-# ./data/past_topics/processed/IKAT_processed_query.jsonl
-# ./data/past_topics/processed/LiveRAG_LCD_Session1_Question_file.jsonl
-# ./data/past_topics/processed/sachin-test-collection-queries.jsonl
-# ./data/past_topics/processed/topics.rag24.test.jsonl
+# Define systems
+SYSTEMS=(
+    # "mmu_rag_vanilla"
+    # "decomposition_rag"
+    # "mmu_rag_router_llm"
+    "mmu_vanilla_agent"
+)
 
-uv run scripts/run_remote.py mmu_rag_vanilla --topics-file ./data/past_topics/processed/trec_rag_2025_queries.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 5
-log_with_notification "finished mmu_rag_vanilla trec 2025"
+# Define datasets with format: "path|display_name"
+DATASETS=(
+    "./data/past_topics/processed/trec_rag_2025_queries.jsonl|trec 2025"
+    "./data/past_topics/organizers_outputs/t2t_val.jsonl|t2t_val"
+    "./data/past_topics/processed/IKAT_processed_query.jsonl|ikat"
+    "./data/past_topics/processed/LiveRAG_LCD_Session1_Question_file.jsonl|live"
+    "./data/past_topics/processed/sachin-test-collection-queries.jsonl|sachin"
+    "./data/past_topics/processed/topics.rag24.test.jsonl|rag24"
+)
 
-uv run scripts/run_remote.py decomposition_rag --topics-file ./data/past_topics/processed/trec_rag_2025_queries.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 2
-log_with_notification "finished decomposition_rag trec 2025"
+# Common output directory
+OUTPUT_DIR="./data/past_topics/inhouse_outputs/"
 
-uv run scripts/run_remote.py mmu_rag_router_llm --topics-file ./data/past_topics/processed/trec_rag_2025_queries.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 4
-log_with_notification "finished mmu_rag_router_llm trec 2025"
-
-uv run scripts/run_remote.py mmu_rag_vanilla --topics-file ./data/past_topics/organizers_outputs/t2t_val.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 5
-log_with_notification "finished mmu_rag_vanilla"
-
-uv run scripts/run_remote.py decomposition_rag --topics-file ./data/past_topics/organizers_outputs/t2t_val.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 2
-log_with_notification "finished decomposition_rag"
-
-uv run scripts/run_remote.py mmu_rag_router_llm --topics-file ./data/past_topics/organizers_outputs/t2t_val.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 4
-log_with_notification "finished mmu_rag_router_llm"
-
-uv run scripts/run_remote.py mmu_rag_vanilla --topics-file ./data/past_topics/processed/IKAT_processed_query.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 5
-log_with_notification "finished mmu_rag_vanilla ikat"
-
-uv run scripts/run_remote.py decomposition_rag --topics-file ./data/past_topics/processed/IKAT_processed_query.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 2
-log_with_notification "finished decomposition_rag ikat"
-
-uv run scripts/run_remote.py mmu_rag_router_llm --topics-file ./data/past_topics/processed/IKAT_processed_query.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 4
-log_with_notification "finished mmu_rag_router_llm ikat"
-
-uv run scripts/run_remote.py mmu_rag_vanilla --topics-file ./data/past_topics/processed/LiveRAG_LCD_Session1_Question_file.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 5
-log_with_notification "finished mmu_rag_vanilla live"
-
-uv run scripts/run_remote.py decomposition_rag --topics-file ./data/past_topics/processed/LiveRAG_LCD_Session1_Question_file.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 2
-log_with_notification "finished decomposition_rag live"
-
-uv run scripts/run_remote.py mmu_rag_router_llm --topics-file ./data/past_topics/processed/LiveRAG_LCD_Session1_Question_file.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 4
-log_with_notification "finished mmu_rag_router_llm live"
-
-uv run scripts/run_remote.py mmu_rag_vanilla --topics-file ./data/past_topics/processed/sachin-test-collection-queries.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 5
-log_with_notification "finished mmu_rag_vanilla sachin"
-
-uv run scripts/run_remote.py decomposition_rag --topics-file ./data/past_topics/processed/sachin-test-collection-queries.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 2
-log_with_notification "finished decomposition_rag sachin"
-
-uv run scripts/run_remote.py mmu_rag_router_llm --topics-file ./data/past_topics/processed/sachin-test-collection-queries.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 4
-log_with_notification "finished mmu_rag_router_llm sachin"
-
-uv run scripts/run_remote.py mmu_rag_vanilla --topics-file ./data/past_topics/processed/topics.rag24.test.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 5
-log_with_notification "finished mmu_rag_vanilla rag24"
-
-uv run scripts/run_remote.py decomposition_rag --topics-file ./data/past_topics/processed/topics.rag24.test.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 2
-log_with_notification "finished decomposition_rag rag24"
-
-uv run scripts/run_remote.py mmu_rag_router_llm --topics-file ./data/past_topics/processed/topics.rag24.test.jsonl --output-dir ./data/past_topics/inhouse_outputs/ --parallel 4
-log_with_notification "finished mmu_rag_router_llm rag24"
+# Loop through all datasets and systems
+for dataset_entry in "${DATASETS[@]}"; do
+    # Extract path and display name using parameter expansion
+    dataset_path="${dataset_entry%|*}"
+    display_name="${dataset_entry#*|}"
+    
+    for system in "${SYSTEMS[@]}"; do
+        parallel_count=$(get_parallel_count "$system")
+        
+        # Run the command
+        uv run scripts/run_remote.py "$system" \
+            --topics-file "$dataset_path" \
+            --output-dir "$OUTPUT_DIR" \
+            --parallel "$parallel_count"
+        
+        # Log completion
+        log_with_notification "finished $system $display_name"
+    done
+done
 
 # Final completion notification
 log_with_notification "All MMU-RAG batch processing completed successfully!" "MMU-RAG Complete"
