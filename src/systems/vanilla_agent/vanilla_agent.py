@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from openai.types.chat import ChatCompletionMessageParam
 from typing import AsyncGenerator, Callable, List, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
@@ -22,6 +23,7 @@ class VanillaAgent(RAGInterface):
         num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
+        use_alt_llm: bool = False,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -32,6 +34,7 @@ class VanillaAgent(RAGInterface):
         self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
+        self.use_alt_llm = use_alt_llm
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -41,8 +44,27 @@ class VanillaAgent(RAGInterface):
     def name(self) -> str:
         return "vanilla-agent"
 
-    async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
+    async def get_default_llms(self):
         llm, reranker = await get_default_llms()
+        if self.use_alt_llm:
+            alt_llm_api_base = os.getenv("ALT_LLM_API_BASE",
+                                         "https://mmu-proxy-server-llm-proxy.rankun.org/v1")
+            alt_llm_api_key = os.getenv("ALT_LLM_API_KEY", None)
+            alt_llm_model = os.getenv("ALT_LLM_MODEL",
+                                      'us.anthropic.claude-opus-4-20250514-v1:0')
+            if alt_llm_api_base:
+                alt_llm = GeneralOpenAIClient(model_id=alt_llm_model,
+                                              api_base=alt_llm_api_base,
+                                              api_key=alt_llm_api_key,
+                                              max_retries=3)
+                return alt_llm, reranker
+            if not alt_llm_api_key:
+                self.logger.warning(
+                    "ALT_LLM_API_KEY is not set when use_alt_llm=True")
+        return llm, reranker
+
+    async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
+        llm, reranker = await self.get_default_llms()
         GRADE_PROMPT = """You are an expert in answering user question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
 
 Go through each document in the search results, judge if they are sufficient for answering the user question. Please consider:
@@ -144,7 +166,7 @@ Here is the search results for current question:
             try:
                 yield inter_resp(f"Searching question: {request.question}\n\n",
                                  silent=False, logger=self.logger)
-                llm, reranker = await get_default_llms()
+                llm, reranker = await self.get_default_llms()
                 acc_docs: List[SearchResult] = []
                 acc_docs_id_set = set()
                 acc_doc_base_count = 0
@@ -156,7 +178,7 @@ Here is the search results for current question:
                 while sum(calc_tokens(d) for d in acc_docs) < self.context_tokens and tries < self.max_tries:
                     tries += 1
                     # step 1: search
-                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger)
+                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, preset_llm=llm)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = "; ".join(qvs)
                     yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",
@@ -171,7 +193,7 @@ Here is the search results for current question:
                         qv_think_enabled = True
                         yield inter_resp(f"Found no relevant documents, so far we have {len(acc_docs)} relevant documents, reformulating query...\n\n",
                                          silent=False, logger=self.logger)
-                        next_query = await reformulate_query(next_query)
+                        next_query = await reformulate_query(next_query, preset_llm=llm)
                         yield inter_resp(f"Next search ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
@@ -208,7 +230,7 @@ Here is the search results for current question:
                         qv_think_enabled = True
                         yield inter_resp(f"Found no relevant documents for this query, so far we have {len(acc_docs)} relevant documents\n\n",
                                          silent=False, logger=self.logger)
-                        next_query = await reformulate_query(next_query)
+                        next_query = await reformulate_query(next_query, preset_llm=llm)
                         yield inter_resp(f"Next search with better query variants ({(tries)}/{self.max_tries}): {next_query}\n\n",
                                          silent=False, logger=self.logger)
                         continue
