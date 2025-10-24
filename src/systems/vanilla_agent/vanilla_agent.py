@@ -19,6 +19,7 @@ class VanillaAgent(RAGInterface):
         self,
         context_length: int = 25_000,  # LLM context length in tokens
         docs_review_max_tokens: int = 4096,
+        answer_max_tokens: int = 4096,
         num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
@@ -29,6 +30,7 @@ class VanillaAgent(RAGInterface):
         """
         self.context_length = context_length
         self.docs_review_max_tokens = docs_review_max_tokens
+        self.answer_max_tokens = answer_max_tokens
         self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
@@ -175,7 +177,8 @@ Here is the search results for current question:
                 qv_think_enabled = False
                 tries = 0
                 # 5096 is reserved for answer gen
-                context_tokens_limit = self.context_length - 5096
+                answer_max_tokens = self.answer_max_tokens + 1024
+                context_tokens_limit = self.context_length - answer_max_tokens
                 # ---------------------------------------------------------------
                 # AGENT LOOP
                 while sum(calc_tokens(d) for d in acc_docs) < context_tokens_limit and tries < self.max_tries:
