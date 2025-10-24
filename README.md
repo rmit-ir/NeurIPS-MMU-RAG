@@ -66,7 +66,7 @@ docker run --rm -it --gpus all -p 5025:5025 970547356481.dkr.ecr.us-east-1.amazo
 
 Notes:
 
-1. 24G vRAM GPU required.
+1. 24G+ vRAM GPU required.
 2. Network access required for ClueWeb-22 search API and downloading LLMs for local inference.
 
 ### Docker Deployment - OpenAI Server
