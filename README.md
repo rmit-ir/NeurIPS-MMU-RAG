@@ -50,7 +50,26 @@ uv run fastapi dev src/apis/mmu_rag_router.py
 uv run fastapi dev src/apis/openai_router.py
 ```
 
-### Docker Deployment
+### Docker Deployment - MMU-RAG Submission Server
+
+Required environment variables:
+
+```bash
+CLUEWEB_API_KEY=mmu_provided_clueweb_api_key
+```
+
+Example command with Docker:
+
+```bash
+docker run --rm -it --gpus all -p 5025:5025 970547356481.dkr.ecr.us-east-1.amazonaws.com/neurips2025text/rmit-adms_ir:latest
+```
+
+Notes:
+
+1. 24G vRAM GPU required.
+2. Network access required for ClueWeb-22 search API and downloading LLMs for local inference.
+
+### Docker Deployment - OpenAI Server
 
 See `cloud/openai_server/docker-compose.yaml` for example.
 

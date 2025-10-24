@@ -7,7 +7,7 @@ import os
 import asyncio
 from typing import AsyncGenerator, Callable, List
 import aiohttp
-from systems.rag_interface import EvaluateRequest, EvaluateResponse, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.retry_utils import retry
