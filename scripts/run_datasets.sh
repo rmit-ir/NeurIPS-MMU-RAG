@@ -31,6 +31,7 @@ get_parallel_count() {
         "decomposition_rag") echo 2 ;;
         "mmu_rag_router_llm") echo 4 ;;
         "mmu_vanilla_agent") echo 4 ;;
+        "mmu_vanilla_agent_sonnet") echo 2 ;;
         *) echo 1 ;;
     esac
 }
@@ -40,9 +41,10 @@ log_with_notification "Starting MMU-RAG batch processing" "MMU-RAG Batch"
 
 # Define systems
 SYSTEMS=(
-    # "mmu_rag_vanilla"
+    "mmu_vanilla_agent_sonnet" # for gold answer
+    "mmu_rag_vanilla"
     # "decomposition_rag"
-    # "mmu_rag_router_llm"
+    "mmu_rag_router_llm"
     "mmu_vanilla_agent"
 )
 
@@ -60,7 +62,7 @@ DATASETS=(
 )
 
 # Common output directory
-OUTPUT_DIR="./data/past_topics/inhouse_outputs/"
+OUTPUT_DIR="./data/past_topics/gold_outputs/"
 
 # Loop through all datasets and systems
 for dataset_entry in "${DATASETS[@]}"; do

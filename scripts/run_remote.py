@@ -251,11 +251,17 @@ async def run_remote_parallel(topics: List[EvaluateRequest], server_key: str,
     for request in topics:
         await work_queue.put(request)
 
-    # Create aiohttp session with timeout
+    # Create aiohttp session with timeout and increased limits
     timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes timeout
     connector = aiohttp.TCPConnector(limit=parallel * 2)  # Connection pool
 
-    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+    async with aiohttp.ClientSession(
+        timeout=timeout,
+        connector=connector,
+        read_bufsize=2**20,      # 1MB buffer size
+        max_line_size=2**20,     # 1MB max line size
+        max_field_size=2**20     # 1MB max field size
+    ) as session:
 
         async def worker():
             """Process requests from queue and save results incrementally."""

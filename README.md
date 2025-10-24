@@ -206,7 +206,7 @@ Take the generated results, and evaluate them using `src.evaluators.deepresearch
 uv run scripts/evaluate.py \
   --evaluator src.evaluators.deepresearch_evaluators.combined_deepresearch_evaluator.CombinedDeepResearchEvaluator \
   --results <results.jsonl> \
-  --reference data/past_topics/gold/t2t_val_results.jsonl \
+  --reference ./data/past_topics/gold_outputs/mmu_t2t_topics.jsonl \
   --output-dir data/evaluation_results/with_gold \
   --output-prefix t2t_rag_name \
   --num-threads 8
