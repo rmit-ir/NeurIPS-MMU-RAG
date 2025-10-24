@@ -187,13 +187,13 @@ uv run python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-Reranker-
 
 Queries dataset 1:
 
-- Topics: [data/past_topics/processed/mmu_t2t_topics.n157.jsonl](./data/past_topics/processed/mmu_t2t_topics.n157.jsonl), from MMU RAG organizers [MMU-RAG Validation Set](https://agi-lti.github.io/MMU-RAGent/text-to-text#validation-set), this is a subset of 157 queries that were successfully generating gold answers.
-- Gold answers: [data/past_topics/gold_outputs/output_mmu_t2t_topics.n157.gold.jsonl](./data/past_topics/gold_outputs/output_mmu_t2t_topics.n157.gold.jsonl)
+- Topics: [data/past_topics/processed/mmu_t2t_topics.n157.jsonl](./data/past_topics/processed/mmu_t2t_topics.n157.jsonl), from MMU RAG organizers [MMU-RAG Validation Set](https://agi-lti.github.io/MMU-RAGent/text-to-text#validation-set), this is a subset of 157 queries that we successfully generated gold answers.
+- Gold answers: [data/past_topics/gold_answers/output_mmu_t2t_topics.n157.gold.jsonl](./data/past_topics/gold_answers/output_mmu_t2t_topics.n157.gold.jsonl)
 
 Queries dataset 2:
 
 - Topics: [data/past_topics/processed/benchmark_topics.jsonl](./data/past_topics/processed/benchmark_topics.jsonl), built from 20 queries from each of mmu_t2t, IKAT, LiveRAG, RAG24, RAG25, in total 100 queries.
-- Gold answers: [data/past_topics/gold_outputs/output_benchmark_topics.gold.jsonl](./data/past_topics/gold_outputs/output_benchmark_topics.gold.jsonl)
+- Gold answers: [data/past_topics/gold_answers/output_benchmark_topics.gold.jsonl](./data/past_topics/gold_answers/output_benchmark_topics.gold.jsonl)
 
 #### Step 1. Run Dataset
 
@@ -212,7 +212,7 @@ Take the generated results, and evaluate them using `src.evaluators.deepresearch
 uv run scripts/evaluate.py \
   --evaluator src.evaluators.deepresearch_evaluators.combined_deepresearch_evaluator.CombinedDeepResearchEvaluator \
   --results <results.jsonl> \
-  --reference ./data/past_topics/gold_outputs/mmu_t2t_topics.jsonl \
+  --reference ./data/past_topics/gold_answers/mmu_t2t_topics.jsonl \
   --output-dir data/evaluation_results/with_gold \
   --output-prefix t2t_rag_name \
   --num-threads 8

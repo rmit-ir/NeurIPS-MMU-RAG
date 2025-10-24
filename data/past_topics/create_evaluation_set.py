@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 work_dir = Path('data/past_topics/')
-go = work_dir / 'gold_outputs'
+go = work_dir / 'gold_answers'
 oo = work_dir / 'organizers_outputs'
 dp = work_dir / 'processed'
 
