@@ -42,15 +42,15 @@ log_with_notification "Starting MMU-RAG batch processing" "MMU-RAG Batch"
 # Define systems
 SYSTEMS=(
     "mmu_vanilla_agent_sonnet" # for gold answer
-    "mmu_rag_vanilla"
-    # "decomposition_rag"
-    "mmu_rag_router_llm"
-    "mmu_vanilla_agent"
+    # "mmu_rag_vanilla"
+    # # "decomposition_rag"
+    # "mmu_rag_router_llm"
+    # "mmu_vanilla_agent"
 )
 
 # Define datasets with format: "path|display_name"
 DATASETS=(
-    "./data/past_topics/organizers_outputs/t2t_val.jsonl|mmu_t2t_topics"
+    # "./data/past_topics/organizers_outputs/t2t_val.jsonl|mmu_t2t_topics"
     "./data/past_topics/processed/benchmark_topics.jsonl|benchmark_topics"
 
     # "./data/past_topics/processed/trec_rag_2025_queries.n50.jsonl|trec 2025"

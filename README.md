@@ -185,7 +185,7 @@ uv run python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-Reranker-
 <details>
 <summary>Evaluation Guideline</summary>
 
-Queries dataset 1: [data/past_topics/organizers_outputs/t2t_val.jsonl](./data/past_topics/organizers_outputs/t2t_val.jsonl), from MMU RAG organizers [MMU-RAG Validation Set](https://agi-lti.github.io/MMU-RAGent/text-to-text#validation-set).
+Queries dataset 1: [data/past_topics/processed/mmu_t2t_topics.n157.jsonl](./data/past_topics/processed/mmu_t2t_topics.n157.jsonl), from MMU RAG organizers [MMU-RAG Validation Set](https://agi-lti.github.io/MMU-RAGent/text-to-text#validation-set), this is a subset of 157 queries that were successfully generating gold answers.
 
 Queries dataset 2: [data/past_topics/processed/benchmark_topics.jsonl](./data/past_topics/processed/benchmark_topics.jsonl), built from 20 queries from each of mmu_t2t, IKAT, LiveRAG, RAG24, RAG25, in total 100 queries.
 

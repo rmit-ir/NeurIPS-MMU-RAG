@@ -94,8 +94,11 @@ async def make_remote_request(session: aiohttp.ClientSession, query: str,
 
                 # Check for error response
                 if 'error' in chunk_data:
-                    error_msg = chunk_data['error'].get(
-                        'message', 'Unknown error')
+                    if isinstance(chunk_data['error'], str):
+                        error_msg = chunk_data['error']
+                    else:
+                        error_msg = chunk_data['error'].get(
+                            'message', 'Unknown error')
                     logger.error("Remote API streaming error", error=error_msg)
                     raise Exception(f"API Error: {error_msg}")
 
