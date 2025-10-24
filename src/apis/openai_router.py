@@ -86,16 +86,31 @@ def generate_chat_hash(question: str, model: str) -> str:
     return hashlib.sha256(cache_input.encode('utf-8')).hexdigest()
 
 
+ALT_LLM_API_BASE_SONNET_4 = os.getenv("ALT_LLM_API_BASE_SONNET_4")
+ALT_LLM_API_KEY_SONNET_4 = os.getenv("ALT_LLM_API_KEY_SONNET_4")
+ALT_LLM_MODEL_SONNET_4 = os.getenv("ALT_LLM_MODEL_SONNET_4")
+ALT_LLM_API_BASE_FAST_QWEN = os.getenv("ALT_LLM_API_BASE_FAST_QWEN")
+ALT_LLM_API_KEY_FAST_QWEN = os.getenv("ALT_LLM_API_KEY_FAST_QWEN")
+ALT_LLM_MODEL_FAST_QWEN = os.getenv("ALT_LLM_MODEL_FAST_QWEN")
+
 # Global RAG system instance
 rag_systems: Dict[str, RAGInterface] = {
     "vanilla-rag": VanillaRAG(),
     "vanilla-agent": VanillaAgent(),
     "decomposition-rag": DecompositionRAG(),
     "langgraph-agent": LangGraphAgent(),
-    "vanilla-agent-sonnet": VanillaAgent(use_alt_llm=True,
-                                         context_length=50_000,
+    "vanilla-agent-sonnet": VanillaAgent(context_length=50_000,
                                          docs_review_max_tokens=10_000,
-                                         answer_max_tokens=10_000),
+                                         answer_max_tokens=10_000,
+                                         alt_llm_api_base=ALT_LLM_API_BASE_SONNET_4,
+                                         alt_llm_api_key=ALT_LLM_API_KEY_SONNET_4,
+                                         alt_llm_model=ALT_LLM_MODEL_SONNET_4),
+    "vanilla-agent-fast": VanillaAgent(context_length=50_000,
+                                       docs_review_max_tokens=10_000,
+                                       answer_max_tokens=10_000,
+                                       alt_llm_api_base=ALT_LLM_API_BASE_FAST_QWEN,
+                                       alt_llm_api_key=ALT_LLM_API_KEY_FAST_QWEN,
+                                       alt_llm_model=ALT_LLM_MODEL_FAST_QWEN),
     # "rag-router-qc": RAGRouterQueryComplexity(),
     "rag-router-llm": RAGRouterLLM(),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 from openai.types.chat import ChatCompletionMessageParam
 from typing import AsyncGenerator, Callable, List, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
@@ -23,7 +22,9 @@ class VanillaAgent(RAGInterface):
         num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
-        use_alt_llm: bool = False,
+        alt_llm_api_base: Optional[str] = None,
+        alt_llm_api_key: Optional[str] = None,
+        alt_llm_model: Optional[str] = None,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -34,7 +35,9 @@ class VanillaAgent(RAGInterface):
         self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
-        self.use_alt_llm = use_alt_llm
+        self.alt_llm_api_base = alt_llm_api_base
+        self.alt_llm_api_key = alt_llm_api_key
+        self.alt_llm_model = alt_llm_model
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -46,22 +49,13 @@ class VanillaAgent(RAGInterface):
 
     async def get_default_llms(self):
         llm, reranker = await get_default_llms()
-        if self.use_alt_llm:
-            alt_llm_api_base = os.getenv("ALT_LLM_API_BASE",
-                                         "https://mmu-proxy-server-llm-proxy.rankun.org/v1")
-            alt_llm_api_key = os.getenv("ALT_LLM_API_KEY", None)
-            alt_llm_model = os.getenv("ALT_LLM_MODEL",
-                                      'us.anthropic.claude-opus-4-20250514-v1:0')
-            if alt_llm_api_base:
-                alt_llm = GeneralOpenAIClient(model_id=alt_llm_model,
-                                              api_base=alt_llm_api_base,
-                                              api_key=alt_llm_api_key,
-                                              reasoning_effort='medium',
-                                              max_retries=3)
-                return alt_llm, reranker
-            if not alt_llm_api_key:
-                self.logger.warning(
-                    "ALT_LLM_API_KEY is not set when use_alt_llm=True")
+        if self.alt_llm_api_base and self.alt_llm_model:
+            alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
+                                          api_base=self.alt_llm_api_base,
+                                          api_key=self.alt_llm_api_key,
+                                          reasoning_effort='medium',
+                                          max_retries=3)
+            return alt_llm, reranker
         return llm, reranker
 
     async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
