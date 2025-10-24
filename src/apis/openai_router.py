@@ -102,6 +102,7 @@ rag_systems: Dict[str, RAGInterface] = {
     "vanilla-agent-sonnet": VanillaAgent(context_length=50_000,
                                          docs_review_max_tokens=10_000,
                                          answer_max_tokens=10_000,
+                                         alt_llm_reasoning_effort='medium',
                                          alt_llm_api_base=ALT_LLM_API_BASE_SONNET_4,
                                          alt_llm_api_key=ALT_LLM_API_KEY_SONNET_4,
                                          alt_llm_model=ALT_LLM_MODEL_SONNET_4),

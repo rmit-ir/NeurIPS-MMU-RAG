@@ -1,7 +1,7 @@
 import asyncio
 import json
 from openai.types.chat import ChatCompletionMessageParam
-from typing import AsyncGenerator, Callable, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Callable, List, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query, search_w_qv
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
@@ -25,6 +25,7 @@ class VanillaAgent(RAGInterface):
         alt_llm_api_base: Optional[str] = None,
         alt_llm_api_key: Optional[str] = None,
         alt_llm_model: Optional[str] = None,
+        alt_llm_reasoning_effort: Optional[str] = None,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -38,6 +39,7 @@ class VanillaAgent(RAGInterface):
         self.alt_llm_api_base = alt_llm_api_base
         self.alt_llm_api_key = alt_llm_api_key
         self.alt_llm_model = alt_llm_model
+        self.alt_llm_reasoning_effort: Any = alt_llm_reasoning_effort
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -53,7 +55,7 @@ class VanillaAgent(RAGInterface):
             alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
                                           api_base=self.alt_llm_api_base,
                                           api_key=self.alt_llm_api_key,
-                                          reasoning_effort='medium',
+                                          reasoning_effort=self.alt_llm_reasoning_effort,
                                           max_retries=3)
             return alt_llm, reranker
         return llm, reranker
