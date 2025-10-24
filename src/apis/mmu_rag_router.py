@@ -14,7 +14,7 @@ from systems.rag_interface import (
     EvaluateRequest,
     RunRequest,
 )
-from systems.rag_router.rag_router_query_complexity import RAGRouterQueryComplexity
+from systems.rag_router.rag_router_llm import RAGRouterLLM
 from tools.logging_utils import get_logger
 from tools.responses.mmu_rag_stream import to_mmu_rag_stream
 
@@ -44,7 +44,7 @@ app.add_middleware(
 )
 
 # Global RAG system instances (to be set by the application)
-rag_system: RAGInterface = RAGRouterQueryComplexity()
+rag_system: RAGInterface = RAGRouterLLM()
 
 
 @router.get("/health")

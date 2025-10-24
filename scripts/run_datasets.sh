@@ -42,10 +42,10 @@ log_with_notification "Starting MMU-RAG batch processing" "MMU-RAG Batch"
 # Define systems
 SYSTEMS=(
     # "mmu_vanilla_agent_sonnet" # for gold answer
+    "mmu_vanilla_agent"
     "mmu_rag_vanilla"
     "decomposition_rag"
     "mmu_rag_router_llm"
-    "mmu_vanilla_agent"
 )
 
 # Define datasets with format: "path|display_name"
