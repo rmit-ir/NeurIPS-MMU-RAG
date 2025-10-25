@@ -1,8 +1,8 @@
 name: Build and Push to AWS ECR
 
 on:
-  push:
-    branches: [ main, master ]
+  # push:
+  #   branches: [ main, master ]
   workflow_dispatch:
 
 env:
