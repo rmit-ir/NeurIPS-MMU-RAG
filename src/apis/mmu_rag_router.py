@@ -77,7 +77,7 @@ async def run_endpoint(request: RunRequest):
         run = await rag_system.run_streaming(request)
         return StreamingResponse(
             to_mmu_rag_stream(run),
-            media_type="text/plain",
+            media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
