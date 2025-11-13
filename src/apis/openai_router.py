@@ -3,10 +3,9 @@ OpenAI-compatible API router implementation.
 Implements /v1/models and /v1/chat/completions endpoints.
 """
 
-import json
 import os
 import hashlib
-from typing import Any, List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union
 import uuid
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security
 from fastapi.concurrency import asynccontextmanager
