@@ -1,6 +1,7 @@
 name: Build and Push to AWS ECR
 
 on:
+  # commented out to disable submissions to MMU-RAG official registry
   # push:
   #   branches: [ main, master ]
   workflow_dispatch:
