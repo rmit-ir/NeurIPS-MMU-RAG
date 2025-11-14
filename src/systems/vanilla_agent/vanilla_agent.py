@@ -218,10 +218,12 @@ Here is the search results for current question:
                     qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, preset_llm=llm)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = "; ".join(qvs)
-                    yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",
+                    yield inter_resp(f"Search completed: {qvs_str}\n\n",
                                      silent=False, logger=self.logger)
 
                     # step 2: rerank
+                    yield inter_resp(f"Reranking {len(docs)} documents...\n\n",
+                                     silent=False, logger=self.logger)
                     docs_reranked = await reranker.rerank(next_query, docs)
 
                     if not docs_reranked:
