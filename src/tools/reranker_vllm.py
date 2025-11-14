@@ -2,9 +2,11 @@
 
 import asyncio
 import json
+import os
 from typing import List, Optional, Dict, Any, Tuple, NamedTuple
 import aiohttp
 
+from tools.path_utils import parse_url
 from tools.web_search import SearchError, SearchResult, search_clueweb
 from tools.llm_servers.command_server import launch_command_server, find_available_port, RunningServer, test_port_available
 from tools.llm_servers.sglang_utils import test_server, wait_for_server
@@ -125,13 +127,20 @@ class GeneralReranker:
     """VLLM-based reranker using Qwen3-Reranker model with API server."""
 
     def __init__(self,
-                 config: Optional[RerankerConfig] = None,
+                 local_config: Optional[RerankerConfig] = None,
+                 model_id: Optional[str] = None,
+                 api_base: Optional[str] = None,
+                 api_key: Optional[str] = None,
                  drop_irrelevant_threshold: Optional[float] = None):
         """Initialize the VLLM reranker with API server."""
-        self.config = config or RerankerConfig(
+        self.local_config = local_config or RerankerConfig(
             model_id="Qwen/Qwen3-Reranker-0.6B")
-        self.drop_irrelevant_threshold = drop_irrelevant_threshold
 
+        # Store external API parameters
+        self.model_id = model_id or self.local_config.model_id
+        self.api_base = api_base
+        self.api_key = api_key or self.local_config.api_key
+        self.drop_irrelevant_threshold = drop_irrelevant_threshold
         # HTTP client for making requests
         self._http_client: Optional[aiohttp.ClientSession] = None
 
@@ -145,14 +154,30 @@ class GeneralReranker:
 
     async def _get_server(self) -> Tuple[str, str, int]:
         """Get or ensure reranker server is running."""
-        return await ensure_reranker_server(self.config)
+        # If external API configuration is provided, use it directly
+        if self.api_base:
+            urls = parse_url(self.api_base)
+            return urls.url, urls.host, urls.port
+
+        # If not provided, use local config to launch server and set self params
+        api_base, server_host, port = await ensure_reranker_server(self.local_config)
+
+        # Set self params from local config if not already set
+        if not self.model_id:
+            self.model_id = self.local_config.model_id
+        if not self.api_base:
+            self.api_base = api_base
+        if not self.api_key:
+            self.api_key = self.local_config.api_key
+
+        return api_base, server_host, port
 
     def _get_http_client(self) -> aiohttp.ClientSession:
         """Get or create HTTP client."""
         if self._http_client is None:
             headers = {}
-            if self.config.api_key:
-                headers["Authorization"] = f"Bearer {self.config.api_key}"
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             timeout = aiohttp.ClientTimeout(total=300.0)  # 5 minutes timeout
             self._http_client = aiohttp.ClientSession(
@@ -173,13 +198,14 @@ class GeneralReranker:
         return f"Web URL: {result.url.strip()}\n\nContent: {result.text.strip()}\n\n"
 
     async def _score_via_api(self, query_fmt: str, docs_fmt: List[str]) -> List[float]:
+        # print('query_fmt:', query_fmt, 'docs_fmt:', docs_fmt)
         try:
             api_base, _, _ = await self._get_server()
             http_client = self._get_http_client()
 
             # Prepare the request payload for vLLM score endpoint
             payload = {
-                "model": self.config.model_id,
+                "model": self.model_id,
                 "text_1": query_fmt,
                 "text_2": docs_fmt
             }
@@ -217,6 +243,7 @@ class GeneralReranker:
         )
 
         # Format query and docs
+        # TODO: check if we need to remove templates for Qwen3-Reranker, vllm /score already handles chat template when is_original_qwen3_reranker=True
         query_fmt = self.query_template.format(
             prefix=self.prefix,
             instruction=instruction,
@@ -230,6 +257,12 @@ class GeneralReranker:
             )
             for result in search_results
         ]
+        # query_fmt = query
+        # docs_fmt = [
+        #     self._cut_to_words(
+        #         self._search_result_to_text(result), max_words)
+        #     for result in search_results
+        # ]
 
         # Get scores from vLLM via API
         start_time = asyncio.get_event_loop().time()
@@ -239,6 +272,7 @@ class GeneralReranker:
         self.logger.info("Re-ranking completed",
                          num_results=len(search_results),
                          query_length=len(query),
+                         scores=scores,
                          duration=end_time - start_time)
         # Create ranked results
         ranked_results = [
@@ -266,7 +300,7 @@ class GeneralReranker:
         global _reranker_server
         if _reranker_server is not None:
             self.logger.info("Terminating vLLM reranker server",
-                             port=_port, model_name=self.config.model_id)
+                             config=self.local_config)
             _reranker_server.terminate()
 
         # Close HTTP client
@@ -283,7 +317,10 @@ class GeneralReranker:
     def server_info(self) -> Dict[str, Any]:
         """Get current server information."""
         return {
-            **self.config._asdict(),
+            **self.local_config._asdict(),
+            "model_id": self.model_id,
+            "api_base": self.api_base,
+            "api_key": self.api_key,
             "drop_irrelevant_threshold": self.drop_irrelevant_threshold
         }
 
@@ -304,7 +341,7 @@ async def get_reranker(config: Optional[RerankerConfig] = None,
 
     if config.model_id not in ALL_RERANKERS:
         ALL_RERANKERS[config.model_id] = GeneralReranker(
-            config=config,
+            local_config=config,
             drop_irrelevant_threshold=drop_irrelevant_threshold,
         )
 
@@ -353,33 +390,34 @@ async def test_batch():
                 total_time=end_time - start_time)
 
 
+def _dummy_search_result(sid: str, text: str) -> SearchResult:
+    return SearchResult(
+        url="https://en.wikipedia.org/",
+        text=text,
+        score=None,
+        date=None,
+        dump=None,
+        file_path=None,
+        metadata={},
+        language=None,
+        language_score=None,
+        token_count=len(text.split()),
+        type="clue_web",
+        sid=sid,
+        id=sid,
+    )
+
+
 async def test_single():
     model_name = "Qwen/Qwen3-Reranker-0.6B"
 
-    def _search_result(sid: str, text: str) -> SearchResult:
-        return SearchResult(
-            url="https://example.com",
-            text=text,
-            score=None,
-            date=None,
-            dump=None,
-            file_path=None,
-            metadata={},
-            language=None,
-            language_score=None,
-            token_count=len(text.split()),
-            type="clue_web",
-            sid=sid,
-            id=sid,
-        )
-
     # Create sample search results for testing
     sample_results = [
-        _search_result(
+        _dummy_search_result(
             "1", "This article discusses machine learning and artificial intelligence applications in modern technology."),
-        _search_result(
+        _dummy_search_result(
             "2", "A comprehensive guide to cooking pasta with various Italian recipes and techniques."),
-        _search_result(
+        _dummy_search_result(
             "3", "Deep learning neural networks are transforming how we approach complex AI problems."),
     ]
 
@@ -412,9 +450,60 @@ async def test_single():
                     url=result.url)
 
 
+async def test_remote_reranker():
+    """
+    Test the vLLM reranker using external API configuration
+    """
+    if not os.getenv("ALT_RERANKER_API_BASE"):
+        raise ValueError(
+            "ALT_RERANKER_API_BASE environment variable not set for remote reranker test")
+
+    # Create sample search results for testing
+    sample_results = [
+        _dummy_search_result(
+            "1", "The capital city of China is Beijing."),
+        _dummy_search_result(
+            "2", "The capital city of China is Shanghai."),
+        _dummy_search_result(
+            "3", "The capital city of Japan is Tokyo."),
+    ]
+
+    # Test with external API configuration
+    reranker = GeneralReranker(
+        model_id=os.getenv("ALT_RERANKER_MODEL"),
+        api_base=os.getenv("ALT_RERANKER_API_BASE"),
+        api_key=os.getenv("ALT_RERANKER_API_KEY"),
+        drop_irrelevant_threshold=0.5
+    )
+
+    logger.info("Testing remote reranker with external API",
+                model_id=reranker.model_id,
+                api_base=reranker.api_base,
+                server_info=reranker.server_info)
+
+    # Test reranking with a query about AI
+    query = "Where is the capital of China?"
+
+    reranked_results = await reranker.rerank(query, sample_results)
+
+    logger.info("Remote reranking completed successfully",
+                query=query,
+                num_original=len(sample_results),
+                num_reranked=len(reranked_results))
+
+    # Print results
+    for i, result in enumerate(reranked_results):
+        logger.info(f"Remote Rank {i+1}",
+                    text=result.text[:100] +
+                    ("..." if len(result.text) > 100 else ""),
+                    score=result.score,
+                    url=result.url)
+
+
 async def main():
-    await test_single()
-    await test_batch()
+    # await test_single()
+    # await test_batch()
+    await test_remote_reranker()
 
 
 if __name__ == "__main__":

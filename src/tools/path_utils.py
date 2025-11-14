@@ -2,7 +2,10 @@
 Utility functions for path handling in LiveRAG.
 """
 import os
+from typing import NamedTuple
 from urllib.parse import urlparse
+
+import urllib.parse
 
 from tools.logging_utils import get_logger
 
@@ -79,3 +82,24 @@ def to_icon_url(url: str | None) -> str:
         # Google favicon service works with any domain, this is a placeholder
         url = "https://example.com"
     return f"https://www.google.com/s2/favicons?domain={urlparse(url).netloc}&sz=64"
+
+
+class ParsedURL(NamedTuple):
+    url: str
+    """https://domain.com:port/v1"""
+    host: str
+    """https://domain.com:port"""
+    port: int
+
+
+def parse_url(url: str):
+    parsed = urllib.parse.urlparse(url)
+    port = parsed.port
+    host = f"{parsed.scheme}://{parsed.hostname}"
+    if parsed.port:
+        host += f":{parsed.port}"
+
+    if not port:
+        port = 443 if parsed.scheme == 'https' else 80
+
+    return ParsedURL(url=url, host=host, port=port)

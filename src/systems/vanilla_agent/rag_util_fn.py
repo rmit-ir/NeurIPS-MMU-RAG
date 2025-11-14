@@ -159,6 +159,7 @@ async def search_w_qv(query: str,
 
     return list(queries), all_results
 
+
 global_llm_client: GeneralOpenAIClient | None = None
 global_reranker: GeneralReranker | None = None
 

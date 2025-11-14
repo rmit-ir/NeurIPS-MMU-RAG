@@ -26,6 +26,9 @@ class VanillaAgent(RAGInterface):
         alt_llm_api_key: Optional[str] = None,
         alt_llm_model: Optional[str] = None,
         alt_llm_reasoning_effort: Optional[str] = None,
+        alt_reranker_api_base: Optional[str] = None,
+        alt_reranker_api_key: Optional[str] = None,
+        alt_reranker_model: Optional[str] = None,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -40,24 +43,56 @@ class VanillaAgent(RAGInterface):
         self.alt_llm_api_key = alt_llm_api_key
         self.alt_llm_model = alt_llm_model
         self.alt_llm_reasoning_effort: Any = alt_llm_reasoning_effort
+        self.alt_reranker_api_base = alt_reranker_api_base
+        self.alt_reranker_api_key = alt_reranker_api_key
+        self.alt_reranker_model = alt_reranker_model
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
         self.reranker: Optional[GeneralReranker] = None
+
+        self.logger.info("Initialized VanillaAgent",
+                         context_length=self.context_length,
+                         docs_review_max_tokens=self.docs_review_max_tokens,
+                         answer_max_tokens=self.answer_max_tokens,
+                         num_qvs=self.num_qvs,
+                         max_tries=self.max_tries,
+                         cw22_a=self.cw22_a,
+                         alt_llm_api_base=self.alt_llm_api_base,
+                         alt_llm_api_key=self.alt_llm_api_key,
+                         alt_llm_model=self.alt_llm_model,
+                         alt_llm_reasoning_effort=self.alt_llm_reasoning_effort,
+                         alt_reranker_api_base=self.alt_reranker_api_base,
+                         alt_reranker_api_key=self.alt_reranker_api_key,
+                         alt_reranker_model=self.alt_reranker_model)
 
     @property
     def name(self) -> str:
         return "vanilla-agent"
 
     async def get_default_llms(self):
-        llm, reranker = await get_default_llms()
         if self.alt_llm_api_base and self.alt_llm_model:
             alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
                                           api_base=self.alt_llm_api_base,
                                           api_key=self.alt_llm_api_key,
                                           reasoning_effort=self.alt_llm_reasoning_effort,
                                           max_retries=3)
+        if self.alt_reranker_api_base and self.alt_reranker_model:
+            alt_reranker = GeneralReranker(model_id=self.alt_reranker_model,
+                                           api_base=self.alt_reranker_api_base,
+                                           api_key=self.alt_reranker_api_key)
+        if (self.alt_llm_api_base and self.alt_llm_model and
+                self.alt_reranker_api_base and self.alt_reranker_model):
+            self.logger.info("Using alternative LLM and Reranker for VanillaAgent",
+                             alt_llm_api_base=self.alt_llm_api_base,
+                             alt_reranker_api_base=self.alt_reranker_api_base)
+            return alt_llm, alt_reranker
+
+        llm, reranker = await get_default_llms()
+        if self.alt_llm_api_base and self.alt_llm_model:
             return alt_llm, reranker
+        if self.alt_reranker_api_base and self.alt_reranker_model:
+            return llm, alt_reranker
         return llm, reranker
 
     async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
