@@ -1,0 +1,10 @@
+# docker compose up -d --pull always
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.lite
+    container_name: mmu-rag-lite
+    ports:
+      - "8900:8900"
+    restart: always
