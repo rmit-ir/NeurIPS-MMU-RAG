@@ -4,6 +4,9 @@ services:
       context: ../..
       dockerfile: Dockerfile.lite
     container_name: mmu-rag-lite
+    networks:
+      - ase_backend
+      - default
     ports:
       - "8900:8900"
     restart: always
