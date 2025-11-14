@@ -1,5 +1,5 @@
 services:
-  server:
+  mmu_rag_lite:
     build:
       context: ../..
       dockerfile: Dockerfile.lite
@@ -7,3 +7,7 @@ services:
     ports:
       - "8900:8900"
     restart: always
+networks:
+  # docker network create ase_backend
+  ase_backend:
+    external: true
