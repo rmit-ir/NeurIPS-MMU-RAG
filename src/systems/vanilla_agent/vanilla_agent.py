@@ -7,7 +7,7 @@ from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_conte
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
-from tools.reranker_vllm import GeneralReranker
+from tools.reranker_vllm import GeneralReranker, _dummy_search_result as _search_result
 from tools.str_utils import extract_tag_val
 from tools.web_search import SearchResult
 from tools.docs_utils import atruncate_docs, calc_tokens, calc_tokens_str, update_docs_sids
@@ -29,6 +29,8 @@ class VanillaAgent(RAGInterface):
         alt_reranker_api_base: Optional[str] = None,
         alt_reranker_api_key: Optional[str] = None,
         alt_reranker_model: Optional[str] = None,
+        pre_flight_llm: bool = False,
+        pre_flight_reranker: bool = False,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -46,6 +48,8 @@ class VanillaAgent(RAGInterface):
         self.alt_reranker_api_base = alt_reranker_api_base
         self.alt_reranker_api_key = alt_reranker_api_key
         self.alt_reranker_model = alt_reranker_model
+        self.pre_flight_llm = pre_flight_llm
+        self.pre_flight_reranker = pre_flight_reranker
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -193,9 +197,34 @@ Here is the search results for current question:
 
         return is_sufficient, new_query, useful_docs, useful_docs_summary
 
+    async def pre_flight_models(self) -> None:
+        llm, reranker = await self.get_default_llms()
+        if self.pre_flight_llm:
+            self.logger.info("Performing pre-flight check for LLM")
+            test_messages: List[ChatCompletionMessageParam] = [
+                {"role": "user", "content": "Hello, how are you?"}
+            ]
+            async for chunk in llm.complete_chat_streaming(test_messages, max_tokens=1):
+                self.logger.info("Pre-flight LLM response received",
+                                 response=chunk)
+
+        if self.pre_flight_reranker:
+            self.logger.info("Performing pre-flight check for Reranker")
+            test_query = "Where is the capital of China?"
+            test_docs = [
+                _search_result("1", "The capital city of China is Beijing."),
+                _search_result("2", "The capital city of China is Shanghai."),
+            ]
+            ranked_docs = await reranker.rerank(test_query, test_docs)
+            self.logger.info("Pre-flight Reranker response received",
+                             ranked_doc_ids=[doc.sid for doc in ranked_docs])
+
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         async def stream():
             try:
+                # Run pre-flight checks but don't await
+                asyncio.create_task(self.pre_flight_models())
+
                 yield inter_resp(f"Searching question: {request.question}\n\n",
                                  silent=False, logger=self.logger)
                 llm, reranker = await self.get_default_llms()
