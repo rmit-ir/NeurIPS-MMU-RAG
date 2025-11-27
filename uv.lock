@@ -2935,6 +2935,9 @@ classifier = [
     { name = "scikit-learn" },
     { name = "spacy" },
 ]
+crawl = [
+    { name = "crawl4ai" },
+]
 eval = [
     { name = "apscheduler" },
     { name = "bert-score" },
@@ -2979,6 +2982,7 @@ requires-dist = [
     { name = "awscli", marker = "extra == 'proxy'", specifier = ">=1.42.42" },
     { name = "bert-score", marker = "extra == 'eval'", specifier = ">=0.3.13" },
     { name = "botocore", specifier = ">=1.40.35" },
+    { name = "crawl4ai", marker = "extra == 'crawl'", specifier = ">=0.7.4" },
     { name = "crawl4ai", marker = "extra == 'eval'", specifier = ">=0.4.0" },
     { name = "cryptography", marker = "extra == 'eval'", specifier = ">=46.0.1" },
     { name = "datasets", marker = "extra == 'eval'", specifier = ">=4.1.0" },
@@ -3014,7 +3018,7 @@ requires-dist = [
     { name = "transformers", specifier = ">=4.51" },
     { name = "vllm", marker = "extra == 'local-llm'", specifier = "==0.10.2" },
 ]
-provides-extras = ["local-llm", "classifier", "eval", "runpod", "proxy"]
+provides-extras = ["local-llm", "classifier", "eval", "runpod", "proxy", "crawl"]
 
 [package.metadata.requires-dev]
 dev = [
