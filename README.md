@@ -1,6 +1,6 @@
 # MMU-RAG @ NeurIPS 2025
 
-This project is for the MMU-RAG challenge at NeurIPS 2025.
+This project is for the [MMU-RAG challenge at NeurIPS 2025](https://agi-lti.github.io/MMU-RAGent/), which we won the 1st place in the live RAG-Arena evaluation.
 
 ## Purpose
 
