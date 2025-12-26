@@ -8,7 +8,8 @@ from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.reranker_vllm import GeneralReranker, get_reranker
 from tools.str_utils import extract_tag_val
-from tools.web_search import SearchResult, search_clueweb
+from tools.web_search import SearchResult
+from tools.lse_search import search_clueweb
 
 
 def system_message(enable_think: bool) -> str:
@@ -141,7 +142,7 @@ async def search_w_qv(query: str,
     queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
     queries = set([query, *queries])
     queries_docs = await asyncio.gather(*[
-        search_clueweb(query=q, k=10, cw22_a=cw22_a) for q in queries])
+        search_clueweb(query=q, k=10) for q in queries])
 
     # Deduplicate and put into a list
     all_results: List[SearchResult] = []
