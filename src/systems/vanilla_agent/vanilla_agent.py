@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from openai.types.chat import ChatCompletionMessageParam
-from typing import Any, AsyncGenerator, Callable, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Callable, Dict, List, NamedTuple, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query, search_w_qv
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
@@ -12,6 +12,13 @@ from tools.reranker_vllm import GeneralReranker, _dummy_search_result as _search
 from tools.str_utils import extract_tag_val
 from tools.web_search import SearchResult
 from tools.docs_utils import atruncate_docs, calc_tokens, calc_tokens_str, update_docs_sids
+
+
+class QueryHistoryItem(NamedTuple):
+    """Represents a single search query and its results in the query history."""
+    query: str
+    doc_count: int
+    summary: str
 
 
 class VanillaAgent(RAGInterface):
@@ -75,6 +82,32 @@ class VanillaAgent(RAGInterface):
     def name(self) -> str:
         return "vanilla-agent"
 
+    def _format_query_history(self, query_history: List[QueryHistoryItem]) -> str:
+        """Format query history into a readable string for the prompt.
+
+        Args:
+            query_history: List of QueryHistoryItem containing query, doc_count, and summary
+
+        Returns:
+            Formatted string describing the search history
+        """
+        if not query_history:
+            return ""
+
+        history_str = "\n=== SEARCH HISTORY ===\n"
+        history_str += "Here is the complete history of our previous searches and what we found:\n\n"
+
+        for i, entry in enumerate(query_history, 1):
+            history_str += f"Search #{i}:\n"
+            history_str += f"  Query: \"{entry.query}\"\n"
+            history_str += f"  Result: Found {entry.doc_count} useful document(s)\n"
+            history_str += f"  Summary: {entry.summary}\n\n"
+
+        history_str += "=== END SEARCH HISTORY ===\n\n"
+        history_str += "IMPORTANT: Do not repeat these queries in <new-query>. Consider what information we already have vs what is still missing.\n\n"
+
+        return history_str
+
     async def get_default_llms(self):
         if self.alt_llm_api_base and self.alt_llm_model:
             alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
@@ -100,7 +133,7 @@ class VanillaAgent(RAGInterface):
             return llm, alt_reranker
         return llm, reranker
 
-    async def review_documents(self, question: str, next_query: str, acc_queries: List[str], acc_summaries: List[str], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
+    async def review_documents(self, question: str, next_query: str, query_history: List[QueryHistoryItem], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
         llm, reranker = await self.get_default_llms()
         GRADE_PROMPT = """You are an expert in answering user question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
 
@@ -116,7 +149,7 @@ Go through each document in the search results, judge if they are sufficient for
 6. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
 7. If current search results have very limited information, try use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to get relevant results, and put the new query in <>new-query>your query</new-query> xml tags. If there are previous search queries, do not repeat them in the new query, we know they don't work.
 8. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
-9. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences. Start your summary with "These documents discuss...". Do not mention specific document IDs in the summary.
+9. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences and mention what is still missing. Start your summary with "These documents discuss...". Do not mention specific document IDs in the summary.
 10. Your purpose is to judge documents relevance against the question, not to provide the final answer yet, do not answer the question.
 
 Response format:
@@ -124,22 +157,21 @@ Response format:
 - <is-sufficient>yes or no</is-sufficient> (For all of the documents we have collected, including previous documents, do we have enough information to answer the user question? If yes, then provide <useful-docs> and <useful-docs-summary> tags; if 'no', then provide <new-query> tag)
 - <new-query>your new query</new-query> (only if is-sufficient is 'no')
 - <useful-docs>1,2,3</useful-docs> (list of document IDs that are useful for answering the question, separated by commas)
-- <useful-docs-summary></useful-docs-summary> (short summary of what these useful documents are talking about, just the summary, only if useful-docs is not empty)
+- <useful-docs-summary></useful-docs-summary> (short summary of what these useful documents are talking about and what is missing, just the summary, only if useful-docs is not empty)
 
-{prev_questions}
-{prev_docs_summaries}
-Here is the current question: "{next_query}"
-Here is the search results for current question:
+{query_history_section}
+
+Here is the current search query: "{next_query}"
+Here is the search results for current search query:
 
 """
+        query_history_str = self._format_query_history(query_history)
+
         prompt = GRADE_PROMPT.format(
             question=question,
             next_query=next_query,
             current_time=datetime.now(timezone.utc),
-            prev_questions="Here are the previous search queries, do not repeat these queries in <new-query>: " +
-            "; ".join(acc_queries) if acc_queries else "",
-            prev_docs_summaries="Here are the summaries of previous documents we collected for this question, do not duplicate: " +
-            "; ".join(acc_summaries) if acc_summaries else "")
+            query_history_section=query_history_str)
         prompt_tokens = calc_tokens_str(prompt)
 
         # truncate docs to fit in context
@@ -183,8 +215,7 @@ Here is the search results for current question:
         self.logger.info("Review documents completed",
                          question=question,
                          next_query=next_query,
-                         acc_queries=acc_queries,
-                         acc_summaries=acc_summaries,
+                         query_history=query_history,
                          is_sufficient=is_sufficient,
                          new_query=new_query,
                          useful_doc_ids=useful_doc_ids_str,
@@ -235,8 +266,8 @@ Here is the search results for current question:
                 acc_docs: List[SearchResult] = []
                 acc_docs_id_set = set()
                 acc_doc_base_count = 0
-                acc_summaries: List[str] = []
-                acc_queries: List[str] = []
+                # Track complete query-result history
+                query_history: List[QueryHistoryItem] = []
                 next_query = request.question
                 qv_think_enabled = False
                 tries = 0
@@ -277,8 +308,14 @@ Here is the search results for current question:
                         docs_reranked, base_count=acc_doc_base_count)
                     yield inter_resp("Reviewing documents for relevance and sufficiency...\n\n",
                                      silent=False, logger=self.logger)
-                    is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, acc_queries, acc_summaries, docs_reranked)
-                    acc_queries.append(next_query)
+                    is_enough, _next_query, useful_docs, useful_docs_summary = await self.review_documents(request.question, next_query, query_history, docs_reranked)
+
+                    # Record this query and its results in history
+                    query_history.append(QueryHistoryItem(
+                        query=next_query,
+                        doc_count=len(useful_docs),
+                        summary=useful_docs_summary if useful_docs_summary else 'No relevant documents found'
+                    ))
 
                     # update acc_doc_base_count and acc_docs
                     acc_doc_base_count += len(useful_docs)
@@ -288,7 +325,6 @@ Here is the search results for current question:
                             acc_docs.append(d)
 
                     if useful_docs_summary:
-                        acc_summaries.append(useful_docs_summary)
                         yield inter_resp(f"Found documents: {useful_docs_summary}\n\n",
                                          silent=False, logger=self.logger)
 
