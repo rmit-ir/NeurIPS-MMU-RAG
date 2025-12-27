@@ -139,25 +139,27 @@ class VanillaAgent(RAGInterface):
 
 Current time at UTC+00:00 timezone: {current_time}
 
-Go through each document in the search results, judge if they are sufficient for answering the user question. Please consider:
+Go through each document in the search results and evaluate their relevance.
 
-1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need searching with different aspects to cover a wider range of perspectives.
-2. Does the search results fully addresses the user's query and any sub-components?
-3. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, recommendation questions that will benefit from multiple aspects, try to search from different aspects to form a balanced, comprehensive view.
-4. Don't mention irrelevant, off-topic documents.
-5. When you answer 'yes' in <is-sufficient>, we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using your new query to search, and let you review again.
-6. If information is missing or uncertain, always return 'no' in <is-sufficient> xml tags for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed. If the search results are too off, try clarifying sub-components of the question first, or make reasonable guess. If you think the search results are sufficient, return 'yes' in <is-sufficient> xml tags.
-7. If current search results have very limited information, try use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to get relevant results, and put the new query in <>new-query>your query</new-query> xml tags. If there are previous search queries, do not repeat them in the new query, we know they don't work.
-8. Identify unique, new documents that are important for answering the question but not included in previous documents, and list their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents that have been included in previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
-9. If useful-docs is not empty, provide a brief summary of what these documents discuss within <useful-docs-summary> xml tags, in 1-2 sentences and mention what is still missing. Start your summary with "These documents discuss...". Do not mention specific document IDs in the summary.
-10. Your purpose is to judge documents relevance against the question, not to provide the final answer yet, do not answer the question.
+1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanations, we may need searching with different aspects to cover a wider range of perspectives.
+2. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, or recommendation questions, consider whether multiple aspects would form a more balanced, comprehensive view.
+3. Identify unique, new documents that are important for answering the question but not included in previous documents. List their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents from previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
+4. Evaluate whether all collected documents (including previous turns) fully address the user's query and any sub-components. Consider what information is still missing or uncertain.
+5. Determine <is-sufficient>: When you answer 'yes', we will proceed to generate the final answer. If you answer 'no', we will continue with a new search query.
 
-Response format:
+Response Logic:
 
-- <is-sufficient>yes or no</is-sufficient> (For all of the documents we have collected, including previous documents, do we have enough information to answer the user question? If yes, then provide <useful-docs> and <useful-docs-summary> tags; if 'no', then provide <new-query> tag)
-- <new-query>your new query</new-query> (only if is-sufficient is 'no')
+1. If <useful-docs> is not empty, provide a brief summary within <useful-docs-summary> xml tags (1-2 sentences). Start with "These documents discuss..." and indicate whether they are sufficient or still missing information. Do not mention specific document IDs in the summary.
+2. If information is missing or uncertain, return 'no' in <is-sufficient> and generate a new query in <new-query> xml tags indicating what clarification is needed.
+3. If current search results have very limited information, use different techniques: query expansion, query relaxation, query segmentation, synonyms, or reasonable guesses with different keywords. Put the new query in <new-query> xml tags. Do not repeat previous unsuccessful queries.
+4. Your purpose is to judge document relevance, not to provide the final answer yet.
+
+Response Format:
+
 - <useful-docs>1,2,3</useful-docs> (list of document IDs that are useful for answering the question, separated by commas)
 - <useful-docs-summary></useful-docs-summary> (short summary of what these useful documents are talking about and what is missing, just the summary, only if useful-docs is not empty)
+- <is-sufficient>yes or no</is-sufficient> (For all of the documents we have collected, including previous documents, do we have enough information to answer the user question?)
+- <new-query>your new query</new-query> (if is-sufficient is 'no')
 
 {query_history_section}
 
