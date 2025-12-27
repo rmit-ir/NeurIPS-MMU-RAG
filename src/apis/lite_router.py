@@ -18,6 +18,7 @@ from systems.commercial.azure_o3_research import AzureO3ResearchRAG
 from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_agent import VanillaAgent
+from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.logging_utils import get_logger
 from tools.responses.openai_stream import to_openai_stream
 
@@ -112,6 +113,13 @@ rag_systems: Dict[str, RAGInterface] = {
                                        alt_reranker_api_key=ALT_RERANKER_API_KEY,
                                        alt_reranker_model=ALT_RERANKER_MODEL,
                                        pre_flight_reranker=True),
+    "vanilla-rag-fast": VanillaRAG(alt_llm_api_base=ALT_LLM_API_BASE_FAST_QWEN,
+                                   alt_llm_api_key=ALT_LLM_API_KEY_FAST_QWEN,
+                                   alt_llm_model=ALT_LLM_MODEL_FAST_QWEN,
+                                   alt_reranker_api_base=ALT_RERANKER_API_BASE,
+                                   alt_reranker_api_key=ALT_RERANKER_API_KEY,
+                                   alt_reranker_model=ALT_RERANKER_MODEL,
+                                   pre_flight_reranker=True),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),
     "perplexity-sonar-pro": PerplexityResearchRAG(model="sonar-pro"),
     "perplexity-sonar-reasoning": PerplexityResearchRAG(model="sonar-reasoning"),

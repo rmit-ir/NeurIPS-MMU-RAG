@@ -1,12 +1,12 @@
 import asyncio
-from typing import AsyncGenerator, Callable, Optional
+from typing import Any, AsyncGenerator, Callable, Optional
 from systems.rag_interface import EvaluateRequest, RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, get_default_llms, inter_resp, search_w_qv
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.reranker_vllm import GeneralReranker
-from tools.web_search import SearchResult, search_clueweb
+from tools.web_search import SearchResult
 from tools.docs_utils import truncate_docs, update_docs_sids
 
 
@@ -19,11 +19,20 @@ class VanillaRAG(RAGInterface):
         max_model_len: Optional[int] = 20000,
         api_key: Optional[str] = None,
         max_tokens: int = 4096,
-        retrieval_words_threshold: int = 5000,
+        retrieval_words_threshold: int = 10000,
         enable_think: bool = True,
         k_docs: int = 30,
         cw22_a: bool = True,
         num_qvs: int = 3,
+        alt_llm_api_base: Optional[str] = None,
+        alt_llm_api_key: Optional[str] = None,
+        alt_llm_model: Optional[str] = None,
+        alt_llm_reasoning_effort: Optional[str] = None,
+        alt_reranker_api_base: Optional[str] = None,
+        alt_reranker_api_key: Optional[str] = None,
+        alt_reranker_model: Optional[str] = None,
+        pre_flight_llm: bool = False,
+        pre_flight_reranker: bool = False,
     ):
         """
         Initialize VanillaRAG with LLM server.
@@ -35,6 +44,15 @@ class VanillaRAG(RAGInterface):
             max_running_requests: Maximum concurrent requests
             api_key: API key for the server (optional)
             max_tokens: Maximum tokens to generate
+            alt_llm_api_base: Alternative LLM API base URL
+            alt_llm_api_key: Alternative LLM API key
+            alt_llm_model: Alternative LLM model name
+            alt_llm_reasoning_effort: Alternative LLM reasoning effort setting
+            alt_reranker_api_base: Alternative reranker API base URL
+            alt_reranker_api_key: Alternative reranker API key
+            alt_reranker_model: Alternative reranker model name
+            pre_flight_llm: Whether to perform pre-flight check for LLM
+            pre_flight_reranker: Whether to perform pre-flight check for reranker
         """
         self.model_id = model_id
         self.reasoning_parser = reasoning_parser
@@ -47,20 +65,96 @@ class VanillaRAG(RAGInterface):
         self.k_docs = k_docs
         self.cw22_a = cw22_a
         self.num_qvs = num_qvs
+        self.alt_llm_api_base = alt_llm_api_base
+        self.alt_llm_api_key = alt_llm_api_key
+        self.alt_llm_model = alt_llm_model
+        self.alt_llm_reasoning_effort: Any = alt_llm_reasoning_effort
+        self.alt_reranker_api_base = alt_reranker_api_base
+        self.alt_reranker_api_key = alt_reranker_api_key
+        self.alt_reranker_model = alt_reranker_model
+        self.pre_flight_llm = pre_flight_llm
+        self.pre_flight_reranker = pre_flight_reranker
 
         self.logger = get_logger("vanilla_rag")
         self.llm_client: Optional[GeneralOpenAIClient] = None
         self.reranker: Optional[GeneralReranker] = None
 
+        self.logger.info("Initialized VanillaRAG",
+                         model_id=self.model_id,
+                         max_tokens=self.max_tokens,
+                         retrieval_words_threshold=self.retrieval_words_threshold,
+                         enable_think=self.enable_think,
+                         k_docs=self.k_docs,
+                         cw22_a=self.cw22_a,
+                         num_qvs=self.num_qvs,
+                         alt_llm_api_base=self.alt_llm_api_base,
+                         alt_llm_model=self.alt_llm_model,
+                         alt_reranker_api_base=self.alt_reranker_api_base,
+                         alt_reranker_model=self.alt_reranker_model)
+
     @property
     def name(self) -> str:
         return "vanilla-rag"
 
+    async def get_default_llms(self):
+        if self.alt_llm_api_base and self.alt_llm_model:
+            alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
+                                          api_base=self.alt_llm_api_base,
+                                          api_key=self.alt_llm_api_key,
+                                          reasoning_effort=self.alt_llm_reasoning_effort,
+                                          max_retries=3)
+        if self.alt_reranker_api_base and self.alt_reranker_model:
+            alt_reranker = GeneralReranker(model_id=self.alt_reranker_model,
+                                           api_base=self.alt_reranker_api_base,
+                                           api_key=self.alt_reranker_api_key)
+        if (self.alt_llm_api_base and self.alt_llm_model and
+                self.alt_reranker_api_base and self.alt_reranker_model):
+            self.logger.info("Using alternative LLM and Reranker for VanillaRAG",
+                             alt_llm_api_base=self.alt_llm_api_base,
+                             alt_reranker_api_base=self.alt_reranker_api_base)
+            return alt_llm, alt_reranker
+
+        llm, reranker = await get_default_llms()
+        if self.alt_llm_api_base and self.alt_llm_model:
+            return alt_llm, reranker
+        if self.alt_reranker_api_base and self.alt_reranker_model:
+            return llm, alt_reranker
+        return llm, reranker
+
+    async def pre_flight_models(self) -> None:
+        from openai.types.chat import ChatCompletionMessageParam
+        from typing import List
+        from tools.reranker_vllm import _dummy_search_result as _search_result
+
+        llm, reranker = await self.get_default_llms()
+        if self.pre_flight_llm:
+            self.logger.info("Performing pre-flight check for LLM")
+            test_messages: List[ChatCompletionMessageParam] = [
+                {"role": "user", "content": "Hello, how are you?"}
+            ]
+            async for chunk in llm.complete_chat_streaming(test_messages, max_tokens=1):
+                self.logger.info("Pre-flight LLM response received",
+                                 response=chunk)
+
+        if self.pre_flight_reranker:
+            self.logger.info("Performing pre-flight check for Reranker")
+            test_query = "Where is the capital of China?"
+            test_docs = [
+                _search_result("1", "The capital city of China is Beijing."),
+                _search_result("2", "The capital city of China is Shanghai."),
+            ]
+            ranked_docs = await reranker.rerank(test_query, test_docs)
+            self.logger.info("Pre-flight Reranker response received",
+                             ranked_doc_ids=[doc.sid for doc in ranked_docs])
+
     async def run_streaming(self, request: RunRequest) -> Callable[[], AsyncGenerator[RunStreamingResponse, None]]:
         async def stream():
             try:
+                # Run pre-flight checks but don't await
+                asyncio.create_task(self.pre_flight_models())
+
                 yield inter_resp(f"Processing question: {request.question}\n\n", silent=False, logger=self.logger)
-                llm, reranker = await get_default_llms()
+                llm, reranker = await self.get_default_llms()
 
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 # docs = await search_clueweb(request.question,
