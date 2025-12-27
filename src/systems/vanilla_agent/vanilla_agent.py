@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 from openai.types.chat import ChatCompletionMessageParam
 from typing import Any, AsyncGenerator, Callable, List, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
@@ -103,6 +104,8 @@ class VanillaAgent(RAGInterface):
         llm, reranker = await self.get_default_llms()
         GRADE_PROMPT = """You are an expert in answering user question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
 
+Current time at UTC+00:00 timezone: {current_time}
+
 Go through each document in the search results, judge if they are sufficient for answering the user question. Please consider:
 
 1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanation, we may need searching with different aspects to cover a wider range of perspectives.
@@ -132,6 +135,7 @@ Here is the search results for current question:
         prompt = GRADE_PROMPT.format(
             question=question,
             next_query=next_query,
+            current_time=datetime.now(timezone.utc),
             prev_questions="Here are the previous search queries, do not repeat these queries in <new-query>: " +
             "; ".join(acc_queries) if acc_queries else "",
             prev_docs_summaries="Here are the summaries of previous documents we collected for this question, do not duplicate: " +

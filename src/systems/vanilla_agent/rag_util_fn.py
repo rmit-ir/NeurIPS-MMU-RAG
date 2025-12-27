@@ -88,6 +88,8 @@ Try express the same question in different ways, use different techniques, query
 
 Try to provide a balanced view for controversial topics.
 
+Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
+
 To comply with the format, put your query variants enclosed in queries xml markup:
 
 <queries>
