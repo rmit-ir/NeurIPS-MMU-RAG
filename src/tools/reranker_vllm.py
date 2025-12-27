@@ -243,26 +243,14 @@ class GeneralReranker:
         )
 
         # Format query and docs
-        # TODO: check if we need to remove templates for Qwen3-Reranker, vllm /score already handles chat template when is_original_qwen3_reranker=True
-        query_fmt = self.query_template.format(
-            prefix=self.prefix,
-            instruction=instruction,
-            query=query
-        )
+        # vLLM /score endpoint handles chat template internally when is_original_qwen3_reranker=True
+        # So we send plain text instead of pre-formatted templates
+        query_fmt = query
         docs_fmt = [
-            self.document_template.format(
-                doc=self._cut_to_words(
-                    self._search_result_to_text(result), max_words),
-                suffix=self.suffix
-            )
+            self._cut_to_words(
+                self._search_result_to_text(result), max_words)
             for result in search_results
         ]
-        # query_fmt = query
-        # docs_fmt = [
-        #     self._cut_to_words(
-        #         self._search_result_to_text(result), max_words)
-        #     for result in search_results
-        # ]
 
         # Get scores from vLLM via API
         start_time = asyncio.get_event_loop().time()
