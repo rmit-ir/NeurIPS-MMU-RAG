@@ -10,6 +10,7 @@ from tools.reranker_vllm import GeneralReranker, get_reranker
 from tools.str_utils import extract_tag_val
 from tools.web_search import SearchResult
 from tools.lse_search import search_clueweb
+from tools.docs_utils import reciprocal_rank_fusion
 
 
 def system_message(enable_think: bool) -> str:
@@ -142,22 +143,16 @@ async def search_w_qv(query: str,
                       logger: BoundLogger,
                       cw22_a: bool = True,
                       preset_llm: Optional[GeneralOpenAIClient] = None) -> Tuple[List[str], List[SearchResult]]:
-    """Search with query variants and merge results"""
+    """Search with query variants and merge results using Reciprocal Rank Fusion"""
     queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
     queries = set([query, *queries])
-    queries_docs = await asyncio.gather(*[
-        search_clueweb(query=q, k=10) for q in queries])
+    ranked_lists = await asyncio.gather(*[
+        search_clueweb(query=q, k=10, cw22_a=cw22_a) for q in queries])
 
-    # Deduplicate and put into a list
-    all_results: List[SearchResult] = []
-    all_docs_id_set = set()
-    for docs in queries_docs:
-        for r in docs:
-            if isinstance(r, SearchResult) and r.id not in all_docs_id_set:
-                all_results.append(r)
-                all_docs_id_set.add(r.id)
+    # Apply Reciprocal Rank Fusion to combine rankings
+    all_results = reciprocal_rank_fusion(ranked_lists)
 
-    logger.info("Search with query variants completed",
+    logger.info("Search with query variants completed, merged with RRF",
                 original_query=query,
                 num_variants=len(queries),
                 all_results=len(all_results))

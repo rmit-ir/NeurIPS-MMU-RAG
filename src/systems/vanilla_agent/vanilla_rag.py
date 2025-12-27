@@ -24,6 +24,7 @@ class VanillaRAG(RAGInterface):
         k_docs: int = 30,
         cw22_a: bool = True,
         num_qvs: int = 3,
+        skip_rerank: bool = False,
         alt_llm_api_base: Optional[str] = None,
         alt_llm_api_key: Optional[str] = None,
         alt_llm_model: Optional[str] = None,
@@ -44,6 +45,7 @@ class VanillaRAG(RAGInterface):
             max_running_requests: Maximum concurrent requests
             api_key: API key for the server (optional)
             max_tokens: Maximum tokens to generate
+            skip_rerank: Whether to skip reranking step (default False)
             alt_llm_api_base: Alternative LLM API base URL
             alt_llm_api_key: Alternative LLM API key
             alt_llm_model: Alternative LLM model name
@@ -65,6 +67,7 @@ class VanillaRAG(RAGInterface):
         self.k_docs = k_docs
         self.cw22_a = cw22_a
         self.num_qvs = num_qvs
+        self.skip_rerank = skip_rerank
         self.alt_llm_api_base = alt_llm_api_base
         self.alt_llm_api_key = alt_llm_api_key
         self.alt_llm_model = alt_llm_model
@@ -153,7 +156,6 @@ class VanillaRAG(RAGInterface):
                 # Run pre-flight checks but don't await
                 asyncio.create_task(self.pre_flight_models())
 
-                yield inter_resp(f"Processing question: {request.question}\n\n", silent=False, logger=self.logger)
                 llm, reranker = await self.get_default_llms()
 
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
@@ -166,7 +168,10 @@ class VanillaRAG(RAGInterface):
                                  silent=False, logger=self.logger)
 
                 docs = [r for r in docs if isinstance(r, SearchResult)]
-                docs = await reranker.rerank(request.question, docs)
+
+                if not self.skip_rerank:
+                    yield inter_resp("Reranking documents...\n\n", silent=False, logger=self.logger)
+                    docs = await reranker.rerank(request.question, docs)
                 docs = truncate_docs(docs, self.retrieval_words_threshold)
                 docs = update_docs_sids(docs)
                 reranked_docs = len(docs)
