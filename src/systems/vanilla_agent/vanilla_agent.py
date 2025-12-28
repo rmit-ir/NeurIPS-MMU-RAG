@@ -278,7 +278,7 @@ Here is the search results for current search query:
                 context_tokens_limit = self.context_length - answer_max_tokens
                 # ---------------------------------------------------------------
                 # AGENT LOOP
-                while sum(calc_tokens(d) for d in acc_docs) < context_tokens_limit and tries < self.max_tries:
+                while True:
                     tries += 1
                     # step 1: search
                     qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, preset_llm=llm)
@@ -349,8 +349,20 @@ Here is the search results for current search query:
                     next_query = _next_query
                     yield inter_resp(f"Need more information, so far we have {len(acc_docs)} relevant documents\n\n",
                                      silent=False, logger=self.logger)
-                    yield inter_resp(f"Next search({(tries)}/{self.max_tries}): {next_query}\n\n",
-                                     silent=False, logger=self.logger)
+
+                    # Check loop exit conditions before announcing next search
+                    current_tokens = sum(calc_tokens(d) for d in acc_docs)
+                    if tries >= self.max_tries:
+                        yield inter_resp(f"Reached maximum tries ({self.max_tries}), proceeding to generate final answer\n\n",
+                                         silent=False, logger=self.logger)
+                        break
+                    elif current_tokens >= context_tokens_limit:
+                        yield inter_resp(f"Reached context token limit ({current_tokens}/{context_tokens_limit} tokens), proceeding to generate final answer\n\n",
+                                         silent=False, logger=self.logger)
+                        break
+                    else:
+                        yield inter_resp(f"Next search({(tries)}/{self.max_tries}): {next_query}\n\n",
+                                         silent=False, logger=self.logger)
                 # END AGENT LOOP
                 # ---------------------------------------------------------------
 
