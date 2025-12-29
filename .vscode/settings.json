@@ -27,6 +27,7 @@
     "fastapi",
     "FINEWEB",
     "flashinfer",
+    "gptoss",
     "healthcheck",
     "iids",
     "IKAT",
