@@ -49,8 +49,10 @@ class RunStreamingResponse(BaseModel):
     final_report: Optional[str] = None
     is_intermediate: bool = False
     complete: bool = False
+    # extra field on top of the OpenAI format
     citations: Optional[List[CitationItem]] = None
     error: Optional[str] = None
+    # TODO: respond models used for each step in response, so frontend knows how to parse results
 
 
 class RAGInterface(ABC):

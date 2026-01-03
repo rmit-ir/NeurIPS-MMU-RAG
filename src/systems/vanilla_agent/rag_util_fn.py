@@ -1,9 +1,9 @@
 import asyncio
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from openai.types.chat import ChatCompletionMessageParam
 from structlog import BoundLogger
 from systems.rag_interface import RunStreamingResponse
+from systems.vanilla_agent.model_config import default_config, gpt_oss_config
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.reranker_vllm import GeneralReranker, get_reranker
@@ -13,54 +13,38 @@ from tools.lse_search import search_clueweb
 from tools.docs_utils import reciprocal_rank_fusion
 
 
-def system_message(enable_think: bool) -> str:
-    # Create a simple RAG prompt
-    return f"""You are a knowledgeable AI search assistant built by the RMIT IR team.
+def build_llm_messages(
+    results: str | list[SearchResult],
+    query: str,
+    enable_think: bool,
+    model_id: Optional[str] = None
+) -> List[ChatCompletionMessageParam]:
+    """Build LLM messages using the appropriate model config.
 
-Your search engine has returned a list of relevant webpages based on the user's question, listed below in <search-results> tags. These webpages are your knowledge.
+    Args:
+        results: Search results or context string
+        query: User's question
+        enable_think: Whether to enable thinking mode
+        model_id: Model identifier to determine config (optional)
 
-The next user message is the full user question, and you need to explain and answer the question based on the search results. Do not make up answers that are not supported by the search results. If the search results do not have the necessary information for you to answer the search question, say you don't have enough information for the question.
+    Returns:
+        List of chat completion messages
+    """
+    # Determine which config to use
+    if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
+        config = gpt_oss_config
+    else:
+        config = default_config
 
-Try to provide a balanced view for controversial topics.
-
-Tailor the complexity of your response to the user question, use simpler bullet points for simple questions, and sections for more detailed explanations for complex topics or rich content.
-
-Do not answer to greetings or chat with the user, always reply in English.
-
-You should refer to the search results in your final response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
-
-Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
-Search results knowledge cutoff: December 2024
-{'/nothink' if enable_think is not True else ''}
-
-"""
-
-
-def build_llm_messages(results: str | list[SearchResult], query: str, enable_think: bool) -> List[ChatCompletionMessageParam]:
-    context = ""
-    if isinstance(results, list):
-        if len(results) > 0 and isinstance(results[0], SearchResult):
-            context = build_to_context(results)
-        else:
-            context = "<search-results>Empty results</search-results>"
-    elif isinstance(results, str):
-        context = results
-
-    sys_msg = system_message(enable_think) + context
-    return [
-        {"role": "system", "content": sys_msg},
-        {"role": "user", "content": query},
-    ]
+    return config.build_answer_messages(results, query, enable_think)
 
 
 def build_to_context(results: list[SearchResult]) -> str:
-    context = "<search-results>"
-    context += "\n".join([f"""
-Webpage ID=[{r.sid}] URL=[{r.url}] Date=[{r.date}]:
+    """Build context string from search results.
 
-{r.text}""" for r in results])
-    context += "</search-results>"
-    return context
+    Uses default_config as both configs have the same implementation.
+    """
+    return default_config.build_to_context(results)
 
 
 def inter_resp(desc: str, silent: bool, logger: BoundLogger) -> RunStreamingResponse:
@@ -77,32 +61,21 @@ async def generate_qvs(query: str,
                        num_qvs: int,
                        enable_think: bool,
                        logger: BoundLogger,
-                       preset_llm: Optional[GeneralOpenAIClient] = None) -> List[str]:
+                       preset_llm: Optional[GeneralOpenAIClient] = None,
+                       model_id: Optional[str] = None) -> List[str]:
     """Generate a list of query variants"""
     if not preset_llm:
         llm, _ = await get_default_llms()
     else:
         llm = preset_llm
-    system_prompt = f"""You will receive a question from a user and you need interpret what the question is actually asking about and come up with 2 to {num_qvs} Google search queries to answer that question.
 
-Try express the same question in different ways, use different techniques, query expansion, query relaxation, query segmentation, use different synonyms, use reasonable guess and different keywords to reach different aspects.
+    # Determine which config to use
+    if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
+        config = gpt_oss_config
+    else:
+        config = default_config
 
-Try to provide a balanced view for controversial topics.
-
-Only provide English queries, no matter what language the user question is in.
-
-Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
-
-To comply with the format, put your query variants enclosed in queries xml markup:
-
-<queries>
-query variant 1
-query variant 2
-...
-</queries>
-
-Put each query in a line, do not add any prefix on each query, only provide the query themselves.
-{'' if enable_think else '/nothink'}"""
+    system_prompt = config.QUERY_VARIANTS_PROMPT(num_qvs, enable_think)
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"User question: {query}"},
@@ -119,14 +92,21 @@ Put each query in a line, do not add any prefix on each query, only provide the 
     return [query]
 
 
-async def reformulate_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None) -> str:
+async def reformulate_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None, model_id: Optional[str] = None) -> str:
     """Reformulate the query to improve search results"""
     if not preset_llm:
         llm, _ = await get_default_llms()
     else:
         llm = preset_llm
 
-    system_prompt = """You will receive a question from a user and you need interpret what the question is actually asking about and come up with a better Google search query to answer that question. Only provide the reformulated query, do not add any prefix or suffix."""
+    # TODO: extract this (as well as all other places using this code) to a function get_model_config() in model_config/__init__.py
+    # Determine which config to use
+    if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
+        config = gpt_oss_config
+    else:
+        config = default_config
+
+    system_prompt = config.REFORMULATE_QUERY_PROMPT()
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"User question: {query}"},
@@ -162,18 +142,21 @@ async def search_w_qv(query: str,
 
 global_llm_client: GeneralOpenAIClient | None = None
 global_reranker: GeneralReranker | None = None
+global_llm_model_id: str | None = None
 
 
 async def get_default_llms():
-    global global_llm_client, global_reranker
+    global global_llm_client, global_reranker, global_llm_model_id
     if not global_llm_client:
         llm_mgr = get_llm_mgr(VllmConfig())
         global_llm_client = await llm_mgr.get_openai_client(
             max_tokens=4_096,
         )
+        # Get model_id from the client
+        global_llm_model_id = getattr(global_llm_client, 'model_id', None)
     if not global_reranker:
         global_reranker = await get_reranker()
-    return global_llm_client, global_reranker
+    return global_llm_client, global_reranker, global_llm_model_id
 
 
 async def main():

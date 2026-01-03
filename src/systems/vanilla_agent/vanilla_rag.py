@@ -13,7 +13,6 @@ from tools.docs_utils import truncate_docs, update_docs_sids
 class VanillaRAG(RAGInterface):
     def __init__(
         self,
-        model_id: str = "Qwen/Qwen3-4B",
         reasoning_parser: Optional[str] = "qwen3",
         gpu_memory_utilization: Optional[float] = 0.6,
         max_model_len: Optional[int] = 25_000,
@@ -39,7 +38,6 @@ class VanillaRAG(RAGInterface):
         Initialize VanillaRAG with LLM server.
 
         Args:
-            model_id: The model ID to use for LLM server
             reasoning_parser: Parser for reasoning models
             mem_fraction_static: Memory fraction for static allocation
             max_running_requests: Maximum concurrent requests
@@ -56,7 +54,6 @@ class VanillaRAG(RAGInterface):
             pre_flight_llm: Whether to perform pre-flight check for LLM
             pre_flight_reranker: Whether to perform pre-flight check for reranker
         """
-        self.model_id = model_id
         self.reasoning_parser = reasoning_parser
         self.gpu_memory_utilization = gpu_memory_utilization
         self.max_model_len = max_model_len
@@ -83,7 +80,6 @@ class VanillaRAG(RAGInterface):
         self.reranker: Optional[GeneralReranker] = None
 
         self.logger.info("Initialized VanillaRAG",
-                         model_id=self.model_id,
                          max_tokens=self.max_tokens,
                          retrieval_words_threshold=self.retrieval_words_threshold,
                          enable_think=self.enable_think,
@@ -115,21 +111,21 @@ class VanillaRAG(RAGInterface):
             self.logger.info("Using alternative LLM and Reranker for VanillaRAG",
                              alt_llm_api_base=self.alt_llm_api_base,
                              alt_reranker_api_base=self.alt_reranker_api_base)
-            return alt_llm, alt_reranker
+            return alt_llm, alt_reranker, self.alt_llm_model
 
-        llm, reranker = await get_default_llms()
+        llm, reranker, model_id = await get_default_llms()
         if self.alt_llm_api_base and self.alt_llm_model:
-            return alt_llm, reranker
+            return alt_llm, reranker, self.alt_llm_model
         if self.alt_reranker_api_base and self.alt_reranker_model:
-            return llm, alt_reranker
-        return llm, reranker
+            return llm, alt_reranker, model_id
+        return llm, reranker, model_id
 
     async def pre_flight_models(self) -> None:
         from openai.types.chat import ChatCompletionMessageParam
         from typing import List
         from tools.reranker_vllm import _dummy_search_result as _search_result
 
-        llm, reranker = await self.get_default_llms()
+        llm, reranker, _model_id = await self.get_default_llms()
         if self.pre_flight_llm:
             self.logger.info("Performing pre-flight check for LLM")
             test_messages: List[ChatCompletionMessageParam] = [
@@ -156,7 +152,7 @@ class VanillaRAG(RAGInterface):
                 # Run pre-flight checks but don't await
                 asyncio.create_task(self.pre_flight_models())
 
-                llm, reranker = await self.get_default_llms()
+                llm, reranker, model_id = await self.get_default_llms()
 
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 # docs = await search_clueweb(request.question,
@@ -179,7 +175,7 @@ class VanillaRAG(RAGInterface):
 
                 yield inter_resp("Starting final answer\n\n", silent=False, logger=self.logger)
                 messages = build_llm_messages(
-                    docs, request.question, self.enable_think)
+                    docs, request.question, self.enable_think, model_id=model_id)
                 async for chunk in llm.complete_chat_streaming(messages):
                     if chunk.choices[0].finish_reason is not None:
                         # Stream finished
@@ -237,7 +233,6 @@ if __name__ == "__main__":
 
         # Initialize VanillaRAG
         rag = VanillaRAG(
-            model_id="Qwen/Qwen3-4B",
             api_key=None,  # Optional API key
             max_tokens=4096
         )

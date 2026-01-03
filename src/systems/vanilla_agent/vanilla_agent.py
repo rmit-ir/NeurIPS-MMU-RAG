@@ -5,6 +5,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from typing import Any, AsyncGenerator, Callable, Dict, List, NamedTuple, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query, search_w_qv
+from systems.vanilla_agent.model_config import default_config, gpt_oss_config
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
@@ -108,7 +109,7 @@ class VanillaAgent(RAGInterface):
 
         return history_str
 
-    async def get_default_llms(self):
+    async def get_active_models(self):
         if self.alt_llm_api_base and self.alt_llm_model:
             alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
                                           api_base=self.alt_llm_api_base,
@@ -124,52 +125,26 @@ class VanillaAgent(RAGInterface):
             self.logger.info("Using alternative LLM and Reranker for VanillaAgent",
                              alt_llm_api_base=self.alt_llm_api_base,
                              alt_reranker_api_base=self.alt_reranker_api_base)
-            return alt_llm, alt_reranker
+            return alt_llm, alt_reranker, self.alt_llm_model
 
-        llm, reranker = await get_default_llms()
+        llm, reranker, default_model_id = await get_default_llms()
         if self.alt_llm_api_base and self.alt_llm_model:
-            return alt_llm, reranker
+            return alt_llm, reranker, self.alt_llm_model
         if self.alt_reranker_api_base and self.alt_reranker_model:
-            return llm, alt_reranker
-        return llm, reranker
+            return llm, alt_reranker, default_model_id
+        return llm, reranker, default_model_id
 
     async def review_documents(self, question: str, next_query: str, query_history: List[QueryHistoryItem], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
-        llm, reranker = await self.get_default_llms()
-        GRADE_PROMPT = """You are an expert in answering user question "{question}". We are doing research on user's question and currently working on aspect "{next_query}"
+        llm, _reranker, model_id = await self.get_active_models()
 
-Current time at UTC+00:00 timezone: {current_time}
+        # Determine which config to use
+        if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
+            config = gpt_oss_config
+        else:
+            config = default_config
 
-Go through each document in the search results and evaluate their relevance.
-
-1. Does the user want a simple answer or a comprehensive explanation? For comprehensive explanations, we may need searching with different aspects to cover a wider range of perspectives.
-2. For controversial, convergent, divergent, evaluative, complex systemic, ethical-moral, problem-solving, or recommendation questions, consider whether multiple aspects would form a more balanced, comprehensive view.
-3. Identify unique, new documents that are important for answering the question but not included in previous documents. List their IDs (# in ID=[#]) in a comma-separated format within <useful-docs> xml tags. If multiple documents are similar, choose the one with better quality. Do not provide duplicated documents from previous turns. If no new documents are useful, leave <useful-docs></useful-docs> empty.
-4. Evaluate whether all collected documents (including previous turns) fully address the user's query and any sub-components. Consider what information is still missing or uncertain.
-5. Determine <is-sufficient>: When you answer 'yes', we will proceed to generate the final answer. If you answer 'no', we will continue with a new search query.
-
-Response Logic:
-
-1. If <useful-docs> is not empty, provide a brief summary within <useful-docs-summary> xml tags (1-2 sentences). Start with "These documents discuss..." and indicate whether they are sufficient or still missing information. Do not mention specific document IDs in the summary.
-2. If information is missing or uncertain, return 'no' in <is-sufficient> and generate a new query in <new-query> xml tags indicating what clarification is needed.
-3. If current search results have very limited information, use different techniques: query expansion, query relaxation, query segmentation, synonyms, or reasonable guesses with different keywords. Put the new query in <new-query> xml tags. Do not repeat previous unsuccessful queries.
-4. Your purpose is to judge document relevance, not to provide the final answer yet.
-
-Response Format:
-
-- <useful-docs>1,2,3</useful-docs> (list of document IDs that are useful for answering the question, separated by commas)
-- <useful-docs-summary></useful-docs-summary> (short summary of what these useful documents are talking about and what is missing, just the summary, only if useful-docs is not empty)
-- <is-sufficient>yes or no</is-sufficient> (For all of the documents we have collected, including previous documents, do we have enough information to answer the user question?)
-- <new-query>your new query</new-query> (if is-sufficient is 'no')
-
-{query_history_section}
-
-Here is the current search query: "{next_query}"
-Here is the search results for current search query:
-
-"""
         query_history_str = self._format_query_history(query_history)
-
-        prompt = GRADE_PROMPT.format(
+        prompt = config.REVIEW_DOCUMENTS_PROMPT(
             question=question,
             next_query=next_query,
             current_time=datetime.now(timezone.utc),
@@ -235,7 +210,7 @@ Here is the search results for current search query:
         return is_sufficient, new_query, useful_docs, useful_docs_summary
 
     async def pre_flight_models(self) -> None:
-        llm, reranker = await self.get_default_llms()
+        llm, reranker, model_id = await self.get_active_models()
         if self.pre_flight_llm:
             self.logger.info("Performing pre-flight check for LLM")
             test_messages: List[ChatCompletionMessageParam] = [
@@ -264,7 +239,7 @@ Here is the search results for current search query:
 
                 yield inter_resp(f"Searching question: {request.question}\n\n",
                                  silent=False, logger=self.logger)
-                llm, reranker = await self.get_default_llms()
+                llm, reranker, model_id = await self.get_active_models()
                 acc_docs: List[SearchResult] = []
                 acc_docs_id_set = set()
                 acc_doc_base_count = 0
@@ -373,7 +348,7 @@ Here is the search results for current search query:
                 yield inter_resp(f"Starting final answer with {len(acc_docs)} documents\n\n",
                                  silent=False, logger=self.logger)
                 messages = build_llm_messages(
-                    acc_docs, request.question, True)
+                    acc_docs, request.question, True, model_id=model_id)
 
                 prompt_tokens = calc_tokens_str(json.dumps(messages))
                 gen_max_tokens = self.context_length - prompt_tokens - 1000
