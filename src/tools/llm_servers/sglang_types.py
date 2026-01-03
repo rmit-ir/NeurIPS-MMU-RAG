@@ -6,7 +6,10 @@ from openai.types.chat.chat_completion_chunk import ChoiceDelta as BaseChoiceDel
 
 
 class CustomChoiceDelta(BaseChoiceDelta):
+    # Cerebras Qwen3 model returns this
     reasoning_content: Optional[str] = None
+    # Cerebras gpt-oss model returns this
+    reasoning: Optional[str] = None
 
 
 class CustomChoice(BaseChoice):

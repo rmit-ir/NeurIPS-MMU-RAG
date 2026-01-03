@@ -183,10 +183,15 @@ class VanillaRAG(RAGInterface):
                     if chunk.choices[0].finish_reason is not None:
                         # Stream finished
                         break
+
                     delta = chunk.choices[0].delta
-                    if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                    reasoning_content = hasattr(
+                        delta, 'reasoning_content') and delta.reasoning_content
+                    reasoning_content = reasoning_content or (
+                        hasattr(delta, 'reasoning') and delta.reasoning)
+                    if reasoning_content:
                         # still intermediate steps
-                        yield inter_resp(delta.reasoning_content, silent=True, logger=self.logger)
+                        yield inter_resp(reasoning_content, silent=True, logger=self.logger)
                     elif hasattr(delta, 'content') and delta.content:
                         # final report
                         yield RunStreamingResponse(
