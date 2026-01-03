@@ -15,6 +15,7 @@ class OpenAIDelta(BaseModel):
     reasoning_content: Optional[str] = None
     citations: Optional[List[CitationItem]] = None
     role: Optional[str] = None
+    metadata: Optional[dict] = None
 
 
 class OpenAIChoice(BaseModel):
@@ -99,7 +100,8 @@ async def _convert_stream_to_openai(
                             index=0,
                             delta=OpenAIDelta(
                                 reasoning_content=response.intermediate_steps,
-                                citations=response.citations),
+                                citations=response.citations,
+                                metadata=response.metadata),
                             finish_reason="stop" if response.complete else None
                         )
                     ]
@@ -114,7 +116,8 @@ async def _convert_stream_to_openai(
                             index=0,
                             delta=OpenAIDelta(
                                 content=response.final_report,
-                                citations=response.citations),
+                                citations=response.citations,
+                                metadata=response.metadata),
                             finish_reason="stop" if response.complete else None
                         )
                     ]
