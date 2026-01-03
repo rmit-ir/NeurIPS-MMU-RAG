@@ -13,6 +13,7 @@
     "awscli",
     "botocore",
     "Caddyfile",
+    "Cerebras",
     "chatcmpl",
     "clueweb",
     "coro",

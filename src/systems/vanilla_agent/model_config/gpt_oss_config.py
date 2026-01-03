@@ -53,11 +53,8 @@ Reasoning: {reasoning_level}
 # Valid channels: analysis, commentary, final. Channel must be included for every message."""
 
 
-def ANSWER_PROMPT(enable_think: bool = True) -> str:
+def ANSWER_PROMPT() -> str:
     """Developer message for answering questions based on search results.
-
-    Args:
-        enable_think: Whether to enable thinking mode for the model
 
     Returns:
         The formatted developer prompt
@@ -78,6 +75,7 @@ Do not answer to greetings or chat with the user, always reply in English.
 
 Cite information from the search results using the following format:
 `【{ID}†L{line_start}(-L{line_end})?】`, for example: `【6†L9-L11】` or `【8†L3】`.
+
 """
 
 
@@ -196,6 +194,7 @@ def build_answer_messages(
     query: str,
     enable_think: bool = True
 ) -> List[ChatCompletionMessageParam]:
+    #! Assuming using Cerebras, system role is mapped to developer role.
     """Build LLM messages in OpenAI Harmony format for GPT-OSS.
 
     In OpenAI Harmony format:
@@ -219,10 +218,9 @@ def build_answer_messages(
     elif isinstance(results, str):
         context = results
 
-    developer_content = ANSWER_PROMPT(enable_think) + context
+    developer_content = ANSWER_PROMPT() + context
 
     return [
-        {"role": "system", "content": SYSTEM_MESSAGE(enable_think)},
-        {"role": "developer", "content": developer_content},
+        {"role": "system", "content": developer_content},
         {"role": "user", "content": query},
     ]

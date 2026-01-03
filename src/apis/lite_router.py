@@ -137,6 +137,7 @@ rag_systems: Dict[str, RAGInterface] = {
                                               alt_llm_api_base=ALT_LLM_API_BASE_GPT_OSS,
                                               alt_llm_api_key=ALT_LLM_API_KEY_GPT_OSS,
                                               alt_llm_model=ALT_LLM_MODEL_GPT_OSS,
+                                              alt_llm_reasoning_effort="high",
                                               alt_reranker_api_base=ALT_RERANKER_API_BASE,
                                               alt_reranker_api_key=ALT_RERANKER_API_KEY,
                                               alt_reranker_model=ALT_RERANKER_MODEL,
@@ -144,8 +145,7 @@ rag_systems: Dict[str, RAGInterface] = {
     "vanilla-rag-fast-gptoss": VanillaRAG(alt_llm_api_base=ALT_LLM_API_BASE_GPT_OSS,
                                           alt_llm_api_key=ALT_LLM_API_KEY_GPT_OSS,
                                           alt_llm_model=ALT_LLM_MODEL_GPT_OSS,
-                                          # Use low effort reasoning for GPT-OSS models
-                                          enable_think=False,
+                                          alt_llm_reasoning_effort="low",
                                           alt_reranker_api_base=ALT_RERANKER_API_BASE,
                                           alt_reranker_api_key=ALT_RERANKER_API_KEY,
                                           alt_reranker_model=ALT_RERANKER_MODEL,
@@ -154,8 +154,7 @@ rag_systems: Dict[str, RAGInterface] = {
                                              alt_llm_api_base=ALT_LLM_API_BASE_GPT_OSS,
                                              alt_llm_api_key=ALT_LLM_API_KEY_GPT_OSS,
                                              alt_llm_model=ALT_LLM_MODEL_GPT_OSS,
-                                             # Use low effort reasoning for GPT-OSS models
-                                             enable_think=False,
+                                             alt_llm_reasoning_effort="low",
                                              alt_reranker_api_base=ALT_RERANKER_API_BASE,
                                              alt_reranker_api_key=ALT_RERANKER_API_KEY,
                                              alt_reranker_model=ALT_RERANKER_MODEL,

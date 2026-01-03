@@ -19,6 +19,7 @@ class VanillaRAG(RAGInterface):
         api_key: Optional[str] = None,
         max_tokens: int = 4096,
         retrieval_words_threshold: int = 18000,
+        # Actually only supports default model + Qwen3 /nothink style
         enable_think: bool = True,
         k_docs: int = 30,
         cw22_a: bool = True,
@@ -27,6 +28,7 @@ class VanillaRAG(RAGInterface):
         alt_llm_api_base: Optional[str] = None,
         alt_llm_api_key: Optional[str] = None,
         alt_llm_model: Optional[str] = None,
+        # alt model like gpt-oss should be configured in alt_llm_reasoning_effort,
         alt_llm_reasoning_effort: Optional[str] = None,
         alt_reranker_api_base: Optional[str] = None,
         alt_reranker_api_key: Optional[str] = None,
@@ -95,11 +97,12 @@ class VanillaRAG(RAGInterface):
     def name(self) -> str:
         return "vanilla-rag"
 
-    async def get_default_llms(self):
+    async def get_active_models(self):
         if self.alt_llm_api_base and self.alt_llm_model:
             alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
                                           api_base=self.alt_llm_api_base,
                                           api_key=self.alt_llm_api_key,
+                                          # Cerebras only use this for GPT-OSS, for Qwen3, use /nothink in system prompt
                                           reasoning_effort=self.alt_llm_reasoning_effort,
                                           max_retries=3)
         if self.alt_reranker_api_base and self.alt_reranker_model:
@@ -125,7 +128,7 @@ class VanillaRAG(RAGInterface):
         from typing import List
         from tools.reranker_vllm import _dummy_search_result as _search_result
 
-        llm, reranker = await self.get_default_llms()
+        llm, reranker = await self.get_active_models()
         if self.pre_flight_llm:
             self.logger.info("Performing pre-flight check for LLM")
             test_messages: List[ChatCompletionMessageParam] = [
@@ -152,7 +155,7 @@ class VanillaRAG(RAGInterface):
                 # Run pre-flight checks but don't await
                 asyncio.create_task(self.pre_flight_models())
 
-                llm, reranker = await self.get_default_llms()
+                llm, reranker = await self.get_active_models()
 
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 # docs = await search_clueweb(request.question,
