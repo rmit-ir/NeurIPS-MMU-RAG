@@ -130,7 +130,7 @@ class LangGraphAgent(RAGInterface):
 Review the search results and see if they are sufficient for answering the user question. Please consider:
 
 1. Does the user want a simple answer or a comprehensive explanation?
-2. Does the search results fully addresses the user's query and any subcomponents?
+2. Does the search results fully addresses the user's query and any sub-components?
 3. When you answer 'yes', we will proceed to generate the final answer based on these results. If you answer 'no', we will continue the next turn of using a different query to search, and let you review again.
 4. If information is missing or uncertain, always return 'no' for clarification, and generate a new query enclosed in xml markup <new-query>your query</new-query> indicating the clarification needed.
 5. Have you ran out of turns? If there is no turn left, you must say 'yes'.

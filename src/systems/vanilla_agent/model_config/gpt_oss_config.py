@@ -211,8 +211,6 @@ def build_answer_messages(
     Returns:
         List of chat completion messages in Harmony format
     """
-    context = ""
-    # TODO: always use build_to_context, for both str | List
     if isinstance(results, list):
         if len(results) > 0 and isinstance(results[0], SearchResult):
             context = build_to_context(results)

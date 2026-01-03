@@ -2,10 +2,10 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from openai.types.chat import ChatCompletionMessageParam
-from typing import Any, AsyncGenerator, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, AsyncGenerator, Callable, List, NamedTuple, Optional, Tuple
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
+from systems.vanilla_agent.model_config import get_model_config
 from systems.vanilla_agent.rag_util_fn import build_llm_messages, build_to_context, get_default_llms, inter_resp, reformulate_query, search_w_qv
-from systems.vanilla_agent.model_config import default_config, gpt_oss_config
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
@@ -125,26 +125,21 @@ class VanillaAgent(RAGInterface):
             self.logger.info("Using alternative LLM and Reranker for VanillaAgent",
                              alt_llm_api_base=self.alt_llm_api_base,
                              alt_reranker_api_base=self.alt_reranker_api_base)
-            return alt_llm, alt_reranker, self.alt_llm_model
+            return alt_llm, alt_reranker
 
-        llm, reranker, default_model_id = await get_default_llms()
+        llm, reranker = await get_default_llms()
         if self.alt_llm_api_base and self.alt_llm_model:
-            return alt_llm, reranker, self.alt_llm_model
+            return alt_llm, reranker
         if self.alt_reranker_api_base and self.alt_reranker_model:
-            return llm, alt_reranker, default_model_id
-        return llm, reranker, default_model_id
+            return llm, alt_reranker
+        return llm, reranker
 
     async def review_documents(self, question: str, next_query: str, query_history: List[QueryHistoryItem], docs: List[SearchResult]) -> Tuple[bool, str | None, List[SearchResult], str | None]:
-        llm, _reranker, model_id = await self.get_active_models()
+        llm, _reranker = await self.get_active_models()
 
-        # Determine which config to use
-        if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
-            config = gpt_oss_config
-        else:
-            config = default_config
-
+        model_config = get_model_config(llm.model_id)
         query_history_str = self._format_query_history(query_history)
-        prompt = config.REVIEW_DOCUMENTS_PROMPT(
+        prompt = model_config.REVIEW_DOCUMENTS_PROMPT(
             question=question,
             next_query=next_query,
             current_time=datetime.now(timezone.utc),
@@ -210,7 +205,7 @@ class VanillaAgent(RAGInterface):
         return is_sufficient, new_query, useful_docs, useful_docs_summary
 
     async def pre_flight_models(self) -> None:
-        llm, reranker, model_id = await self.get_active_models()
+        llm, reranker = await self.get_active_models()
         if self.pre_flight_llm:
             self.logger.info("Performing pre-flight check for LLM")
             test_messages: List[ChatCompletionMessageParam] = [
@@ -239,7 +234,7 @@ class VanillaAgent(RAGInterface):
 
                 yield inter_resp(f"Searching question: {request.question}\n\n",
                                  silent=False, logger=self.logger)
-                llm, reranker, model_id = await self.get_active_models()
+                llm, reranker = await self.get_active_models()
                 acc_docs: List[SearchResult] = []
                 acc_docs_id_set = set()
                 acc_doc_base_count = 0
@@ -348,7 +343,7 @@ class VanillaAgent(RAGInterface):
                 yield inter_resp(f"Starting final answer with {len(acc_docs)} documents\n\n",
                                  silent=False, logger=self.logger)
                 messages = build_llm_messages(
-                    acc_docs, request.question, True, model_id=model_id)
+                    acc_docs, request.question, True, model_id=llm.model_id)
 
                 prompt_tokens = calc_tokens_str(json.dumps(messages))
                 gen_max_tokens = self.context_length - prompt_tokens - 1000
@@ -384,7 +379,12 @@ class VanillaAgent(RAGInterface):
                 yield RunStreamingResponse(
                     citations=citations,
                     is_intermediate=False,
-                    complete=True
+                    complete=True,
+                    metadata={
+                        "answer_model_id": llm.model_id,
+                        "query_variants_model_id": llm.model_id,
+                        "documents_reviewer_model_id": llm.model_id,
+                    },
                 )
 
             except Exception as e:

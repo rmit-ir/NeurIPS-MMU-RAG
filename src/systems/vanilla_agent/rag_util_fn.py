@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 from openai.types.chat import ChatCompletionMessageParam
 from structlog import BoundLogger
 from systems.rag_interface import RunStreamingResponse
-from systems.vanilla_agent.model_config import default_config, gpt_oss_config
+from systems.vanilla_agent.model_config import get_model_config
 from tools.llm_servers.general_openai_client import GeneralOpenAIClient
 from tools.llm_servers.vllm_server import VllmConfig, get_llm_mgr
 from tools.reranker_vllm import GeneralReranker, get_reranker
@@ -30,12 +30,7 @@ def build_llm_messages(
     Returns:
         List of chat completion messages
     """
-    # Determine which config to use
-    if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
-        config = gpt_oss_config
-    else:
-        config = default_config
-
+    config = get_model_config(model_id)
     return config.build_answer_messages(results, query, enable_think)
 
 
@@ -44,6 +39,7 @@ def build_to_context(results: list[SearchResult]) -> str:
 
     Uses default_config as both configs have the same implementation.
     """
+    from systems.vanilla_agent.model_config import default_config
     return default_config.build_to_context(results)
 
 
@@ -61,20 +57,14 @@ async def generate_qvs(query: str,
                        num_qvs: int,
                        enable_think: bool,
                        logger: BoundLogger,
-                       preset_llm: Optional[GeneralOpenAIClient] = None,
-                       model_id: Optional[str] = None) -> List[str]:
+                       preset_llm: Optional[GeneralOpenAIClient] = None) -> List[str]:
     """Generate a list of query variants"""
     if not preset_llm:
         llm, _ = await get_default_llms()
     else:
         llm = preset_llm
 
-    # Determine which config to use
-    if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
-        config = gpt_oss_config
-    else:
-        config = default_config
-
+    config = get_model_config(llm.model_id)
     system_prompt = config.QUERY_VARIANTS_PROMPT(num_qvs, enable_think)
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
@@ -92,20 +82,14 @@ async def generate_qvs(query: str,
     return [query]
 
 
-async def reformulate_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None, model_id: Optional[str] = None) -> str:
+async def reformulate_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None) -> str:
     """Reformulate the query to improve search results"""
     if not preset_llm:
         llm, _ = await get_default_llms()
     else:
         llm = preset_llm
 
-    # TODO: extract this (as well as all other places using this code) to a function get_model_config() in model_config/__init__.py
-    # Determine which config to use
-    if model_id and gpt_oss_config.is_gpt_oss_model(model_id):
-        config = gpt_oss_config
-    else:
-        config = default_config
-
+    config = get_model_config(llm.model_id)
     system_prompt = config.REFORMULATE_QUERY_PROMPT()
     messages: List[ChatCompletionMessageParam] = [
         {"role": "system", "content": system_prompt},
@@ -142,21 +126,18 @@ async def search_w_qv(query: str,
 
 global_llm_client: GeneralOpenAIClient | None = None
 global_reranker: GeneralReranker | None = None
-global_llm_model_id: str | None = None
 
 
 async def get_default_llms():
-    global global_llm_client, global_reranker, global_llm_model_id
+    global global_llm_client, global_reranker
     if not global_llm_client:
         llm_mgr = get_llm_mgr(VllmConfig())
         global_llm_client = await llm_mgr.get_openai_client(
             max_tokens=4_096,
         )
-        # Get model_id from the client
-        global_llm_model_id = getattr(global_llm_client, 'model_id', None)
     if not global_reranker:
         global_reranker = await get_reranker()
-    return global_llm_client, global_reranker, global_llm_model_id
+    return global_llm_client, global_reranker
 
 
 async def main():

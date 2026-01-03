@@ -52,7 +52,8 @@ class RunStreamingResponse(BaseModel):
     # extra field on top of the OpenAI format
     citations: Optional[List[CitationItem]] = None
     error: Optional[str] = None
-    # TODO: respond models used for each step in response, so frontend knows how to parse results
+    # Additional metadata (e.g., models_used, timing info, etc.)
+    metadata: Optional[dict] = None
 
 
 class RAGInterface(ABC):

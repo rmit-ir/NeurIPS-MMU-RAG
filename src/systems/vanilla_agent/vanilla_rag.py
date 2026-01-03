@@ -111,21 +111,21 @@ class VanillaRAG(RAGInterface):
             self.logger.info("Using alternative LLM and Reranker for VanillaRAG",
                              alt_llm_api_base=self.alt_llm_api_base,
                              alt_reranker_api_base=self.alt_reranker_api_base)
-            return alt_llm, alt_reranker, self.alt_llm_model
+            return alt_llm, alt_reranker
 
-        llm, reranker, model_id = await get_default_llms()
+        llm, reranker = await get_default_llms()
         if self.alt_llm_api_base and self.alt_llm_model:
-            return alt_llm, reranker, self.alt_llm_model
+            return alt_llm, reranker
         if self.alt_reranker_api_base and self.alt_reranker_model:
-            return llm, alt_reranker, model_id
-        return llm, reranker, model_id
+            return llm, alt_reranker
+        return llm, reranker
 
     async def pre_flight_models(self) -> None:
         from openai.types.chat import ChatCompletionMessageParam
         from typing import List
         from tools.reranker_vllm import _dummy_search_result as _search_result
 
-        llm, reranker, _model_id = await self.get_default_llms()
+        llm, reranker = await self.get_default_llms()
         if self.pre_flight_llm:
             self.logger.info("Performing pre-flight check for LLM")
             test_messages: List[ChatCompletionMessageParam] = [
@@ -152,7 +152,7 @@ class VanillaRAG(RAGInterface):
                 # Run pre-flight checks but don't await
                 asyncio.create_task(self.pre_flight_models())
 
-                llm, reranker, model_id = await self.get_default_llms()
+                llm, reranker = await self.get_default_llms()
 
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 # docs = await search_clueweb(request.question,
@@ -175,7 +175,7 @@ class VanillaRAG(RAGInterface):
 
                 yield inter_resp("Starting final answer\n\n", silent=False, logger=self.logger)
                 messages = build_llm_messages(
-                    docs, request.question, self.enable_think, model_id=model_id)
+                    docs, request.question, self.enable_think, model_id=llm.model_id)
                 async for chunk in llm.complete_chat_streaming(messages):
                     if chunk.choices[0].finish_reason is not None:
                         # Stream finished
@@ -208,7 +208,11 @@ class VanillaRAG(RAGInterface):
                 yield RunStreamingResponse(
                     citations=citations,
                     is_intermediate=False,
-                    complete=True
+                    complete=True,
+                    metadata={
+                        "answer_model_id": llm.model_id,
+                        "query_variants_model_id": llm.model_id,
+                    },
                 )
 
             except Exception as e:
