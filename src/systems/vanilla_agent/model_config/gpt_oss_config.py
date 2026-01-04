@@ -73,8 +73,12 @@ Tailor the complexity of your response to the user question, use simpler bullet 
 
 Do not answer to greetings or chat with the user, always reply in English.
 
-Cite information from the search results using the following format:
-`【{ID}†L{line_start}(-L{line_end})?】`, for example: `【6†L9-L11】` or `【8†L3】`.
+
+Format guidelines:
+
+1. Cite information from the search results using the following format: `【{ID}†L{line_start}(-L{line_end})?】`, for example: `【6†L9-L11】` or `【8†L3】`.
+2. Use back ticks to format any code snippets.
+3. Use latex format to write any mathematical expressions.
 
 """
 
