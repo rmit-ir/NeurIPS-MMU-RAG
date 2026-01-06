@@ -37,7 +37,7 @@ Format guidelines:
 
 1. You should refer to the search results in your final response as much as possible, append [ID] after each sentence to point to the specific search result. e.g., "This sentence is referring to information in search result 1 [1].".
 2. Square brackets without back ticks are reserved only for citations. For anything else involving square brackets (arrays, indices, slices, etc.), always wrap the whole expression in back ticks, for example: `[1]`, `[0,5]`, `arr[0]`, `items[0:5]`.
-3. Use latex format to write any mathematical expressions, put inline math between `$ math expression $` and display math between `$$\nmath expression\n$$`.
+3. Use latex format to write any mathematical expressions, put inline math between `$ math expression $` and display math between `$$\nmath expression\n$$`, you **MUST** include a space after the first dollar sign and before the last dollar sign.
 
 Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
 Search results knowledge cutoff: December 2024
