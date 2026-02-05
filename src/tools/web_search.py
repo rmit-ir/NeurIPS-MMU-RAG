@@ -17,7 +17,7 @@ logger = get_logger('web_search')
 
 class SearchResult(NamedTuple):
     """Typed result from external search sources."""
-    type: Literal["clue_web", "fine_web"]
+    type: Literal["clue_web", "fine_web", "brave_jina"]
     text: str
     id: str
     sid: str

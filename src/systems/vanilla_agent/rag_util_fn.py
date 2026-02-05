@@ -10,6 +10,8 @@ from tools.reranker_vllm import GeneralReranker, get_reranker
 from tools.str_utils import extract_tag_val
 from tools.web_search import SearchResult
 from tools.lse_search import search_clueweb
+from tools.brave_search import brave_search
+from tools.jina_retriever import retrieve_urls
 from tools.docs_utils import reciprocal_rank_fusion
 
 
@@ -106,12 +108,35 @@ async def search_w_qv(query: str,
                       enable_think: bool,
                       logger: BoundLogger,
                       cw22_a: bool = True,
+                      search_engine: str = "clueweb22b",
                       preset_llm: Optional[GeneralOpenAIClient] = None) -> Tuple[List[str], List[SearchResult]]:
-    """Search with query variants and merge results using Reciprocal Rank Fusion"""
+    """Search with query variants and merge results using Reciprocal Rank Fusion.
+
+    Args:
+        query: The original search query
+        num_qvs: Number of query variants to generate
+        enable_think: Whether to enable thinking mode for LLM
+        logger: Bound logger instance
+        cw22_a: Use ClueWeb22-A instead of B (only for clueweb22b engine)
+        search_engine: Search engine to use. Options:
+            - "clueweb22b" (default): Uses LSE search with ClueWeb22
+            - "brave_jina": Uses Brave search + Jina AI Reader for content retrieval
+        preset_llm: Optional pre-configured LLM client
+
+    Returns:
+        Tuple of (list of query variants used, list of SearchResults)
+    """
     queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
     queries = set([query, *queries])
-    ranked_lists = await asyncio.gather(*[
-        search_clueweb(query=q, k=10, cw22_a=cw22_a) for q in queries])
+
+    if search_engine == "brave_jina":
+        # Use Brave search + Jina retriever
+        ranked_lists = await asyncio.gather(*[
+            _search_with_jina(q, k=10) for q in queries])
+    else:
+        # Default: Use LSE ClueWeb search
+        ranked_lists = await asyncio.gather(*[
+            search_clueweb(query=q, k=10, cw22_a=cw22_a) for q in queries])
 
     # Apply Reciprocal Rank Fusion to combine rankings
     all_results = reciprocal_rank_fusion(ranked_lists)
@@ -119,9 +144,40 @@ async def search_w_qv(query: str,
     logger.info("Search with query variants completed, merged with RRF",
                 original_query=query,
                 num_variants=len(queries),
+                search_engine=search_engine,
                 all_results=len(all_results))
 
     return list(queries), all_results
+
+
+async def _search_with_jina(query: str, k: int = 10) -> List[SearchResult]:
+    """Search using Brave search and retrieve content with Jina.
+
+    Args:
+        query: Search query
+        k: Number of results to retrieve
+
+    Returns:
+        List of SearchResult objects with content from Jina
+    """
+    # Step 1: Get URLs from Brave search
+    search_results = await brave_search(query, count=k)
+
+    if not search_results:
+        return []
+
+    # Step 2: Extract URLs and fetch content with Jina
+    urls = [r["url"] for r in search_results if r.get("url")]
+
+    # Step 3: Retrieve content using Jina AI Reader
+    results = await retrieve_urls(
+        urls=urls,
+        max_concurrent=10,
+        timeout=5,
+        search_metadata=search_results,
+    )
+
+    return results
 
 
 global_llm_client: GeneralOpenAIClient | None = None

@@ -24,6 +24,7 @@ class VanillaRAG(RAGInterface):
         k_docs: int = 30,
         cw22_a: bool = True,
         num_qvs: int = 3,
+        search_engine: str = "clueweb22b",  # "clueweb22b" or "brave_jina"
         skip_rerank: bool = False,
         alt_llm_api_base: Optional[str] = None,
         alt_llm_api_key: Optional[str] = None,
@@ -66,6 +67,7 @@ class VanillaRAG(RAGInterface):
         self.k_docs = k_docs
         self.cw22_a = cw22_a
         self.num_qvs = num_qvs
+        self.search_engine = search_engine
         self.skip_rerank = skip_rerank
         self.alt_llm_api_base = alt_llm_api_base
         self.alt_llm_api_key = alt_llm_api_key
@@ -88,6 +90,7 @@ class VanillaRAG(RAGInterface):
                          k_docs=self.k_docs,
                          cw22_a=self.cw22_a,
                          num_qvs=self.num_qvs,
+                         search_engine=self.search_engine,
                          alt_llm_api_base=self.alt_llm_api_base,
                          alt_llm_model=self.alt_llm_model,
                          alt_reranker_api_base=self.alt_reranker_api_base,
@@ -160,7 +163,7 @@ class VanillaRAG(RAGInterface):
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 # docs = await search_clueweb(request.question,
                 #                             k=self.k_docs, cw22_a=self.cw22_a)
-                qvs, docs = await search_w_qv(request.question, num_qvs=self.num_qvs, enable_think=self.enable_think, logger=self.logger, cw22_a=self.cw22_a, preset_llm=llm)
+                qvs, docs = await search_w_qv(request.question, num_qvs=self.num_qvs, enable_think=self.enable_think, logger=self.logger, cw22_a=self.cw22_a, search_engine=self.search_engine, preset_llm=llm)
                 total_docs = len(docs)
                 qvs_str = "; ".join(qvs)
                 yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",

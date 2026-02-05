@@ -31,6 +31,7 @@ class VanillaAgent(RAGInterface):
         num_qvs: int = 5,  # number of query variants to use in search
         max_tries: int = 5,
         cw22_a: bool = True,
+        search_engine: str = "clueweb22b",  # "clueweb22b" or "brave_jina"
         alt_llm_api_base: Optional[str] = None,
         alt_llm_api_key: Optional[str] = None,
         alt_llm_model: Optional[str] = None,
@@ -50,6 +51,7 @@ class VanillaAgent(RAGInterface):
         self.num_qvs = num_qvs
         self.max_tries = max_tries
         self.cw22_a = cw22_a
+        self.search_engine = search_engine
         self.alt_llm_api_base = alt_llm_api_base
         self.alt_llm_api_key = alt_llm_api_key
         self.alt_llm_model = alt_llm_model
@@ -71,6 +73,7 @@ class VanillaAgent(RAGInterface):
                          num_qvs=self.num_qvs,
                          max_tries=self.max_tries,
                          cw22_a=self.cw22_a,
+                         search_engine=self.search_engine,
                          alt_llm_api_base=self.alt_llm_api_base,
                          alt_llm_api_key=self.alt_llm_api_key,
                          alt_llm_model=self.alt_llm_model,
@@ -255,7 +258,7 @@ class VanillaAgent(RAGInterface):
                 while True:
                     tries += 1
                     # step 1: search
-                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, preset_llm=llm)
+                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, search_engine=self.search_engine, preset_llm=llm)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = "; ".join(qvs)
                     yield inter_resp(f"Search completed: {qvs_str}\n\n",
