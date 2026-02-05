@@ -1,4 +1,5 @@
 import asyncio
+import os
 from typing import List, Optional, Tuple
 from openai.types.chat import ChatCompletionMessageParam
 from structlog import BoundLogger
@@ -150,18 +151,18 @@ async def search_w_qv(query: str,
     return list(queries), all_results
 
 
-async def _search_with_jina(query: str, k: int = 10) -> List[SearchResult]:
+async def _search_with_jina(query: str, k=10) -> List[SearchResult]:
     """Search using Brave search and retrieve content with Jina.
 
     Args:
         query: Search query
         k: Number of results to retrieve
-
     Returns:
         List of SearchResult objects with content from Jina
     """
     # Step 1: Get URLs from Brave search
     search_results = await brave_search(query, count=k)
+    timeout = int(os.getenv("JINA_RETRIEVER_TIMEOUT", '5'))
 
     if not search_results:
         return []
@@ -173,7 +174,7 @@ async def _search_with_jina(query: str, k: int = 10) -> List[SearchResult]:
     results = await retrieve_urls(
         urls=urls,
         max_concurrent=10,
-        timeout=5,
+        timeout=timeout,
         search_metadata=search_results,
     )
 
