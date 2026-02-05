@@ -40,7 +40,6 @@ Format guidelines:
 3. Use latex format to write any mathematical expressions, put inline math between `$ math expression $` and display math between `$$\nmath expression\n$$`, you **MUST** include a space after the first dollar sign and before the last dollar sign.
 
 Current time at UTC+00:00 timezone: {datetime.now(timezone.utc)}
-Search results knowledge cutoff: December 2024
 {'/nothink' if enable_think is not True else ''}
 
 """
