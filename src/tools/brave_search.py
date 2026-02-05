@@ -65,6 +65,12 @@ async def brave_search(
         timeout_cfg = aiohttp.ClientTimeout(total=timeout)
         session = aiohttp.ClientSession(timeout=timeout_cfg)
         close_session = True
+    
+    # truncate query to less than 400 characters or 50 words.
+    if len(query) > 400:
+        query = query[:400]
+    if query.count(' ') > 50:
+        query = ' '.join(query.split()[:50])
 
     try:
         headers = {
