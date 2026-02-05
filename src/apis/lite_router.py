@@ -160,7 +160,7 @@ rag_systems: Dict[str, RAGInterface] = {
                                              alt_reranker_model=ALT_RERANKER_MODEL,
                                              pre_flight_reranker=False),
     # brave_jina search engine
-    "brave-ai-overview-brave": VanillaRAG(skip_rerank=True,
+    "brave-ai-overview": VanillaRAG(skip_rerank=True,
                                           alt_llm_api_base=ALT_LLM_API_BASE_FAST_QWEN,
                                           alt_llm_api_key=ALT_LLM_API_KEY_FAST_QWEN,
                                           alt_llm_model=ALT_LLM_MODEL_FAST_QWEN,
