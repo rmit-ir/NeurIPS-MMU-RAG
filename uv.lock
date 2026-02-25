@@ -2936,6 +2936,7 @@ classifier = [
     { name = "spacy" },
 ]
 crawl = [
+    { name = "aiohttp-retry" },
     { name = "crawl4ai" },
 ]
 eval = [
@@ -2978,6 +2979,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.12.15" },
+    { name = "aiohttp-retry", marker = "extra == 'crawl'", specifier = ">=2.9.1" },
     { name = "apscheduler", marker = "extra == 'eval'", specifier = ">=3.11.0" },
     { name = "awscli", marker = "extra == 'proxy'", specifier = ">=1.42.42" },
     { name = "bert-score", marker = "extra == 'eval'", specifier = ">=0.3.13" },

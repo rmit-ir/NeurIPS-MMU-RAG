@@ -4,12 +4,15 @@
 import asyncio
 import re
 import time
+import subprocess
+import sys
 from typing import AsyncGenerator, List
-from aiohttp_retry import Any, Union
+from typing import Any, Union
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlResult, CrawlerRunConfig, MemoryAdaptiveDispatcher, RateLimiter
 
 VERBOSE = True
 PAGE_TIMEOUT = 10_000  # in milliseconds
+BROWSER_TYPE = "chromium"
 URLs = [
     "https://docs.crawl4ai.com/core/installation/",
     "https://www.kbb.com/toyota/camry/",
@@ -57,8 +60,22 @@ URLs = [
 ]
 
 
+def _ensure_playwright_browsers(browser_type: str = BROWSER_TYPE) -> None:
+    """Install Playwright browser binaries if missing."""
+    subprocess.run(
+        [sys.executable, "-m", "playwright", "install", browser_type],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _is_playwright_missing_executable_error(exc: BaseException) -> bool:
+    return "Executable doesn't exist at" in str(exc) and "playwright install" in str(exc)
+
+
 async def fetch_urls(urls: list[str]):
-    browser_config = BrowserConfig(headless=False)
+    browser_config = BrowserConfig(headless=True, browser_type=BROWSER_TYPE)
     config = CrawlerRunConfig(
         cache_mode=CacheMode.BYPASS,
         verbose=VERBOSE,
@@ -74,26 +91,46 @@ async def fetch_urls(urls: list[str]):
         max_session_permit=50,
     )
     start_time = time.perf_counter()
-    async with AsyncWebCrawler(config=browser_config) as crawler:
-        result_container: Any = await crawler.arun_many(
-            urls,
-            config=config,
-            dispatcher=dispatcher
-        )
-        results: List[CrawlResult] = []
-        typed_result: Union[List[CrawlResult],
-                            AsyncGenerator[CrawlResult, None]] = result_container
-        if isinstance(typed_result, list):
-            results = typed_result
+    try:
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            result_container: Any = await crawler.arun_many(
+                urls,
+                config=config,
+                dispatcher=dispatcher
+            )
+            results: List[CrawlResult] = []
+            typed_result: Union[List[CrawlResult],
+                                AsyncGenerator[CrawlResult, None]] = result_container
+            if isinstance(typed_result, list):
+                results = typed_result
+            else:
+                async for res in typed_result:
+                    results.append(res)
+    except Exception as exc:
+        if _is_playwright_missing_executable_error(exc):
+            _ensure_playwright_browsers(browser_type=BROWSER_TYPE)
+            async with AsyncWebCrawler(config=browser_config) as crawler:
+                result_container: Any = await crawler.arun_many(
+                    urls,
+                    config=config,
+                    dispatcher=dispatcher
+                )
+                results: List[CrawlResult] = []
+                typed_result: Union[List[CrawlResult],
+                                    AsyncGenerator[CrawlResult, None]] = result_container
+                if isinstance(typed_result, list):
+                    results = typed_result
+                else:
+                    async for res in typed_result:
+                        results.append(res)
         else:
-            async for res in typed_result:
-                results.append(res)
+            raise
     total_time = time.perf_counter() - start_time
     return total_time, results
 
 
 async def fetch_url(url: str):
-    browser_config = BrowserConfig(headless=False)
+    browser_config = BrowserConfig(headless=True, browser_type=BROWSER_TYPE)
     config = CrawlerRunConfig(
         cache_mode=CacheMode.BYPASS,
         verbose=VERBOSE,
@@ -109,13 +146,26 @@ async def fetch_url(url: str):
         max_session_permit=50,
     )
     start_time = time.perf_counter()
-    async with AsyncWebCrawler(config=browser_config) as crawler:
-        result: Any = await crawler.arun(
-            url,
-            config=config,
-            dispatcher=dispatcher
-        )
-        typed_result: CrawlResult = result
+    try:
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            result: Any = await crawler.arun(
+                url,
+                config=config,
+                dispatcher=dispatcher
+            )
+            typed_result: CrawlResult = result
+    except Exception as exc:
+        if _is_playwright_missing_executable_error(exc):
+            _ensure_playwright_browsers(browser_type=BROWSER_TYPE)
+            async with AsyncWebCrawler(config=browser_config) as crawler:
+                result: Any = await crawler.arun(
+                    url,
+                    config=config,
+                    dispatcher=dispatcher
+                )
+                typed_result: CrawlResult = result
+        else:
+            raise
     total_time = time.perf_counter() - start_time
     return total_time, typed_result
 
