@@ -199,3 +199,5 @@ data/raw_responses/
 
 data/past_topics/inhouse_outputs
 report/
+
+.claude/
