@@ -15,6 +15,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from apis.openai_typings import ChatCompletionChoice, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionUsage, ChatMessage, ModelInfo, ModelsResponse
 from systems.commercial.azure_o3_research import AzureO3ResearchRAG
+from systems.commercial.brave_search import BraveSearchRAG
 from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_agent import VanillaAgent
@@ -217,6 +218,8 @@ rag_systems: Dict[str, RAGInterface] = {
 
 
     # commercial ones
+    "brave-answers": BraveSearchRAG(),
+    "brave-answers-research": BraveSearchRAG(enable_research=True),
     "perplexity-sonar": PerplexityResearchRAG(model="sonar"),
     "perplexity-sonar-pro": PerplexityResearchRAG(model="sonar-pro"),
     "perplexity-sonar-reasoning": PerplexityResearchRAG(model="sonar-reasoning"),
