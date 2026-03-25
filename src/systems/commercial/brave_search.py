@@ -4,7 +4,7 @@ Calls Brave Answers API to get AI-generated answers grounded in web search.
 """
 
 import asyncio
-from typing import AsyncGenerator, Callable, List, Optional
+from typing import AsyncGenerator, Callable, List
 
 from systems.rag_interface import RAGInterface, RunRequest, RunStreamingResponse, CitationItem
 from tools.brave_answers import brave_answers, BraveAnswerResult
@@ -15,10 +15,8 @@ from tools.path_utils import to_icon_url
 class BraveSearchRAG(RAGInterface):
     """RAG system using Brave's Answers API for AI-grounded search answers."""
 
-    def __init__(self, enable_research: bool = False,
-                 excluded_domains: Optional[List[str]] = None):
+    def __init__(self, enable_research: bool = False):
         self.enable_research = enable_research
-        self.excluded_domains = excluded_domains
         self.logger = get_logger('BraveSearchRAG')
 
     @property
@@ -56,7 +54,6 @@ class BraveSearchRAG(RAGInterface):
                     query=request.question,
                     enable_citations=True,
                     enable_research=self.enable_research,
-                    excluded_domains=self.excluded_domains,
                 )
 
                 citations = self._to_citations(result)

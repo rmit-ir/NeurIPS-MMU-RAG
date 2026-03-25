@@ -54,7 +54,6 @@ async def brave_answers(
     api_key: Optional[str] = None,
     enable_citations: bool = True,
     enable_research: bool = False,
-    excluded_domains: Optional[List[str]] = None,
 ) -> BraveAnswerResult:
     """Get an AI-generated answer from Brave Answers API.
 
@@ -63,8 +62,6 @@ async def brave_answers(
         api_key: Brave API key. If None, uses BRAVE_API_KEY env var.
         enable_citations: Include inline citations (requires streaming internally).
         enable_research: Enable multi-search research mode (slower, more thorough).
-        excluded_domains: Domains to exclude from search results (e.g. ["wikipedia.org", "reddit.com"]).
-            Uses Brave's -site: search operator.
 
     Returns:
         BraveAnswerResult with content, citations, and usage metadata.
@@ -77,11 +74,6 @@ async def brave_answers(
         raise ValueError(
             "Brave API key not provided. Set BRAVE_API_KEY or pass api_key."
         )
-
-    # Append -site: operators for excluded domains
-    if excluded_domains:
-        exclusions = " ".join(f"-site:{d}" for d in excluded_domains)
-        query = f"{query} {exclusions}"
 
     client = AsyncOpenAI(
         api_key=key,

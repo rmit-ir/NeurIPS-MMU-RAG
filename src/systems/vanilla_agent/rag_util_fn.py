@@ -12,6 +12,7 @@ from tools.str_utils import extract_tag_val
 from tools.web_search import SearchResult
 from tools.lse_search import search_clueweb
 from tools.brave_search import brave_search
+from tools.brave_llm_context import brave_llm_context
 from tools.jina_retriever import retrieve_urls
 from tools.docs_utils import reciprocal_rank_fusion, chunk_docs
 
@@ -124,6 +125,7 @@ async def search_w_qv(query: str,
         search_engine: Search engine to use. Options:
             - "clueweb22b" (default): Uses LSE search with ClueWeb22
             - "brave_jina": Uses Brave search + Jina AI Reader for content retrieval
+            - "brave_llm_context": Uses Brave LLM Context API (pre-extracted content, no Jina needed)
         preset_llm: Optional pre-configured LLM client
         chunk_max_words: Maximum words per chunk (default 300)
         chunk_overlap_words: Overlapping words between chunks (default 50)
@@ -134,7 +136,11 @@ async def search_w_qv(query: str,
     queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
     queries = set([query, *queries])
 
-    if search_engine == "brave_jina":
+    if search_engine == "brave_llm_context":
+        # Use Brave LLM Context API (pre-extracted content)
+        ranked_lists = await asyncio.gather(*[
+            brave_llm_context(q, count=10) for q in queries])
+    elif search_engine == "brave_jina":
         # Use Brave search + Jina retriever
         ranked_lists = await asyncio.gather(*[
             _search_with_jina(q, k=10) for q in queries])
