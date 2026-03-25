@@ -197,33 +197,34 @@ class GeneralReranker:
         """Convert SearchResult to formatted text."""
         return f"Web URL: {result.url.strip()}\n\nContent: {result.text.strip()}\n\n"
 
-    async def _score_via_api(self, query_fmt: str, docs_fmt: List[str]) -> List[float]:
-        # print('query_fmt:', query_fmt, 'docs_fmt:', docs_fmt)
+    async def _score_via_api(self, query_fmt: str, docs_fmt: List[str], batch_size: int = 100) -> List[float]:
         try:
             api_base, _, _ = await self._get_server()
             http_client = self._get_http_client()
 
-            # Prepare the request payload for vLLM score endpoint
-            payload = {
-                "model": self.model_id,
-                "text_1": query_fmt,
-                "text_2": docs_fmt
-            }
+            all_scores = []
+            for i in range(0, len(docs_fmt), batch_size):
+                batch = docs_fmt[i:i + batch_size]
+                payload = {
+                    "model": self.model_id,
+                    "text_1": query_fmt,
+                    "text_2": batch
+                }
 
-            # Make request to the score endpoint
-            async with http_client.post(
-                f"{api_base}/score",
-                json=payload
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-                scores = result.get("data", [])
-                scores = [item.get("score", 0.0) for item in scores]
-                self.logger.debug("vLLM API scoring successful",
-                                  num_docs=len(docs_fmt),
-                                  result=result,
-                                  scores=scores)
-            return scores
+                async with http_client.post(
+                    f"{api_base}/score",
+                    json=payload
+                ) as response:
+                    response.raise_for_status()
+                    result = await response.json()
+                    scores = [item.get("score", 0.0) for item in result.get("data", [])]
+                    all_scores.extend(scores)
+                    self.logger.debug("vLLM API scoring batch",
+                                      batch_idx=i // batch_size,
+                                      batch_size=len(batch),
+                                      scores=scores)
+
+            return all_scores
 
         except Exception as e:
             self.logger.error("Error during vLLM API scoring", error=str(e))
