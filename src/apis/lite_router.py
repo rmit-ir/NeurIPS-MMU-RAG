@@ -219,6 +219,7 @@ rag_systems: Dict[str, RAGInterface] = {
 
     # brave_llm_context search engine
     "brave-ctx-ai-overview": VanillaRAG(skip_rerank=True,
+                                        chunk_max_words=10000, # disable chunking for Brave LLM Context
                                         alt_llm_api_base=ALT_LLM_API_BASE_SONNET_4,
                                         alt_llm_api_key=ALT_LLM_API_KEY_SONNET_4,
                                         alt_llm_model=ALT_LLM_MODEL_SONNET_4,
