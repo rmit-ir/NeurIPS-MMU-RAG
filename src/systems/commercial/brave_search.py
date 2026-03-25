@@ -60,11 +60,11 @@ class BraveSearchRAG(RAGInterface):
                 citations = self._to_citations(result)
 
                 if result.total_cost > 0:
-                    yield RunStreamingResponse(
-                        intermediate_steps=f"Used {result.queries_used} queries. Cost: ${result.total_cost:.4f}",
-                        is_intermediate=True,
-                        complete=False,
-                    )
+                    self.logger.info("Brave Answers usage",
+                                     queries=result.queries_used,
+                                     tokens_in=result.tokens_in,
+                                     tokens_out=result.tokens_out,
+                                     cost=result.total_cost)
 
                 yield RunStreamingResponse(
                     final_report=result.content,

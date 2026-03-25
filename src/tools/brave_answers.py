@@ -129,8 +129,9 @@ async def _brave_answers_streaming(
         model="brave",
         stream=True,
         extra_body={
-            "enable_citations": enable_citations,
-            "enable_research": enable_research,
+            # Research mode doesn't support enable_citations
+            **({"enable_citations": True} if enable_citations and not enable_research else {}),
+            **({"enable_research": True} if enable_research else {}),
         },
     ):
         if not chunk.choices:
