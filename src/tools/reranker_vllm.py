@@ -131,7 +131,7 @@ class GeneralReranker:
                  model_id: Optional[str] = None,
                  api_base: Optional[str] = None,
                  api_key: Optional[str] = None,
-                 drop_irrelevant_threshold: Optional[float] = None):
+                 drop_irrelevant_threshold: Optional[float] = 0.6):
         """Initialize the VLLM reranker with API server."""
         self.local_config = local_config or RerankerConfig(
             model_id="Qwen/Qwen3-Reranker-0.6B")
