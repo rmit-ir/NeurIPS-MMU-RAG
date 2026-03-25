@@ -101,6 +101,7 @@ class PerplexityResearchRAG(RAGInterface):
             date=None,
             title=None,
             text=None,
+            chunk_idx=None,
         ) for idx, url in enumerate(citations) if isinstance(url, str)]
         return citation_items
 

@@ -513,6 +513,7 @@ If there are any contradictions or gaps, note them clearly.
                             title=None,
                             sid=None,
                             text=None,
+                            chunk_idx=None,
                         ))
 
                 # Final response

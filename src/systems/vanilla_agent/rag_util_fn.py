@@ -153,7 +153,9 @@ async def search_w_qv(query: str,
     all_results = reciprocal_rank_fusion(ranked_lists)
 
     # Chunk large documents into smaller pieces for better reranking
-    all_results = chunk_docs(all_results, max_words=chunk_max_words, overlap_words=chunk_overlap_words)
+    # Skip for brave_llm_context — content is already pre-extracted snippets
+    if search_engine != "brave_llm_context":
+        all_results = chunk_docs(all_results, max_words=chunk_max_words, overlap_words=chunk_overlap_words)
 
     logger.info("Search with query variants completed, merged with RRF",
                 original_query=query,

@@ -38,6 +38,7 @@ class BraveSearchRAG(RAGInterface):
                 date=None,
                 title=None,
                 text=c.snippet,
+                chunk_idx=None,
             ))
         return items
 

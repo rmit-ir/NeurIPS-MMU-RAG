@@ -377,6 +377,7 @@ Cite sources using [sid] when possible.
                             title=None,
                             sid=doc.get("sid"),
                             text=doc["text"],
+                            chunk_idx=None,
                         ))
 
                 # Final response
