@@ -22,15 +22,9 @@ def calc_tokens(doc: SearchResult) -> int:
     return calc_tokens_str(doc.text)
 
 
-WORD_MAX_CHARS = 5  # words longer than this count as multiple words
-
-
 def chunk_docs(docs: List[SearchResult], max_words: int = 300, overlap_words: int = 50) -> List[SearchResult]:
     """
     Split each SearchResult into word-based chunks with overlap.
-
-    Words longer than 5 chars count as multiple words.
-    Documents already within max_words are returned as-is with chunk_idx=0.
 
     Args:
         docs: List of SearchResult objects
@@ -40,32 +34,22 @@ def chunk_docs(docs: List[SearchResult], max_words: int = 300, overlap_words: in
     Returns:
         List of SearchResult objects, where large documents are split into multiple chunks
     """
+    step = max_words - overlap_words
     chunked = []
     for doc in docs:
         words = doc.text.split()
 
-        # Count effective words (long words count as multiple)
-        eff_count = sum(max(1, (len(w) + WORD_MAX_CHARS - 1) // WORD_MAX_CHARS) for w in words)
-
-        if eff_count <= max_words:
-            chunked.append(doc._replace(chunk_idx=0, token_count=eff_count))
+        if len(words) <= max_words:
+            chunked.append(doc._replace(chunk_idx=0, token_count=len(words)))
             continue
 
-        # Split into overlapping chunks by walking through words
         chunk_idx = 0
-        start = 0
-        while start < len(words):
-            # Advance until we hit max_words effective count
-            eff = 0
-            end = start
-            while end < len(words) and eff < max_words:
-                eff += max(1, (len(words[end]) + WORD_MAX_CHARS - 1) // WORD_MAX_CHARS)
-                end += 1
-
+        for start in range(0, len(words), step):
+            end = min(start + max_words, len(words))
             chunk_text = " ".join(words[start:end])
             chunked.append(doc._replace(
                 text=chunk_text,
-                token_count=eff,
+                token_count=end - start,
                 chunk_idx=chunk_idx,
                 id=f"{doc.id}#chunk={chunk_idx}",
             ))
@@ -73,14 +57,6 @@ def chunk_docs(docs: List[SearchResult], max_words: int = 300, overlap_words: in
 
             if end >= len(words):
                 break
-
-            # Rewind by overlap_words effective words from end
-            overlap_eff = 0
-            overlap_start = end
-            while overlap_start > start and overlap_eff < overlap_words:
-                overlap_start -= 1
-                overlap_eff += max(1, (len(words[overlap_start]) + WORD_MAX_CHARS - 1) // WORD_MAX_CHARS)
-            start = overlap_start
 
     logger.info("Documents chunked",
                 original_count=len(docs),
