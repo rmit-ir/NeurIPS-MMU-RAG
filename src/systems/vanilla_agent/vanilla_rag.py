@@ -36,6 +36,8 @@ class VanillaRAG(RAGInterface):
         alt_reranker_model: Optional[str] = None,
         pre_flight_llm: bool = False,
         pre_flight_reranker: bool = False,
+        chunk_max_words: int = 300,
+        chunk_overlap_words: int = 50,
     ):
         """
         Initialize VanillaRAG with LLM server.
@@ -78,6 +80,8 @@ class VanillaRAG(RAGInterface):
         self.alt_reranker_model = alt_reranker_model
         self.pre_flight_llm = pre_flight_llm
         self.pre_flight_reranker = pre_flight_reranker
+        self.chunk_max_words = chunk_max_words
+        self.chunk_overlap_words = chunk_overlap_words
 
         self.logger = get_logger("vanilla_rag")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -163,7 +167,7 @@ class VanillaRAG(RAGInterface):
                 yield inter_resp(f"Searching: {request.question}\n\n", silent=False, logger=self.logger)
                 # docs = await search_clueweb(request.question,
                 #                             k=self.k_docs, cw22_a=self.cw22_a)
-                qvs, docs = await search_w_qv(request.question, num_qvs=self.num_qvs, enable_think=self.enable_think, logger=self.logger, cw22_a=self.cw22_a, search_engine=self.search_engine, preset_llm=llm)
+                qvs, docs = await search_w_qv(request.question, num_qvs=self.num_qvs, enable_think=self.enable_think, logger=self.logger, cw22_a=self.cw22_a, search_engine=self.search_engine, preset_llm=llm, chunk_max_words=self.chunk_max_words, chunk_overlap_words=self.chunk_overlap_words)
                 total_docs = len(docs)
                 qvs_str = "; ".join(qvs)
                 yield inter_resp(f"Searched: {qvs_str}, found {len(docs)} documents\n\n",
@@ -211,7 +215,8 @@ class VanillaRAG(RAGInterface):
                         date=str(r.date) if r.date else None,
                         sid=r.sid,
                         title=None,
-                        text=r.text
+                        text=r.text,
+                        chunk_idx=r.chunk_idx,
                     )
                     for r in docs if isinstance(r, SearchResult)
                 ]

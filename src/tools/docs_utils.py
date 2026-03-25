@@ -22,6 +22,73 @@ def calc_tokens(doc: SearchResult) -> int:
     return calc_tokens_str(doc.text)
 
 
+WORD_MAX_CHARS = 5  # words longer than this count as multiple words
+
+
+def chunk_docs(docs: List[SearchResult], max_words: int = 300, overlap_words: int = 50) -> List[SearchResult]:
+    """
+    Split each SearchResult into word-based chunks with overlap.
+
+    Words longer than 5 chars count as multiple words.
+    Documents already within max_words are returned as-is with chunk_idx=0.
+
+    Args:
+        docs: List of SearchResult objects
+        max_words: Maximum words per chunk (default 300)
+        overlap_words: Overlapping words between consecutive chunks (default 50)
+
+    Returns:
+        List of SearchResult objects, where large documents are split into multiple chunks
+    """
+    chunked = []
+    for doc in docs:
+        words = doc.text.split()
+
+        # Count effective words (long words count as multiple)
+        eff_count = sum(max(1, (len(w) + WORD_MAX_CHARS - 1) // WORD_MAX_CHARS) for w in words)
+
+        if eff_count <= max_words:
+            chunked.append(doc._replace(chunk_idx=0, token_count=eff_count))
+            continue
+
+        # Split into overlapping chunks by walking through words
+        chunk_idx = 0
+        start = 0
+        while start < len(words):
+            # Advance until we hit max_words effective count
+            eff = 0
+            end = start
+            while end < len(words) and eff < max_words:
+                eff += max(1, (len(words[end]) + WORD_MAX_CHARS - 1) // WORD_MAX_CHARS)
+                end += 1
+
+            chunk_text = " ".join(words[start:end])
+            chunked.append(doc._replace(
+                text=chunk_text,
+                token_count=eff,
+                chunk_idx=chunk_idx,
+                id=f"{doc.id}#chunk={chunk_idx}",
+            ))
+            chunk_idx += 1
+
+            if end >= len(words):
+                break
+
+            # Rewind by overlap_words effective words from end
+            overlap_eff = 0
+            overlap_start = end
+            while overlap_start > start and overlap_eff < overlap_words:
+                overlap_start -= 1
+                overlap_eff += max(1, (len(words[overlap_start]) + WORD_MAX_CHARS - 1) // WORD_MAX_CHARS)
+            start = overlap_start
+
+    logger.info("Documents chunked",
+                original_count=len(docs),
+                chunked_count=len(chunked),
+                max_words=max_words)
+    return chunked
+
+
 def truncate_docs(docs: List[SearchResult], tokens_threshold: int) -> List[SearchResult]:
     """
     Truncate a list of SearchResult documents based on a token count threshold.
@@ -97,14 +164,15 @@ def reciprocal_rank_fusion(ranked_lists: List[List[SearchResult]], k: int = 60) 
         return []
 
     # Dictionary to track RRF scores and document objects
-    # Key: document URL (used as unique identifier)
+    # Key: document URL + chunk_idx (used as unique identifier)
     # Value: (rrf_score, SearchResult object)
     doc_scores = {}
 
     for ranked_list in ranked_lists:
         for rank, doc in enumerate(ranked_list, start=1):
-            # Use URL as unique identifier
-            doc_id = doc.url
+            # Use URL + chunk_idx as unique identifier to preserve distinct chunks
+            chunk_suffix = f"_c{doc.chunk_idx}" if doc.chunk_idx is not None else ""
+            doc_id = f"{doc.url}{chunk_suffix}"
             rrf_score = 1.0 / (k + rank)
 
             if doc_id in doc_scores:
@@ -118,7 +186,7 @@ def reciprocal_rank_fusion(ranked_lists: List[List[SearchResult]], k: int = 60) 
     sorted_docs = sorted(doc_scores.values(), key=lambda x: x[0], reverse=True)
 
     # Extract just the SearchResult objects
-    fused_docs = [doc for score, doc in sorted_docs]
+    fused_docs = [doc for _, doc in sorted_docs]
 
     logger.info("RRF fusion completed",
                 num_lists=len(ranked_lists),

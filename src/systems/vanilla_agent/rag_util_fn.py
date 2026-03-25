@@ -13,7 +13,7 @@ from tools.web_search import SearchResult
 from tools.lse_search import search_clueweb
 from tools.brave_search import brave_search
 from tools.jina_retriever import retrieve_urls
-from tools.docs_utils import reciprocal_rank_fusion
+from tools.docs_utils import reciprocal_rank_fusion, chunk_docs
 
 
 def build_llm_messages(
@@ -110,7 +110,9 @@ async def search_w_qv(query: str,
                       logger: BoundLogger,
                       cw22_a: bool = True,
                       search_engine: str = "clueweb22b",
-                      preset_llm: Optional[GeneralOpenAIClient] = None) -> Tuple[List[str], List[SearchResult]]:
+                      preset_llm: Optional[GeneralOpenAIClient] = None,
+                      chunk_max_words: int = 300,
+                      chunk_overlap_words: int = 50) -> Tuple[List[str], List[SearchResult]]:
     """Search with query variants and merge results using Reciprocal Rank Fusion.
 
     Args:
@@ -123,6 +125,8 @@ async def search_w_qv(query: str,
             - "clueweb22b" (default): Uses LSE search with ClueWeb22
             - "brave_jina": Uses Brave search + Jina AI Reader for content retrieval
         preset_llm: Optional pre-configured LLM client
+        chunk_max_words: Maximum words per chunk (default 300)
+        chunk_overlap_words: Overlapping words between chunks (default 50)
 
     Returns:
         Tuple of (list of query variants used, list of SearchResults)
@@ -141,6 +145,9 @@ async def search_w_qv(query: str,
 
     # Apply Reciprocal Rank Fusion to combine rankings
     all_results = reciprocal_rank_fusion(ranked_lists)
+
+    # Chunk large documents into smaller pieces for better reranking
+    all_results = chunk_docs(all_results, max_words=chunk_max_words, overlap_words=chunk_overlap_words)
 
     logger.info("Search with query variants completed, merged with RRF",
                 original_query=query,

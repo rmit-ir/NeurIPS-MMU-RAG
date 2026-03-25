@@ -17,6 +17,7 @@ class CitationItem(TypedDict):
     title: Optional[str]
     text: Optional[str]
     sid: Optional[str]  # short id, 1, 2, 3, or 1_1, 1_2, etc.
+    chunk_idx: Optional[int]  # chunk index within original document (0-based), None if full doc
 
 
 # MMU-RAG Challenge Request/Response Models

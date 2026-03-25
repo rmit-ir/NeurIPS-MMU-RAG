@@ -32,6 +32,8 @@ class SearchResult(NamedTuple):
     language_score: float | None
     score: float | None
     """API doesn't return this, this is appended by reranker"""
+    chunk_idx: int | None = None
+    """Index of the chunk within the original document (0-based). None means full document."""
 
 
 class SearchError(NamedTuple):

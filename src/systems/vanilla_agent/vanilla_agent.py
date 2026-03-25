@@ -41,6 +41,8 @@ class VanillaAgent(RAGInterface):
         alt_reranker_model: Optional[str] = None,
         pre_flight_llm: bool = False,
         pre_flight_reranker: bool = False,
+        chunk_max_words: int = 300,
+        chunk_overlap_words: int = 50,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -61,6 +63,8 @@ class VanillaAgent(RAGInterface):
         self.alt_reranker_model = alt_reranker_model
         self.pre_flight_llm = pre_flight_llm
         self.pre_flight_reranker = pre_flight_reranker
+        self.chunk_max_words = chunk_max_words
+        self.chunk_overlap_words = chunk_overlap_words
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -258,7 +262,7 @@ class VanillaAgent(RAGInterface):
                 while True:
                     tries += 1
                     # step 1: search
-                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, search_engine=self.search_engine, preset_llm=llm)
+                    qvs, docs = await search_w_qv(next_query, num_qvs=self.num_qvs, enable_think=qv_think_enabled, logger=self.logger, search_engine=self.search_engine, preset_llm=llm, chunk_max_words=self.chunk_max_words, chunk_overlap_words=self.chunk_overlap_words)
                     docs = [r for r in docs if isinstance(r, SearchResult)]
                     qvs_str = "; ".join(qvs)
                     yield inter_resp(f"Search completed: {qvs_str}\n\n",
@@ -382,7 +386,8 @@ class VanillaAgent(RAGInterface):
                         date=str(r.date) if r.date else None,
                         sid=r.sid,
                         title=None,
-                        text=r.text
+                        text=r.text,
+                        chunk_idx=r.chunk_idx,
                     )
                     for r in acc_docs if isinstance(r, SearchResult)
                 ]
