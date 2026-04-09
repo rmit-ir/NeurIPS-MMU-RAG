@@ -20,6 +20,7 @@ from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.rag_interface import RAGInterface, RunRequest
 from systems.vanilla_agent.vanilla_agent import VanillaAgent
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
+from tools.llm_servers.bedrock_client import BedrockOpenAIAdapter
 from tools.logging_utils import get_logger
 from tools.responses.openai_stream import to_openai_stream
 
@@ -239,6 +240,29 @@ rag_systems: Dict[str, RAGInterface] = {
                                          alt_reranker_model=ALT_RERANKER_MODEL,
                                          search_engine="brave_llm_context",
                                          pre_flight_reranker=True),
+
+    # Bedrock GPT-OSS systems (uses IAM role on EC2, no API key needed)
+    "brave-ctx-ai-overview-gptoss-bedrock": VanillaRAG(
+        skip_rerank=True,
+        chunk_max_words=10000,
+        preset_llm=BedrockOpenAIAdapter(model_id="openai.gpt-oss-120b-1:0"),
+        alt_reranker_api_base=ALT_RERANKER_API_BASE,
+        alt_reranker_api_key=ALT_RERANKER_API_KEY,
+        alt_reranker_model=ALT_RERANKER_MODEL,
+        search_engine="brave_llm_context",
+        pre_flight_reranker=False,
+    ),
+    "brave-ctx-agent-gptoss-bedrock": VanillaAgent(
+        context_length=50_000,
+        docs_review_max_tokens=10_000,
+        answer_max_tokens=10_000,
+        preset_llm=BedrockOpenAIAdapter(model_id="openai.gpt-oss-120b-1:0"),
+        alt_reranker_api_base=ALT_RERANKER_API_BASE,
+        alt_reranker_api_key=ALT_RERANKER_API_KEY,
+        alt_reranker_model=ALT_RERANKER_MODEL,
+        search_engine="brave_llm_context",
+        pre_flight_reranker=True,
+    ),
 
     # commercial ones
     "brave-answers": BraveSearchRAG(),

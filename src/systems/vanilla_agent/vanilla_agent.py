@@ -43,6 +43,7 @@ class VanillaAgent(RAGInterface):
         pre_flight_reranker: bool = False,
         chunk_max_words: int = 300,
         chunk_overlap_words: int = 50,
+        preset_llm: Optional[object] = None,
     ):
         """
         Initialize VanillaAgent with LLM server.
@@ -65,6 +66,7 @@ class VanillaAgent(RAGInterface):
         self.pre_flight_reranker = pre_flight_reranker
         self.chunk_max_words = chunk_max_words
         self.chunk_overlap_words = chunk_overlap_words
+        self.preset_llm = preset_llm
 
         self.logger = get_logger("vanilla_agent")
         self.llm_client: Optional[GeneralOpenAIClient] = None
@@ -117,27 +119,34 @@ class VanillaAgent(RAGInterface):
         return history_str
 
     async def get_active_models(self):
-        if self.alt_llm_api_base and self.alt_llm_model:
+        if self.preset_llm:
+            alt_llm = self.preset_llm
+        elif self.alt_llm_api_base and self.alt_llm_model:
             alt_llm = GeneralOpenAIClient(model_id=self.alt_llm_model,
                                           api_base=self.alt_llm_api_base,
                                           api_key=self.alt_llm_api_key,
                                           reasoning_effort=self.alt_llm_reasoning_effort,
                                           max_retries=3)
+        else:
+            alt_llm = None
+
         if self.alt_reranker_api_base and self.alt_reranker_model:
             alt_reranker = GeneralReranker(model_id=self.alt_reranker_model,
                                            api_base=self.alt_reranker_api_base,
                                            api_key=self.alt_reranker_api_key)
-        if (self.alt_llm_api_base and self.alt_llm_model and
-                self.alt_reranker_api_base and self.alt_reranker_model):
+        else:
+            alt_reranker = None
+
+        if alt_llm and alt_reranker:
             self.logger.info("Using alternative LLM and Reranker for VanillaAgent",
-                             alt_llm_api_base=self.alt_llm_api_base,
+                             alt_llm_model=getattr(alt_llm, 'model_id', 'preset'),
                              alt_reranker_api_base=self.alt_reranker_api_base)
             return alt_llm, alt_reranker
 
         llm, reranker = await get_default_llms()
-        if self.alt_llm_api_base and self.alt_llm_model:
+        if alt_llm:
             return alt_llm, reranker
-        if self.alt_reranker_api_base and self.alt_reranker_model:
+        if alt_reranker:
             return llm, alt_reranker
         return llm, reranker
 

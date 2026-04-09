@@ -367,6 +367,114 @@ class BedrockClient:
             self.logger.error(f"Failed to save raw response: {str(e)}")
 
 
+class BedrockOpenAIAdapter:
+    """
+    Adapter that wraps BedrockClient to match GeneralOpenAIClient's interface,
+    allowing it to be used as a drop-in replacement in VanillaRAG/VanillaAgent.
+    """
+
+    def __init__(
+        self,
+        model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0",
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+        region_name: Optional[str] = None,
+    ):
+        self.model_id = model_id
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self._client = BedrockClient(
+            model_id=model_id,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            region_name=region_name,
+        )
+        self.logger = self._client.logger
+
+    async def complete_chat(self, messages: list) -> tuple:
+        """
+        Match GeneralOpenAIClient.complete_chat signature.
+
+        Args:
+            messages: List of OpenAI-format message dicts with 'role' and 'content'
+
+        Returns:
+            Tuple of (content_string, raw_response)
+        """
+        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
+        lc_messages = []
+        for msg in messages:
+            role = msg.get("role", "user") if isinstance(msg, dict) else msg["role"]
+            content = msg.get("content", "") if isinstance(msg, dict) else msg["content"]
+            if role == "system":
+                lc_messages.append(SystemMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+            else:
+                lc_messages.append(HumanMessage(content=content))
+
+        response = await self._client.complete_chat(lc_messages)
+        return response.content, response
+
+    async def complete_chat_streaming(self, messages: list, **kwargs):
+        """
+        Match GeneralOpenAIClient.complete_chat_streaming signature.
+
+        Yields objects that mimic OpenAI ChatCompletionChunk format so VanillaRAG's
+        streaming logic works unchanged.
+        """
+        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+        from tools.llm_servers.sglang_types import (
+            CustomChatCompletionChunk,
+            CustomChoice,
+            CustomChoiceDelta,
+        )
+
+        lc_messages = []
+        for msg in messages:
+            role = msg.get("role", "user") if isinstance(msg, dict) else msg["role"]
+            content = msg.get("content", "") if isinstance(msg, dict) else msg["content"]
+            if role == "system":
+                lc_messages.append(SystemMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+            else:
+                lc_messages.append(HumanMessage(content=content))
+
+        async for chunk in self._client.complete_chat_streaming(lc_messages):
+            text = str(chunk.content) if chunk.content else ""
+            if text:
+                yield CustomChatCompletionChunk(
+                    id="bedrock",
+                    choices=[
+                        CustomChoice(
+                            index=0,
+                            delta=CustomChoiceDelta(role="assistant", content=text),
+                            finish_reason=None,
+                        )
+                    ],
+                    created=int(time.time()),
+                    model=self.model_id,
+                    object="chat.completion.chunk",
+                )
+
+        # Final chunk with finish_reason
+        yield CustomChatCompletionChunk(
+            id="bedrock",
+            choices=[
+                CustomChoice(
+                    index=0,
+                    delta=CustomChoiceDelta(role="assistant"),
+                    finish_reason="stop",
+                )
+            ],
+            created=int(time.time()),
+            model=self.model_id,
+            object="chat.completion.chunk",
+        )
+
+
 async def main():
     from langchain_core.messages import HumanMessage, SystemMessage
     client = BedrockClient(model_id="meta.llama3-1-8b-instruct-v1:0")
