@@ -72,11 +72,11 @@ async def brave_llm_context(
             "Brave API key not provided. Set BRAVE_API_KEY or pass api_key."
         )
 
-    # Truncate query (same limits as brave_search)
-    if len(query) > 400:
-        query = query[:400]
-    if query.count(' ') > 50:
-        query = ' '.join(query.split()[:50])
+    # Truncate query to stay within Brave API limits
+    if len(query) > 300:
+        query = query[:300]
+    if query.count(' ') > 40:
+        query = ' '.join(query.split()[:40])
 
     close_session = False
     if session is None:
@@ -109,9 +109,11 @@ async def brave_llm_context(
         ) as resp:
             if resp.status != 200:
                 text = await resp.text()
-                raise BraveLLMContextError(
-                    f"Brave LLM Context request failed: {resp.status} {text[:200]}"
+                logger.warning(
+                    "Brave LLM Context request failed, returning empty results",
+                    status=resp.status, query=query, detail=text[:200],
                 )
+                return []
             data = await resp.json()
 
         results = _parse_response(data)
