@@ -138,14 +138,11 @@ class VanillaAgent(RAGInterface):
             alt_reranker = None
 
         if alt_llm and alt_reranker:
-            self.logger.info("Using alternative LLM and Reranker for VanillaAgent",
-                             alt_llm_model=getattr(alt_llm, 'model_id', 'preset'),
-                             alt_reranker_api_base=self.alt_reranker_api_base)
             return alt_llm, alt_reranker
+        if alt_llm and not alt_reranker:
+            return alt_llm, None
 
         llm, reranker = await get_default_llms()
-        if alt_llm:
-            return alt_llm, reranker
         if alt_reranker:
             return llm, alt_reranker
         return llm, reranker
