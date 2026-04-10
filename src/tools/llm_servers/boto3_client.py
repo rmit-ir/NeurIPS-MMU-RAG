@@ -33,6 +33,11 @@ from tools.logging_utils import get_logger
 from tools.path_utils import get_data_dir
 from tools.retry_utils import retry
 
+# Dedicated thread pool for Bedrock I/O so streaming requests don't
+# exhaust the default executor under concurrent load.
+from concurrent.futures import ThreadPoolExecutor
+_bedrock_executor = ThreadPoolExecutor(max_workers=200, thread_name_prefix="bedrock-io")
+
 
 class Boto3BedrockClient(LLMInterface):
     """
@@ -229,8 +234,29 @@ class Boto3BedrockClient(LLMInterface):
                 None, lambda: self._boto_client.converse_stream(**kwargs)
             )
 
+            # Read the synchronous boto3 stream in a background thread
+            # so we don't block the event loop between chunks.
+            queue: asyncio.Queue = asyncio.Queue()
+            loop = asyncio.get_event_loop()
+
+            def _read_stream():
+                try:
+                    for event in response["stream"]:
+                        loop.call_soon_threadsafe(queue.put_nowait, event)
+                    loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel
+                except Exception as e:
+                    loop.call_soon_threadsafe(queue.put_nowait, e)
+
+            asyncio.get_event_loop().run_in_executor(_bedrock_executor, _read_stream)
+
             full_content, full_reasoning = "", ""
-            for event in response["stream"]:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                if isinstance(event, Exception):
+                    raise event
+
                 if "contentBlockDelta" in event:
                     delta = event["contentBlockDelta"]["delta"]
 
