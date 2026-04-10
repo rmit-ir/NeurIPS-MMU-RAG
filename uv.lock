@@ -2915,6 +2915,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
+    { name = "boto3" },
     { name = "botocore" },
     { name = "fastapi", extra = ["standard"] },
     { name = "jsonlines" },
@@ -2983,6 +2984,7 @@ requires-dist = [
     { name = "apscheduler", marker = "extra == 'eval'", specifier = ">=3.11.0" },
     { name = "awscli", marker = "extra == 'proxy'", specifier = ">=1.42.42" },
     { name = "bert-score", marker = "extra == 'eval'", specifier = ">=0.3.13" },
+    { name = "boto3", specifier = ">=1.40.35" },
     { name = "botocore", specifier = ">=1.40.35" },
     { name = "crawl4ai", marker = "extra == 'crawl'", specifier = ">=0.7.4" },
     { name = "crawl4ai", marker = "extra == 'eval'", specifier = ">=0.4.0" },
