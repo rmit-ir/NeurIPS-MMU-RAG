@@ -86,6 +86,25 @@ async def generate_qvs(query: str,
     return [query]
 
 
+async def rewrite_search_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None) -> str:
+    """Rewrite a natural language question into a keyword-optimized search query."""
+    if not preset_llm:
+        llm, _ = await get_default_llms()
+    else:
+        llm = preset_llm
+
+    config = get_model_config(llm.model_id)
+    system_prompt = config.SEARCH_QUERY_REWRITE_PROMPT()
+    messages: List[ChatCompletionMessageParam] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": query},
+    ]
+    response, _ = await llm.complete_chat(messages)
+    if response:
+        return response.strip().strip('"\'')
+    return query
+
+
 async def reformulate_query(query: str, preset_llm: Optional[GeneralOpenAIClient] = None) -> str:
     """Reformulate the query to improve search results"""
     if not preset_llm:
@@ -133,19 +152,21 @@ async def search_w_qv(query: str,
     Returns:
         Tuple of (list of query variants used, list of SearchResults)
     """
-    queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
-    queries = set([query, *queries])
-
     if search_engine == "brave_llm_context":
-        # Use Brave LLM Context API (pre-extracted content)
+        # For Brave LLM Context, use a single keyword-optimized rewrite + original query.
+        # Multiple variants don't help here since results rarely overlap for RRF.
+        rewritten = await rewrite_search_query(query, preset_llm=preset_llm)
+        queries = set([query, rewritten])
         ranked_lists = await asyncio.gather(*[
             brave_llm_context(q, count=10) for q in queries])
     elif search_engine == "brave_jina":
-        # Use Brave search + Jina retriever
+        queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
+        queries = set([query, *queries])
         ranked_lists = await asyncio.gather(*[
             _search_with_jina(q, k=10) for q in queries])
     else:
-        # Default: Use LSE ClueWeb search
+        queries = await generate_qvs(query, num_qvs, enable_think, logger=logger, preset_llm=preset_llm)
+        queries = set([query, *queries])
         ranked_lists = await asyncio.gather(*[
             search_clueweb(query=q, k=10, cw22_a=cw22_a) for q in queries])
 

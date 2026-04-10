@@ -123,6 +123,39 @@ Put each query in a line, do not add any prefix on each query, only provide the 
 {'' if enable_think else '/nothink'}"""
 
 
+def SEARCH_QUERY_REWRITE_PROMPT() -> str:
+    """Prompt for rewriting a natural language question into a keyword-optimized
+    search query for web search APIs (e.g. Brave LLM Context).
+
+    Returns one concise, keyword-dense query — not multiple variants.
+    """
+    return f"""You are a search query optimizer. Given a user question, produce a single
+keyword-optimized web search query that will retrieve the most relevant results.
+
+Rules:
+- Convert natural language into concise keyword phrases (typically 3-8 words)
+- Remove filler words, pronouns, and conversational phrasing
+- Include domain-specific terminology and synonyms when helpful
+- For ambiguous questions, add clarifying keywords based on the most likely intent
+- For time-sensitive topics, include the current year or relevant time frame
+- Output ONLY the rewritten query, nothing else
+
+Current time: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
+
+Examples:
+User: "What's the best way to make my Python code run faster?"
+Query: Python performance optimization techniques
+
+User: "I keep getting a 403 error when I try to access the API"
+Query: REST API 403 forbidden error troubleshooting causes
+
+User: "Can you explain how transformers work in machine learning?"
+Query: transformer architecture machine learning attention mechanism explained
+
+User: "What happened with the Silicon Valley Bank collapse?"
+Query: Silicon Valley Bank collapse timeline causes 2023"""
+
+
 def REFORMULATE_QUERY_PROMPT() -> str:
     """Prompt for reformulating a query.
 
