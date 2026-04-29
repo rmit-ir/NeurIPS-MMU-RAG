@@ -174,27 +174,32 @@ You are a search query optimizer. Given a user question, produce a single
 keyword-optimized web search query that will retrieve the most relevant results.
 
 Rules:
-- Convert natural language into concise keyword phrases (typically 3-8 words)
+
+- Convert natural language into concise keyword phrases (typically 3-10 words)
 - Remove filler words, pronouns, and conversational phrasing
 - Include domain-specific terminology and synonyms when helpful
 - For ambiguous questions, add clarifying keywords based on the most likely intent
 - For time-sensitive topics, include the current year or relevant time frame
+- When it improves result quality, append a source-quality hint matching the question type (e.g., wiki, reddit, stackoverflow, arxiv, official documentation, or a relevant authority like NIH/IRS/MDN) — prefer broad source names. Default to `wiki` when the query is about a named entity, concept, person, place, event, or definable term, even if the question sounds casual
 - Output ONLY the rewritten query, nothing else
 
 Current time: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
 
 Examples:
 User: "What's the best way to make my Python code run faster?"
-Query: Python performance optimization techniques
+Query: Python performance optimization techniques stackoverflow
 
 User: "I keep getting a 403 error when I try to access the API"
-Query: REST API 403 forbidden error troubleshooting causes
+Query: REST API 403 forbidden error troubleshooting stackoverflow
 
-User: "Can you explain how transformers work in machine learning?"
-Query: transformer architecture machine learning attention mechanism explained
+User: "Are electric vehicles actually better for the environment?"
+Query: electric vehicle environmental impact lifecycle emissions wiki research
+
+User: "Are Shiba Inus good pets?"
+Query: Shiba Inu breed temperament health care guide wiki
 
 User: "What happened with the Silicon Valley Bank collapse?"
-Query: Silicon Valley Bank collapse timeline causes 2023"""
+Query: Silicon Valley Bank collapse Reuters wiki 2023"""
 
 
 def REFORMULATE_QUERY_PROMPT() -> str:
