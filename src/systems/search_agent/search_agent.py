@@ -180,6 +180,11 @@ class SearchAgent(RAGInterface):
                     turn_started_at = time.time()
                     turn_answer_text: List[str] = []
                     turn_reasoning_text: List[str] = []
+                    # Captured if the stream ends with status="incomplete"
+                    # (e.g. Azure content filter, max_output_tokens). The SDK
+                    # only populates its internal completed_response on
+                    # status="completed", so we keep our own handle.
+                    incomplete_response: Any = None
                     async with self.client.responses.stream(**create_kwargs) as resp_stream:
                         async for event in resp_stream:
                             etype = getattr(event, "type", "")
@@ -273,7 +278,31 @@ class SearchAgent(RAGInterface):
                                 raise RuntimeError(
                                     f"Responses stream error: {msg}")
 
-                        final_response = await resp_stream.get_final_response()
+                            elif etype == "response.incomplete":
+                                incomplete_response = getattr(
+                                    event, "response", None)
+                                reason = "unknown"
+                                details = getattr(
+                                    incomplete_response, "incomplete_details", None
+                                ) if incomplete_response else None
+                                if details is not None:
+                                    reason = getattr(
+                                        details, "reason", None) or reason
+                                self.logger.warning(
+                                    "Responses stream ended incomplete",
+                                    turn=turn,
+                                    reason=reason,
+                                )
+                                yield _inter(
+                                    f"\n(Response ended early: {reason}.)\n"
+                                )
+
+                        try:
+                            final_response = await resp_stream.get_final_response()
+                        except RuntimeError:
+                            if incomplete_response is None:
+                                raise
+                            final_response = incomplete_response
 
                     previous_response_id = getattr(final_response, "id", None)
 
@@ -357,6 +386,8 @@ class SearchAgent(RAGInterface):
                             footer = _state_footer(
                                 tool_calls_used=tool_calls_used,
                                 max_tool_calls=self.max_tool_calls,
+                                turns_used=turn + 1,
+                                max_turns=self.max_turns,
                                 citations_count=len(citations_by_url),
                                 query_history=query_history,
                             )
@@ -492,6 +523,8 @@ def _truncate_for_name(text: str, limit: int = 80) -> str:
 def _state_footer(
     tool_calls_used: int,
     max_tool_calls: int,
+    turns_used: int,
+    max_turns: int,
     citations_count: int,
     query_history: List[str],
 ) -> str:
@@ -512,6 +545,9 @@ def _state_footer(
     return (
         "<agent_state>\n"
         f"searches_used: {tool_calls_used}/{max_tool_calls}\n"
+        f"turns_used: {turns_used}/{max_turns} "
+        "(one turn = one model round; reaching the cap ends the run "
+        "without a final answer)\n"
         f"unique_sources_collected: {citations_count}\n"
         f"recent_queries: {queries_block}\n"
         "</agent_state>"
