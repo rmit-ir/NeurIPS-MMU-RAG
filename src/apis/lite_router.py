@@ -18,6 +18,7 @@ from systems.commercial.azure_o3_research import AzureO3ResearchRAG
 from systems.commercial.brave_search import BraveSearchRAG
 from systems.commercial.perplexity_research import PerplexityResearchRAG
 from systems.rag_interface import RAGInterface, RunRequest
+from systems.search_agent.search_agent import SearchAgent
 from systems.vanilla_agent.vanilla_agent import VanillaAgent
 from systems.vanilla_agent.vanilla_rag import VanillaRAG
 from tools.llm_servers.boto3_client import Boto3BedrockClient
@@ -91,6 +92,9 @@ ALT_LLM_MODEL_FAST_QWEN = os.getenv("ALT_LLM_MODEL_FAST_QWEN")
 ALT_LLM_API_BASE_GPT_OSS = os.getenv("ALT_LLM_API_BASE_GPT_OSS")
 ALT_LLM_API_KEY_GPT_OSS = os.getenv("ALT_LLM_API_KEY_GPT_OSS")
 ALT_LLM_MODEL_GPT_OSS = os.getenv("ALT_LLM_MODEL_GPT_OSS")
+ALT_LLM_API_BASE_GPT5_MINI = os.getenv("ALT_LLM_API_BASE_GPT5_MINI")
+ALT_LLM_API_KEY_GPT5_MINI = os.getenv("ALT_LLM_API_KEY_GPT5_MINI")
+ALT_LLM_MODEL_GPT5_MINI = os.getenv("ALT_LLM_MODEL_GPT5_MINI", "gpt-5.4-mini")
 ALT_RERANKER_API_BASE = os.getenv("ALT_RERANKER_API_BASE")
 ALT_RERANKER_API_KEY = os.getenv("ALT_RERANKER_API_KEY")
 ALT_RERANKER_MODEL = os.getenv("ALT_RERANKER_MODEL")
@@ -258,6 +262,18 @@ rag_systems: Dict[str, RAGInterface] = {
     "perplexity-deep-research": PerplexityResearchRAG(model="sonar-deep-research"),
     "azure-o3-deep-research": AzureO3ResearchRAG(),
 }
+
+# Agentic search via tool-calling (model decides when/how to search Brave).
+# Registered only when the Azure GPT-5-mini endpoint is configured.
+if ALT_LLM_API_BASE_GPT5_MINI and ALT_LLM_API_KEY_GPT5_MINI:
+    rag_systems["search-agent-gpt5-mini"] = SearchAgent(
+        api_base=ALT_LLM_API_BASE_GPT5_MINI,
+        api_key=ALT_LLM_API_KEY_GPT5_MINI,
+        model=ALT_LLM_MODEL_GPT5_MINI,
+        reasoning_effort="medium",
+        max_tool_calls=12,
+        max_turns=8,
+    )
 
 
 @router.get("/models")

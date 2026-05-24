@@ -24,6 +24,7 @@
     "devel",
     "dotenv",
     "Emby",
+    "etype",
     "expiredtoken",
     "fastapi",
     "FINEWEB",
