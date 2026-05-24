@@ -436,20 +436,11 @@ class SearchAgent(RAGInterface):
                         complete=False,
                     )
 
-                yield RunStreamingResponse(
-                    citations=list(citations_by_url.values()),
-                    is_intermediate=False,
-                    complete=True,
-                    metadata={
-                        "answer_model_id": self.model,
-                        "tool_calls_used": tool_calls_used,
-                        "turns_used": turn + 1,
-                        "wall_latency_seconds": round(time.time() - trace_started_at, 3),
-                        "time_to_first_think_token_seconds": time_to_first_think_token,
-                        "time_to_first_answer_token_seconds": time_to_first_answer_token,
-                    },
-                )
-
+                # Emit the trace-root summary BEFORE the final yield. If we
+                # put it after, consumers that break on complete=True (the
+                # normal pattern) leave this code suspended at the yield —
+                # it only runs when the generator is GC'd, which is too late
+                # for PostHog to anchor the trace name to the question.
                 wall_latency = round(time.time() - trace_started_at, 3)
                 capture_ai_trace_summary(
                     distinct_id=distinct_id,
@@ -478,15 +469,24 @@ class SearchAgent(RAGInterface):
                     },
                 )
 
-            except Exception as e:  # noqa: BLE001
-                self.logger.exception("Error in SearchAgent.run_streaming")
                 yield RunStreamingResponse(
-                    final_report=f"Error processing question: {e}",
                     citations=list(citations_by_url.values()),
                     is_intermediate=False,
                     complete=True,
-                    error=str(e),
+                    metadata={
+                        "answer_model_id": self.model,
+                        "tool_calls_used": tool_calls_used,
+                        "turns_used": turn + 1,
+                        "wall_latency_seconds": wall_latency,
+                        "time_to_first_think_token_seconds": time_to_first_think_token,
+                        "time_to_first_answer_token_seconds": time_to_first_answer_token,
+                    },
                 )
+
+            except Exception as e:  # noqa: BLE001
+                self.logger.exception("Error in SearchAgent.run_streaming")
+                # Same ordering rule on the error path: trace summary first,
+                # then the final yield.
                 capture_ai_trace_summary(
                     distinct_id=distinct_id,
                     trace_id=trace_id,
@@ -507,6 +507,13 @@ class SearchAgent(RAGInterface):
                         "time_to_first_think_token_seconds": time_to_first_think_token,
                         "time_to_first_answer_token_seconds": time_to_first_answer_token,
                     },
+                )
+                yield RunStreamingResponse(
+                    final_report=f"Error processing question: {e}",
+                    citations=list(citations_by_url.values()),
+                    is_intermediate=False,
+                    complete=True,
+                    error=str(e),
                 )
 
         return stream
