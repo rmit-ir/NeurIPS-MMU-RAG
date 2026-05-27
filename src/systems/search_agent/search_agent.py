@@ -242,7 +242,7 @@ class SearchAgent(RAGInterface):
                                     q_preview = parsed_preview.get("query", "")
                                 except Exception:  # noqa: BLE001
                                     q_preview = (full or "")[:120]
-                                yield _inter(f"\nSearching: {q_preview}\n")
+                                yield _inter(f"\n\nSearching: {q_preview}\n\n")
 
                             # Assistant message text. Only the LAST iteration
                             # (no function calls) produces the user-facing
