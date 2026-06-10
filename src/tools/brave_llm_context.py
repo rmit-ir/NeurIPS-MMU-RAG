@@ -189,16 +189,20 @@ def _parse_response(data: dict) -> List[SearchResult]:
 
 async def main():
     """Test function for Brave LLM Context."""
+    import sys
+
     from dotenv import load_dotenv
     load_dotenv()
 
-    results = await brave_llm_context("Lunisolar calendar", count=10, max_tokens=4096)
+    query = sys.argv[1] if len(sys.argv) > 1 else "Lunisolar calendar"
+    results = await brave_llm_context(query, count=10, max_tokens=4096)
     print(f"Retrieved {len(results)} results\n")
     for r in results:
+        print("-" * 80)
         print(f"[{r.sid}] {r.url}")
         print(f"    Date: {r.date}")
         print(f"    Words: {r.token_count}")
-        print(f"    Text: {r.text[:200]}...")
+        print(f"    Text: {r.text}...")
         print()
 
 
