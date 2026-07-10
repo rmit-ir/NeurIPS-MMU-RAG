@@ -30,6 +30,7 @@ from systems.rag_interface import (
 from systems.search_agent.functions import exec_web_search
 from systems.search_agent.prompts import SYSTEM_PROMPT
 from systems.search_agent.tools import WEB_SEARCH_TOOL
+from tools.brave_llm_context import COST_PER_CALL_USD as BRAVE_COST_PER_CALL_USD
 from tools.logging_utils import get_logger
 from tools.posthog_client import (
     capture_ai_trace_summary,
@@ -306,6 +307,45 @@ class SearchAgent(RAGInterface):
 
                     previous_response_id = getattr(final_response, "id", None)
 
+                    # Decide each call's fate first (parse args, check
+                    # budget, accumulate tool_calls_used) before any
+                    # awaits, so the budget accounting is deterministic
+                    # regardless of how the parallel coroutines
+                    # interleave. Doing it before the generation event is
+                    # captured also tells us how many billable searches
+                    # this turn is about to trigger.
+                    tool_calls_used_before = tool_calls_used
+                    plans: List[Dict[str, Any]] = []
+                    for call in pending_calls:
+                        plan: Dict[str, Any] = {
+                            "call": call, "body": None, "args": None}
+                        try:
+                            plan["args"] = json.loads(call["arguments"] or "{}")
+                        except json.JSONDecodeError as e:
+                            plan["body"] = f"Error: invalid JSON arguments: {e}"
+                        else:
+                            if call["name"] != "web_search":
+                                plan["body"] = f"Error: unknown tool {call['name']!r}."
+                            elif tool_calls_used >= self.max_tool_calls:
+                                plan["body"] = (
+                                    "Search budget exhausted — this call "
+                                    "was not executed. Do not call "
+                                    "web_search again; produce your "
+                                    "final answer using the evidence "
+                                    "already collected, and note any "
+                                    "remaining gaps."
+                                )
+                            else:
+                                tool_calls_used += 1
+                                query_history.append(
+                                    (plan["args"].get("query")
+                                     or "").strip()[:200]
+                                )
+                        plans.append(plan)
+
+                    searches_this_turn = sum(
+                        1 for p in plans if p["body"] is None)
+
                     capture_responses_turn(
                         distinct_id=distinct_id,
                         trace_id=trace_id,
@@ -320,51 +360,21 @@ class SearchAgent(RAGInterface):
                         pending_calls=pending_calls,
                         question=request.question,
                         response_id=previous_response_id,
+                        web_search_count=searches_this_turn,
+                        web_search_cost_usd=(
+                            searches_this_turn * BRAVE_COST_PER_CALL_USD
+                        ),
                         extra_properties={
                             "agent_kind": "search_agent_run",
                             "reasoning_effort": self.reasoning_effort,
-                            "search_agent_tool_calls_used_before": tool_calls_used,
+                            "search_agent_tool_calls_used_before": tool_calls_used_before,
                         },
                     )
 
                     # If the model issued tool calls, execute them — in
                     # parallel — and feed the outputs back in the next turn.
                     if pending_calls:
-                        # Decide each call's fate first (parse args, check
-                        # budget, accumulate tool_calls_used) before any
-                        # awaits, so the budget accounting is deterministic
-                        # regardless of how the parallel coroutines
-                        # interleave.
-                        plans: List[Dict[str, Any]] = []
-                        for call in pending_calls:
-                            plan: Dict[str, Any] = {
-                                "call": call, "body": None, "args": None}
-                            try:
-                                plan["args"] = json.loads(
-                                    call["arguments"] or "{}")
-                            except json.JSONDecodeError as e:
-                                plan["body"] = f"Error: invalid JSON arguments: {e}"
-                            else:
-                                if call["name"] != "web_search":
-                                    plan["body"] = f"Error: unknown tool {call['name']!r}."
-                                elif tool_calls_used >= self.max_tool_calls:
-                                    plan["body"] = (
-                                        "Search budget exhausted — this call "
-                                        "was not executed. Do not call "
-                                        "web_search again; produce your "
-                                        "final answer using the evidence "
-                                        "already collected, and note any "
-                                        "remaining gaps."
-                                    )
-                                else:
-                                    tool_calls_used += 1
-                                    query_history.append(
-                                        (plan["args"].get("query")
-                                         or "").strip()[:200]
-                                    )
-                            plans.append(plan)
-
-                        # Now execute the plans that need a real search,
+                        # Execute the plans that need a real search,
                         # concurrently.
                         async def _run(plan: Dict[str, Any]) -> str:
                             if plan["body"] is not None:

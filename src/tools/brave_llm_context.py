@@ -24,6 +24,10 @@ from tools.web_search import SearchResult
 
 logger = get_logger('brave_llm_context')
 
+# Brave Search API pricing — AWS Marketplace "Data for AI" tier is $5 CPM
+# ($0.005 per call). Override via env if you're on a different plan.
+COST_PER_CALL_USD = float(os.getenv("BRAVE_COST_PER_CALL_USD", "0.005"))
+
 
 class BraveLLMContextError(Exception):
     """Custom exception for Brave LLM Context API errors."""

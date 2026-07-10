@@ -239,6 +239,8 @@ def capture_responses_turn(
     pending_calls: List[Dict[str, Any]],
     question: Optional[str] = None,
     response_id: Optional[str] = None,
+    web_search_count: int = 0,
+    web_search_cost_usd: float = 0.0,
     extra_properties: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Emit a $ai_generation event for one OpenAI Responses-API turn.
@@ -252,6 +254,12 @@ def capture_responses_turn(
     user's question is additionally surfaced as a top-level `question`
     property to drive listing columns / filters without depending on
     PostHog's heuristic for picking a preview from $ai_input.
+
+    `web_search_count` / `web_search_cost_usd` describe the searches this
+    turn's tool calls will trigger. PostHog only rolls $ai_generation and
+    $ai_embedding costs up into a trace total — $ai_span costs are ignored
+    — so search spend has to ride on the generation that requested it or it
+    never reaches the trace's headline cost.
     """
 
     # Reshape our internal pending_calls into OpenAI's standard tool_call
@@ -297,6 +305,13 @@ def capture_responses_turn(
     }
     if question is not None:
         props["question"] = question
+    if web_search_count:
+        # Ingestion preserves a pre-set $ai_web_search_cost_usd and folds it
+        # into $ai_total_cost_usd alongside the token costs. We send the cost
+        # directly rather than relying on $ai_web_search_count alone, which
+        # only resolves for models PostHog has a web-search price for.
+        props["$ai_web_search_count"] = web_search_count
+        props["$ai_web_search_cost_usd"] = web_search_cost_usd
     if extra_properties:
         props.update(extra_properties)
 

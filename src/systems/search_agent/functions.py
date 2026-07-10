@@ -7,12 +7,11 @@ plain-text string to feed back into the model via function_call_output.
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, Dict, List, Optional
 
 from systems.rag_interface import CitationItem
-from tools.brave_llm_context import brave_llm_context
+from tools.brave_llm_context import COST_PER_CALL_USD, brave_llm_context
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.posthog_client import capture_ai_span
@@ -23,10 +22,6 @@ logger = get_logger("search_agent.functions")
 
 # Per-result snippet cap so a single search can't dominate the context.
 _MAX_SNIPPET_CHARS = 4000
-
-# Brave Search API pricing — AWS Marketplace "Data for AI" tier is $5 CPM
-# ($0.005 per call). Override via env if you're on a different plan.
-_BRAVE_COST_PER_CALL_USD = float(os.getenv("BRAVE_COST_PER_CALL_USD", "0.005"))
 
 
 async def exec_web_search(
@@ -96,7 +91,7 @@ async def exec_web_search(
             # Every successful API call costs the same flat rate regardless
             # of num_results returned. Skip cost for errors (we don't pay
             # for failed requests).
-            cost_usd=None if is_error else _BRAVE_COST_PER_CALL_USD,
+            cost_usd=None if is_error else COST_PER_CALL_USD,
         )
 
     if is_error:
