@@ -307,6 +307,10 @@ class SearchAgent(RAGInterface):
 
                     previous_response_id = getattr(final_response, "id", None)
 
+                    # Served tier ("default" = Azure downgraded from priority).
+                    self.logger.info("Responses turn served", turn=turn, service_tier_served=getattr(
+                        final_response, "service_tier", None))
+
                     # Decide each call's fate first (parse args, check
                     # budget, accumulate tool_calls_used) before any
                     # awaits, so the budget accounting is deterministic
