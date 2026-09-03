@@ -95,6 +95,11 @@ ALT_LLM_MODEL_GPT_OSS = os.getenv("ALT_LLM_MODEL_GPT_OSS")
 ALT_LLM_API_BASE_GPT5_MINI = os.getenv("ALT_LLM_API_BASE_GPT5_MINI")
 ALT_LLM_API_KEY_GPT5_MINI = os.getenv("ALT_LLM_API_KEY_GPT5_MINI")
 ALT_LLM_MODEL_GPT5_MINI = os.getenv("ALT_LLM_MODEL_GPT5_MINI", "gpt-5.4-mini")
+ALT_LLM_API_BASE_GPT56_LUNA = os.getenv("ALT_LLM_API_BASE_GPT56_LUNA")
+ALT_LLM_API_KEY_GPT56_LUNA = os.getenv("ALT_LLM_API_KEY_GPT56_LUNA")
+ALT_LLM_MODEL_GPT56_LUNA = os.getenv(
+    "ALT_LLM_MODEL_GPT56_LUNA", "gpt-5.6-luna"
+)
 ALT_RERANKER_API_BASE = os.getenv("ALT_RERANKER_API_BASE")
 ALT_RERANKER_API_KEY = os.getenv("ALT_RERANKER_API_KEY")
 ALT_RERANKER_MODEL = os.getenv("ALT_RERANKER_MODEL")
@@ -264,12 +269,22 @@ rag_systems: Dict[str, RAGInterface] = {
 }
 
 # Agentic search via tool-calling (model decides when/how to search Brave).
-# Registered only when the Azure GPT-5-mini endpoint is configured.
+# Each model is registered only when its endpoint and API key are configured.
 if ALT_LLM_API_BASE_GPT5_MINI and ALT_LLM_API_KEY_GPT5_MINI:
     rag_systems["search-agent-gpt5-mini"] = SearchAgent(
         api_base=ALT_LLM_API_BASE_GPT5_MINI,
         api_key=ALT_LLM_API_KEY_GPT5_MINI,
         model=ALT_LLM_MODEL_GPT5_MINI,
+        reasoning_effort="medium",
+        max_tool_calls=12,
+        max_turns=8,
+    )
+
+if ALT_LLM_API_BASE_GPT56_LUNA and ALT_LLM_API_KEY_GPT56_LUNA:
+    rag_systems["search-agent-gpt56-luna"] = SearchAgent(
+        api_base=ALT_LLM_API_BASE_GPT56_LUNA,
+        api_key=ALT_LLM_API_KEY_GPT56_LUNA,
+        model=ALT_LLM_MODEL_GPT56_LUNA,
         reasoning_effort="medium",
         max_tool_calls=12,
         max_turns=8,
