@@ -51,6 +51,8 @@ async def brave_llm_context(
     Returns pre-extracted content as SearchResult objects, compatible with
     the existing search pipeline (reranking, chunking, etc.).
 
+    https://api-dashboard.search.brave.com/api-reference/summarizer/llm_context/get
+
     Args:
         query: Search query string.
         count: Number of search results to consider (1-50, default 20).
@@ -96,6 +98,7 @@ async def brave_llm_context(
         }
         params = {
             "q": query,
+            "country": os.getenv("BRAVE_COUNTRY", "AU"),
             "count": str(min(count, 50)),
             "maximum_number_of_urls": str(min(max_urls, 50)),
             "maximum_number_of_tokens": str(min(max(max_tokens, 1024), 32768)),
