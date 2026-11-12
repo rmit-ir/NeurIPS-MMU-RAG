@@ -10,6 +10,8 @@ services:
     ports:
       - "8900:8900"
     restart: always
+    environment:
+      KEENABLE_API_KEY: ${KEENABLE_API_KEY:?Set KEENABLE_API_KEY in the local deployment env file}
 networks:
   # docker network create ase_backend
   ase_backend:

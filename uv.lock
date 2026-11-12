@@ -2243,6 +2243,18 @@ wheels = [
 ]
 
 [[package]]
+name = "keenable"
+version = "0.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/62/17cb1db49118c7bcad98b9a2e0fa7dc0e8643a51e5a32eac061d0f0316e5/keenable-0.1.3.tar.gz", hash = "sha256:94b39372bbb6829ed19899db573022442e20a0560c4732cc6a1cc8c27d52f05c", size = 16774, upload-time = "2026-11-02T19:32:40.466Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/aa/2acc59a9339805b53d3da7348417c020cc0084920856536cafa7448f734b/keenable-0.1.3-py3-none-any.whl", hash = "sha256:ab78457b0c8be568b8d81cea42ecc7b3f2b74403385fa90250426e565df9e699", size = 17000, upload-time = "2026-11-02T19:32:39.319Z" },
+]
+
+[[package]]
 name = "kiwisolver"
 version = "1.4.9"
 source = { registry = "https://pypi.org/simple" }
@@ -2919,6 +2931,7 @@ dependencies = [
     { name = "botocore" },
     { name = "fastapi", extra = ["standard"] },
     { name = "jsonlines" },
+    { name = "keenable" },
     { name = "langchain-aws" },
     { name = "langchain-core" },
     { name = "langchain-openai" },
@@ -2996,6 +3009,7 @@ requires-dist = [
     { name = "flashinfer-python", marker = "extra == 'local-llm'", specifier = "==0.2.2" },
     { name = "joblib", marker = "extra == 'classifier'" },
     { name = "jsonlines", specifier = ">=4.0.0" },
+    { name = "keenable", specifier = ">=0.1.3" },
     { name = "langchain-aws", specifier = ">=0.2.33" },
     { name = "langchain-core", specifier = ">=0.3.76" },
     { name = "langchain-openai", specifier = ">=0.3.29" },

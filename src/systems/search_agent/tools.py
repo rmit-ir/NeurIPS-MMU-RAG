@@ -7,7 +7,7 @@ WEB_SEARCH_TOOL: Dict[str, Any] = {
     "type": "function",
     "name": "web_search",
     "description": (
-        "Search the web via Brave's LLM Context API. Returns ranked, "
+        "Search the web via Keenable. Returns ranked, "
         "pre-extracted page content with stable numeric IDs you can cite."
     ),
     # Strict mode requires every property to be listed in `required`; for
@@ -21,11 +21,9 @@ WEB_SEARCH_TOOL: Dict[str, Any] = {
             "query": {
                 "type": "string",
                 "description": (
-                    "Keyword / noun-phrase search query in the style of a "
-                    "search engine (e.g. 'tallest mountains in the world'), "
-                    "not a natural-language question. Brave operators are "
-                    "supported: quotes for exact phrases, site:domain, "
-                    "-excluded_term, filetype:pdf. Max 400 chars and 50 words."
+                    "Describe the information or page you need in plain language. "
+                    "Supported operators: quotes for exact phrases, site:domain, "
+                    "and -excluded_term. Max 400 chars and 50 words."
                 ),
             },
             "count": {
@@ -36,7 +34,7 @@ WEB_SEARCH_TOOL: Dict[str, Any] = {
             },
             "freshness": {
                 "type": ["string", "null"],
-                "description": "Recency filter; pass null for no filter. 'pd'=past day, 'pw'=past week, 'pm'=past month, 'py'=past year.",
+                "description": "Recency filter; pass null for no filter. 'pd'=past day, 'pw'=past week, 'pm'=past 30 days, 'py'=past 365 days (UTC date granularity).",
                 "enum": ["pd", "pw", "pm", "py", None],
             },
         },

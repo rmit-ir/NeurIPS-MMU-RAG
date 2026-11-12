@@ -1,5 +1,5 @@
 """
-SearchAgent: tool-calling agent backed by Brave LLM Context.
+SearchAgent: tool-calling agent backed by Keenable.
 
 Uses OpenAI's Responses API so a reasoning model (e.g. gpt-5.4-mini) can
 decide when and how to issue `web_search` calls, iterate on results, and
@@ -30,7 +30,6 @@ from systems.rag_interface import (
 from systems.search_agent.functions import exec_web_search
 from systems.search_agent.prompts import SYSTEM_PROMPT
 from systems.search_agent.tools import WEB_SEARCH_TOOL
-from tools.brave_llm_context import COST_PER_CALL_USD as BRAVE_COST_PER_CALL_USD
 from tools.logging_utils import get_logger
 from tools.posthog_client import (
     capture_ai_trace_summary,
@@ -40,7 +39,7 @@ from tools.posthog_client import (
 
 
 class SearchAgent(RAGInterface):
-    """Reasoning-model agent that calls Brave LLM Context as a tool."""
+    """Reasoning-model agent that calls Keenable as a tool."""
 
     def __init__(
         self,
@@ -365,9 +364,7 @@ class SearchAgent(RAGInterface):
                         question=request.question,
                         response_id=previous_response_id,
                         web_search_count=searches_this_turn,
-                        web_search_cost_usd=(
-                            searches_this_turn * BRAVE_COST_PER_CALL_USD
-                        ),
+                        web_search_cost_usd=None,
                         extra_properties={
                             "agent_kind": "search_agent_run",
                             "reasoning_effort": self.reasoning_effort,

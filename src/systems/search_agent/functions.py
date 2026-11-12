@@ -10,8 +10,10 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
+from keenable import KeenableAPIError
+
 from systems.rag_interface import CitationItem
-from tools.brave_llm_context import COST_PER_CALL_USD, brave_llm_context
+from tools.keenable_context import keenable_context
 from tools.logging_utils import get_logger
 from tools.path_utils import to_icon_url
 from tools.posthog_client import capture_ai_span
@@ -34,7 +36,7 @@ async def exec_web_search(
     distinct_id: Optional[str] = None,
     parent_id: Optional[str] = None,
 ) -> str:
-    """Run a Brave LLM Context search and return a model-facing summary.
+    """Run a Keenable search and return a model-facing summary.
 
     Mutates citations_by_url: any new URL is assigned a stable sid (the
     next integer) and stored as a CitationItem. Existing URLs reuse
@@ -42,7 +44,7 @@ async def exec_web_search(
     turns.
 
     If trace_id + distinct_id are provided, emits a $ai_span event for
-    PostHog so the Brave HTTP call shows up in the trace tree alongside
+    PostHog so the Keenable HTTP call shows up in the trace tree alongside
     the LLM turns.
     """
     query = (args.get("query") or "").strip()
@@ -58,7 +60,7 @@ async def exec_web_search(
     error_msg: Optional[str] = None
     results: List[SearchResult] = []
     try:
-        results = await brave_llm_context(
+        results = await keenable_context(
             query=query,
             count=count,
             max_tokens=max_tokens,
@@ -66,15 +68,17 @@ async def exec_web_search(
             freshness=freshness,
         )
     except Exception as e:  # noqa: BLE001
-        logger.warning("web_search failed", error=str(e), query=query)
+        if isinstance(e, KeenableAPIError) and e.status_code in (401, 402):
+            raise RuntimeError(f"Keenable retrieval stopped (HTTP {e.status_code}); check the API key or billing.") from None
+        logger.warning("web_search failed", error_type=type(e).__name__, query=query)
         is_error = True
-        error_msg = str(e)
+        error_msg = f"{type(e).__name__} (HTTP {e.status_code})" if hasattr(e, "status_code") else type(e).__name__
 
     if trace_id and distinct_id:
         capture_ai_span(
             distinct_id=distinct_id,
             trace_id=trace_id,
-            span_name="brave_llm_context",
+            span_name="keenable_search",
             started_at=started_at,
             parent_id=parent_id,
             is_error=is_error,
@@ -88,10 +92,8 @@ async def exec_web_search(
                 "num_results": len(results),
                 "urls": [r.url for r in results],
             },
-            # Every successful API call costs the same flat rate regardless
-            # of num_results returned. Skip cost for errors (we don't pay
-            # for failed requests).
-            cost_usd=None if is_error else COST_PER_CALL_USD,
+            # Keenable billing is not measured here; do not report Brave's price.
+            cost_usd=None,
         )
 
     if is_error:

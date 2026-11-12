@@ -240,3 +240,21 @@ uv run scripts/evaluate.py \
 TODO: add a `scripts/run_evaluation.sh` script to automate both steps. When run_datasets.sh finishes, output export statements that will determine what run_evaluation.sh will pick up.
 
 </details>
+
+
+### ASE AI Overview retrieval
+
+The `search-agent-*` models use Keenable (`tools.keenable_context`) by default.
+Set `KEENABLE_API_KEY` only in the server environment or the gitignored
+`cloud/lite_server/.env`. Existing explicitly named Brave/Vanilla models are
+unchanged. Search still uses 5 URLs by default (at most 10), the configured
+4096 approximate token budget, and the existing stable citation IDs and agent
+limits. Keenable uses `pro` ranking with extracted page snippets. Recency maps
+to `published_after` at UTC date granularity (30/365 days for month/year).
+There are no Keenable equivalents for Brave country/language/SafeSearch or
+relevance-threshold settings. Expiring Keenable cards are omitted, which can
+reduce the result count, until the published SDK supports `disable_cards`.
+429 waits one second and retries once; 401/402 do not retry or fall back.
+Keenable costs are left unmeasured in traces rather than using Brave's price.
+
+Offline regression: `uv run python -m unittest discover -s tests -v`.

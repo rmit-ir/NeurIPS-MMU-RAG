@@ -240,7 +240,7 @@ def capture_responses_turn(
     question: Optional[str] = None,
     response_id: Optional[str] = None,
     web_search_count: int = 0,
-    web_search_cost_usd: float = 0.0,
+    web_search_cost_usd: Optional[float] = 0.0,
     extra_properties: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Emit a $ai_generation event for one OpenAI Responses-API turn.
@@ -311,7 +311,8 @@ def capture_responses_turn(
         # directly rather than relying on $ai_web_search_count alone, which
         # only resolves for models PostHog has a web-search price for.
         props["$ai_web_search_count"] = web_search_count
-        props["$ai_web_search_cost_usd"] = web_search_cost_usd
+        if web_search_cost_usd is not None:
+            props["$ai_web_search_cost_usd"] = web_search_cost_usd
     if extra_properties:
         props.update(extra_properties)
 

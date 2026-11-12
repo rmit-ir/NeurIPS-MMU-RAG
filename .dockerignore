@@ -4,3 +4,9 @@
 cloud/
 logs/
 scripts/
+
+# Keep local provider keys out of every build context.
+.env
+**/.env
+**/.env.*
+.git
